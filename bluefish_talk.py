@@ -2,6 +2,7 @@ import subprocess
 import os
 
 def speak(text):
+    text = text.replace("Eamonn", "A-mun").replace("eamonn", "A-mun")
     os.system('aplay -D bluealsa /tmp/silence.wav 2>/dev/null')
     os.system(f'echo "{text}" | piper --model /home/fussykitten12/piper_voices/en_US-lessac-medium.onnx --output_file /tmp/response.wav && sox /tmp/response.wav /tmp/response_loud.wav gain 3 && aplay -D bluealsa /tmp/response_loud.wav')
 
