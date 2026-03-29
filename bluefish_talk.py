@@ -1,6 +1,6 @@
 import subprocess
 import os
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 
 DIRECTION_KEYWORDS = ["directions to", "how to get to", "navigate to", "route to", "drive to", "walk to"]
 
