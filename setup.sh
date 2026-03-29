@@ -62,7 +62,23 @@ else
 fi
 
 # -----------------------------------------------------------------------
-# 4. Install Python dependencies
+# 4. Install rpitx (voice radio transmitter via GPIO4)
+# -----------------------------------------------------------------------
+info "Installing rpitx (GPIO FM/AM/SSB transmitter)..."
+apt-get install -y -qq ffmpeg sox libsndfile1-dev
+
+RPITX_DIR="/opt/rpitx"
+if [[ ! -d "$RPITX_DIR" ]]; then
+    git clone https://github.com/F5OEO/rpitx "$RPITX_DIR"
+    cd "$RPITX_DIR" && bash install.sh
+    ln -sf "$RPITX_DIR/rpitx" /usr/local/bin/rpitx
+    info "rpitx installed"
+else
+    info "rpitx already installed at $RPITX_DIR"
+fi
+
+# -----------------------------------------------------------------------
+# 5. Install Python dependencies
 # -----------------------------------------------------------------------
 info "Installing Python dependencies..."
 pip3 install -r /home/user/eamonnn/requirements.txt

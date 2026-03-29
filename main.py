@@ -69,6 +69,7 @@ def build_root_menu(config, display) -> list[MenuEntry]:
     from modules.gpio_tools.gpio_menu import build_gpio_menu
     from modules.firewall.firewall_menu import build_firewall_menu
     from modules.bluetooth.bluetooth_menu import build_bluetooth_menu
+    from modules.radio.radio_menu import build_radio_menu
 
     return [
         MenuEntry(label='RFID / NFC',  children=build_rfid_menu(config, display)),
@@ -78,6 +79,7 @@ def build_root_menu(config, display) -> list[MenuEntry]:
         MenuEntry(label='GPIO Tools',  children=build_gpio_menu(config, display)),
         MenuEntry(label='Firewall',    children=build_firewall_menu(config, display)),
         MenuEntry(label='Bluetooth',   children=build_bluetooth_menu(config, display)),
+        MenuEntry(label='Radio TX',    children=build_radio_menu(config, display)),
         MenuEntry(label='About',       action=lambda: _show_about(display)),
     ]
 
