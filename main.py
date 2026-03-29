@@ -67,9 +67,12 @@ def build_root_menu(config, display) -> list[MenuEntry]:
     from modules.subghz.subghz_menu import build_subghz_menu
     from modules.badusb.badusb_menu import build_badusb_menu
     from modules.gpio_tools.gpio_menu import build_gpio_menu
-    from modules.firewall.firewall_menu import build_firewall_menu
+    from modules.firewall.firewall_menu   import build_firewall_menu
     from modules.bluetooth.bluetooth_menu import build_bluetooth_menu
-    from modules.radio.radio_menu import build_radio_menu
+    from modules.radio.radio_menu         import build_radio_menu
+    from modules.aircraft.aircraft_menu   import build_aircraft_menu
+    from modules.games.games_menu         import build_games_menu
+    from modules.network.network_menu     import build_network_menu
 
     return [
         MenuEntry(label='RFID / NFC',  children=build_rfid_menu(config, display)),
@@ -80,6 +83,9 @@ def build_root_menu(config, display) -> list[MenuEntry]:
         MenuEntry(label='Firewall',    children=build_firewall_menu(config, display)),
         MenuEntry(label='Bluetooth',   children=build_bluetooth_menu(config, display)),
         MenuEntry(label='Radio TX',    children=build_radio_menu(config, display)),
+        MenuEntry(label='Aircraft',    children=build_aircraft_menu(config, display)),
+        MenuEntry(label='Network',     children=build_network_menu(config, display)),
+        MenuEntry(label='Games',       children=build_games_menu(config, display)),
         MenuEntry(label='About',       action=lambda: _show_about(display)),
     ]
 
