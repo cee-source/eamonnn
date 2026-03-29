@@ -73,6 +73,7 @@ def build_root_menu(config, display) -> list[MenuEntry]:
     from modules.aircraft.aircraft_menu   import build_aircraft_menu
     from modules.games.games_menu         import build_games_menu
     from modules.network.network_menu     import build_network_menu
+    from modules.cats.cat_menu            import build_cats_menu
 
     return [
         MenuEntry(label='RFID / NFC',  children=build_rfid_menu(config, display)),
@@ -86,6 +87,7 @@ def build_root_menu(config, display) -> list[MenuEntry]:
         MenuEntry(label='Aircraft',    children=build_aircraft_menu(config, display)),
         MenuEntry(label='Network',     children=build_network_menu(config, display)),
         MenuEntry(label='Games',       children=build_games_menu(config, display)),
+        MenuEntry(label='Cat Videos',  children=build_cats_menu(config, display)),
         MenuEntry(label='About',       action=lambda: _show_about(display)),
     ]
 
