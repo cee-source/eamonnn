@@ -1,0 +1,8 @@
+RPi.GPIO>=0.7.1
+spidev>=3.6
+mfrc522>=0.0.7
+adafruit-circuitpython-pn532>=2.3.0
+adafruit-blinka>=8.0.0
+luma.oled>=3.13.0
+Pillow>=10.0.0
+pigpio>=1.78
