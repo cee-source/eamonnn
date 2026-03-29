@@ -14,6 +14,7 @@ log = logging.getLogger(__name__)
 
 def build_radio_menu(config: ConfigManager, display=None) -> list[MenuEntry]:
     from modules.radio.voice_transmitter import VoiceTransmitter, PRESET_FREQUENCIES, MODES
+    from modules.radio.receiver_menu import build_receiver_menu
     tx = VoiceTransmitter(config)
 
     # Preset frequency entries — one button starts transmitting
@@ -37,7 +38,10 @@ def build_radio_menu(config: ConfigManager, display=None) -> list[MenuEntry]:
     ]
 
     return [
-        MenuEntry(label='TX Status',          action=lambda: _status(tx, display)),
+        MenuEntry(label='-- Receive --',       action=None),
+        MenuEntry(label='Play Radio',          children=build_receiver_menu(config, display)),
+        MenuEntry(label='-- Transmit --',      action=None),
+        MenuEntry(label='TX Status',           action=lambda: _status(tx, display)),
         MenuEntry(label='Live Transmit',       children=freq_entries),
         MenuEntry(label='Record & Transmit',   action=lambda: _record_tx(tx, display)),
         MenuEntry(label='Stop Transmitting',   action=lambda: _stop(tx, display)),

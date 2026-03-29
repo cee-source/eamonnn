@@ -46,7 +46,9 @@ apt-get install -y -qq \
     i2c-tools \
     libgpiod2 \
     fonts-dejavu \
-    git
+    git \
+    rtl-sdr \
+    alsa-utils
 
 # -----------------------------------------------------------------------
 # 3. Enable and start pigpiod
