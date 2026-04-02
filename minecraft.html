@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoxelCraft - Survival Mode</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            cursor: none;
+        }
+
+        #ui {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            font-size: 14px;
+        }
+
+        #stats {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+        }
+
+        #crosshair::before,
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            background: white;
+        }
+
+        #crosshair::before {
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            transform: translateY(-50%);
+        }
+
+        #crosshair::after {
+            left: 50%;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            transform: translateX(-50%);
+        }
+
+        #hotbar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 5px;
+        }
+
+        .hotbar-slot {
+            width: 60px;
+            height: 60px;
+            background: rgba(0,0,0,0.7);
+            border: 2px solid #666;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .hotbar-slot.active {
+            border-color: #fff;
+            background: rgba(255,255,255,0.2);
+        }
+
+        .hotbar-slot .item-name {
+            font-size: 10px;
+            margin-top: 2px;
+        }
+
+        .hotbar-slot .item-count {
+            position: absolute;
+            bottom: 2px;
+            right: 4px;
+            font-size: 12px;
+        }
+
+        #inventory {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            padding: 20px;
+            border: 3px solid #666;
+            display: none;
+            pointer-events: auto;
+        }
+
+        #inventory.show {
+            display: block;
+        }
+
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 60px);
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+
+        .inventory-slot {
+            width: 60px;
+            height: 60px;
+            background: rgba(50,50,50,0.8);
+            border: 2px solid #444;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .inventory-slot:hover {
+            background: rgba(80,80,80,0.8);
+        }
+
+        #crafting {
+            border-top: 2px solid #666;
+            padding-top: 20px;
+        }
+
+        .craft-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 60px);
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .craft-button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .craft-button:hover {
+            background: #45a049;
+        }
+
+        .craft-button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        #instructions {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            padding: 30px;
+            border: 3px solid #666;
+            text-align: center;
+            max-width: 500px;
+        }
+
+        #instructions h2 {
+            margin-bottom: 20px;
+        }
+
+        #instructions p {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+
+        #instructions button {
+            margin-top: 20px;
+            padding: 10px 30px;
+            background: #4CAF50;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            font-family: inherit;
+        }
+
+        #instructions button:hover {
+            background: #45a049;
+        }
+
+        .health-bar, .hunger-bar {
+            height: 20px;
+            background: rgba(255,0,0,0.3);
+            border: 1px solid #fff;
+            margin: 5px 0;
+            position: relative;
+        }
+
+        .health-bar .fill {
+            height: 100%;
+            background: #f44336;
+            transition: width 0.3s;
+        }
+
+        .hunger-bar {
+            background: rgba(255,165,0,0.3);
+        }
+
+        .hunger-bar .fill {
+            height: 100%;
+            background: #ff9800;
+            transition: width 0.3s;
+        }
+
+        #time {
+            margin-top: 10px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui">
+        <div id="stats">
+            <div>Health: <span id="health">100</span>/100</div>
+            <div class="health-bar"><div class="fill" id="healthBar" style="width: 100%"></div></div>
+            <div>Hunger: <span id="hunger">100</span>/100</div>
+            <div class="hunger-bar"><div class="fill" id="hungerBar" style="width: 100%"></div></div>
+            <div id="time">Day 1 - 06:00</div>
+        </div>
+
+        <div id="crosshair"></div>
+
+        <div id="hotbar">
+            <div class="hotbar-slot active" data-slot="0">
+                <div class="item-name">Hand</div>
+            </div>
+            <div class="hotbar-slot" data-slot="1">
+                <div class="item-name"></div>
+                <div class="item-count"></div>
+            </div>
+            <div class="hotbar-slot" data-slot="2">
+                <div class="item-name"></div>
+                <div class="item-count"></div>
+            </div>
+            <div class="hotbar-slot" data-slot="3">
+                <div class="item-name"></div>
+                <div class="item-count"></div>
+            </div>
+            <div class="hotbar-slot" data-slot="4">
+                <div class="item-name"></div>
+                <div class="item-count"></div>
+            </div>
+        </div>
+
+        <div id="inventory">
+            <h3 style="margin-bottom: 15px;">Inventory</h3>
+            <div class="inventory-grid" id="inventoryGrid"></div>
+
+            <div id="crafting">
+                <h4 style="margin-bottom: 10px;">Crafting (3x3)</h4>
+                <div class="craft-grid" id="craftGrid"></div>
+                <button class="craft-button" id="craftButton">Craft</button>
+                <div id="craftOutput" style="margin-top: 10px;"></div>
+            </div>
+
+            <p style="margin-top: 15px; font-size: 12px;">Press E to close</p>
+        </div>
+    </div>
+
+    <div id="instructions">
+        <h2>VoxelCraft - Survival Mode</h2>
+        <p><strong>WASD</strong> - Move</p>
+        <p><strong>SPACE</strong> - Jump</p>
+        <p><strong>SHIFT</strong> - Sprint</p>
+        <p><strong>Mouse</strong> - Look around</p>
+        <p><strong>Left Click</strong> - Mine block</p>
+        <p><strong>Right Click</strong> - Place block</p>
+        <p><strong>1-5</strong> - Select hotbar slot</p>
+        <p><strong>E</strong> - Open inventory</p>
+        <p><strong>ESC</strong> - Release cursor</p>
+        <p style="margin-top: 15px; color: #ff9800;">Survive by gathering resources, crafting tools, and managing health & hunger!</p>
+        <button id="startGame">Start Game</button>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // Game state
+        const game = {
+            scene: null,
+            camera: null,
+            renderer: null,
+            world: new Map(),
+            player: {
+                position: new THREE.Vector3(0, 20, 0),
+                velocity: new THREE.Vector3(0, 0, 0),
+                rotation: new THREE.Euler(0, 0, 0),
+                health: 100,
+                hunger: 100,
+                inventory: new Array(20).fill(null).map(() => ({ type: null, count: 0 })),
+                hotbarSlot: 0,
+                onGround: false
+            },
+            keys: {},
+            mouse: { x: 0, y: 0 },
+            locked: false,
+            time: 0,
+            day: 1,
+            worldSize: 50,
+            chunkSize: 16,
+            blockSize: 1
+        };
+
+        // Block types
+        const blockTypes = {
+            grass: { color: 0x4CAF50, name: 'Grass' },
+            dirt: { color: 0x8B4513, name: 'Dirt' },
+            stone: { color: 0x808080, name: 'Stone' },
+            wood: { color: 0xA0522D, name: 'Wood' },
+            planks: { color: 0xDEB887, name: 'Planks' },
+            cobblestone: { color: 0x696969, name: 'Cobblestone' }
+        };
+
+        // Crafting recipes
+        const recipes = [
+            {
+                pattern: ['wood', null, null, null, null, null, null, null, null],
+                output: { type: 'planks', count: 4 }
+            },
+            {
+                pattern: ['stone', 'stone', null, null, null, null, null, null, null],
+                output: { type: 'cobblestone', count: 1 }
+            }
+        ];
+
+        // Initialize Three.js
+        function initThree() {
+            const canvas = document.getElementById('gameCanvas');
+
+            game.scene = new THREE.Scene();
+            game.scene.background = new THREE.Color(0x87CEEB);
+            game.scene.fog = new THREE.Fog(0x87CEEB, 0, 100);
+
+            game.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            game.camera.position.copy(game.player.position);
+
+            game.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            game.renderer.setSize(window.innerWidth, window.innerHeight);
+            game.renderer.shadowMap.enabled = true;
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            game.scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(50, 50, 50);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.camera.left = -50;
+            directionalLight.shadow.camera.right = 50;
+            directionalLight.shadow.camera.top = 50;
+            directionalLight.shadow.camera.bottom = -50;
+            game.scene.add(directionalLight);
+
+            // Generate world
+            generateWorld();
+        }
+
+        // Generate terrain
+        function generateWorld() {
+            const size = game.worldSize;
+
+            for (let x = -size / 2; x < size / 2; x++) {
+                for (let z = -size / 2; z < size / 2; z++) {
+                    // Simple height map
+                    const height = Math.floor(
+                        Math.sin(x * 0.1) * 3 +
+                        Math.cos(z * 0.1) * 3 +
+                        Math.sin(x * 0.05 + z * 0.05) * 5 +
+                        10
+                    );
+
+                    // Create layers
+                    for (let y = 0; y <= height; y++) {
+                        let type;
+                        if (y === height) {
+                            type = 'grass';
+                        } else if (y >= height - 3) {
+                            type = 'dirt';
+                        } else {
+                            type = 'stone';
+                        }
+                        createBlock(x, y, z, type);
+                    }
+
+                    // Add trees
+                    if (Math.random() < 0.02 && height > 8) {
+                        for (let y = height + 1; y <= height + 4; y++) {
+                            createBlock(x, y, z, 'wood');
+                        }
+                    }
+                }
+            }
+        }
+
+        // Create a block
+        function createBlock(x, y, z, type) {
+            const geometry = new THREE.BoxGeometry(game.blockSize, game.blockSize, game.blockSize);
+            const material = new THREE.MeshLambertMaterial({
+                color: blockTypes[type].color,
+                flatShading: true
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(x, y, z);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+
+            game.scene.add(mesh);
+
+            const key = `${x},${y},${z}`;
+            game.world.set(key, { mesh, type, position: { x, y, z } });
+        }
+
+        // Remove block
+        function removeBlock(x, y, z) {
+            const key = `${x},${y},${z}`;
+            const block = game.world.get(key);
+
+            if (block) {
+                game.scene.remove(block.mesh);
+                game.world.delete(key);
+                addToInventory(block.type, 1);
+                return true;
+            }
+            return false;
+        }
+
+        // Place block
+        function placeBlock(x, y, z, type) {
+            const key = `${x},${y},${z}`;
+            if (!game.world.has(key)) {
+                createBlock(x, y, z, type);
+                return true;
+            }
+            return false;
+        }
+
+        // Raycast to get target block
+        function getTargetBlock() {
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera({ x: 0, y: 0 }, game.camera);
+
+            const objects = Array.from(game.world.values()).map(b => b.mesh);
+            const intersects = raycaster.intersectObjects(objects);
+
+            if (intersects.length > 0) {
+                const block = intersects[0];
+                const pos = block.object.position;
+                return {
+                    x: Math.round(pos.x),
+                    y: Math.round(pos.y),
+                    z: Math.round(pos.z),
+                    normal: block.face.normal
+                };
+            }
+            return null;
+        }
+
+        // Inventory management
+        function addToInventory(type, count) {
+            // Try to stack
+            for (let i = 0; i < game.player.inventory.length; i++) {
+                if (game.player.inventory[i].type === type) {
+                    game.player.inventory[i].count += count;
+                    updateInventoryUI();
+                    return true;
+                }
+            }
+
+            // Find empty slot
+            for (let i = 0; i < game.player.inventory.length; i++) {
+                if (game.player.inventory[i].count === 0) {
+                    game.player.inventory[i] = { type, count };
+                    updateInventoryUI();
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        function removeFromInventory(type, count) {
+            for (let i = 0; i < game.player.inventory.length; i++) {
+                if (game.player.inventory[i].type === type && game.player.inventory[i].count >= count) {
+                    game.player.inventory[i].count -= count;
+                    if (game.player.inventory[i].count === 0) {
+                        game.player.inventory[i].type = null;
+                    }
+                    updateInventoryUI();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function updateInventoryUI() {
+            // Update hotbar
+            for (let i = 0; i < 5; i++) {
+                const slot = document.querySelector(`.hotbar-slot[data-slot="${i}"]`);
+                const item = game.player.inventory[i];
+
+                const nameEl = slot.querySelector('.item-name');
+                const countEl = slot.querySelector('.item-count');
+
+                if (item && item.type) {
+                    nameEl.textContent = blockTypes[item.type].name;
+                    countEl.textContent = item.count;
+                } else {
+                    nameEl.textContent = i === 0 ? 'Hand' : '';
+                    countEl.textContent = '';
+                }
+            }
+        }
+
+        // Player physics
+        function updatePlayer(deltaTime) {
+            const speed = game.keys['Shift'] ? 0.15 : 0.1;
+            const direction = new THREE.Vector3();
+
+            if (game.keys['w'] || game.keys['W']) direction.z -= 1;
+            if (game.keys['s'] || game.keys['S']) direction.z += 1;
+            if (game.keys['a'] || game.keys['A']) direction.x -= 1;
+            if (game.keys['d'] || game.keys['D']) direction.x += 1;
+
+            if (direction.length() > 0) {
+                direction.normalize();
+                direction.applyEuler(new THREE.Euler(0, game.player.rotation.y, 0));
+                game.player.velocity.x = direction.x * speed;
+                game.player.velocity.z = direction.z * speed;
+            } else {
+                game.player.velocity.x *= 0.8;
+                game.player.velocity.z *= 0.8;
+            }
+
+            // Gravity
+            game.player.velocity.y -= 0.01;
+
+            // Apply velocity
+            const newPos = game.player.position.clone().add(game.player.velocity);
+
+            // Simple collision detection
+            const playerBox = new THREE.Box3(
+                new THREE.Vector3(newPos.x - 0.3, newPos.y - 1.5, newPos.z - 0.3),
+                new THREE.Vector3(newPos.x + 0.3, newPos.y + 0.3, newPos.z + 0.3)
+            );
+
+            let collision = false;
+            for (const [key, block] of game.world) {
+                const blockBox = new THREE.Box3(
+                    new THREE.Vector3(block.position.x - 0.5, block.position.y - 0.5, block.position.z - 0.5),
+                    new THREE.Vector3(block.position.x + 0.5, block.position.y + 0.5, block.position.z + 0.5)
+                );
+
+                if (playerBox.intersectsBox(blockBox)) {
+                    collision = true;
+
+                    // Check Y collision (ground)
+                    if (game.player.velocity.y < 0 &&
+                        game.player.position.y > block.position.y) {
+                        game.player.velocity.y = 0;
+                        game.player.position.y = block.position.y + 2;
+                        game.player.onGround = true;
+                    }
+                    break;
+                }
+            }
+
+            if (!collision) {
+                game.player.onGround = false;
+            }
+
+            // Jump
+            if ((game.keys[' '] || game.keys['Space']) && game.player.onGround) {
+                game.player.velocity.y = 0.2;
+                game.player.onGround = false;
+            }
+
+            // Apply movement
+            game.player.position.x += game.player.velocity.x;
+            game.player.position.z += game.player.velocity.z;
+
+            if (!collision || !game.player.onGround) {
+                game.player.position.y += game.player.velocity.y;
+            }
+
+            // Update camera
+            game.camera.position.copy(game.player.position);
+            game.camera.rotation.copy(game.player.rotation);
+
+            // Update hunger
+            if (Math.random() < 0.0001) {
+                game.player.hunger = Math.max(0, game.player.hunger - 1);
+                if (game.player.hunger === 0 && Math.random() < 0.01) {
+                    game.player.health = Math.max(0, game.player.health - 1);
+                }
+                updateStatsUI();
+            }
+        }
+
+        // Update day/night cycle
+        function updateTime(deltaTime) {
+            game.time += deltaTime * 0.001;
+
+            const dayLength = 300; // 5 minutes per day
+            const timeOfDay = (game.time % dayLength) / dayLength;
+            game.day = Math.floor(game.time / dayLength) + 1;
+
+            // Update sky color
+            let skyColor;
+            if (timeOfDay < 0.25) { // Morning
+                skyColor = new THREE.Color(0x87CEEB);
+            } else if (timeOfDay < 0.5) { // Day
+                skyColor = new THREE.Color(0x87CEEB);
+            } else if (timeOfDay < 0.75) { // Evening
+                skyColor = new THREE.Color(0xFF6B35);
+            } else { // Night
+                skyColor = new THREE.Color(0x191970);
+            }
+
+            game.scene.background.lerp(skyColor, 0.01);
+            game.scene.fog.color.copy(game.scene.background);
+
+            // Update time display
+            const hours = Math.floor(timeOfDay * 24);
+            const minutes = Math.floor((timeOfDay * 24 - hours) * 60);
+            document.getElementById('time').textContent =
+                `Day ${game.day} - ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        }
+
+        // Update UI
+        function updateStatsUI() {
+            document.getElementById('health').textContent = Math.round(game.player.health);
+            document.getElementById('healthBar').style.width = game.player.health + '%';
+            document.getElementById('hunger').textContent = Math.round(game.player.hunger);
+            document.getElementById('hungerBar').style.width = game.player.hunger + '%';
+        }
+
+        // Event listeners
+        document.getElementById('startGame').addEventListener('click', () => {
+            document.getElementById('instructions').style.display = 'none';
+            document.getElementById('gameCanvas').requestPointerLock();
+        });
+
+        document.addEventListener('pointerlockchange', () => {
+            game.locked = document.pointerLockElement === document.getElementById('gameCanvas');
+        });
+
+        document.addEventListener('keydown', (e) => {
+            game.keys[e.key] = true;
+
+            // Hotbar selection
+            if (e.key >= '1' && e.key <= '5') {
+                game.player.hotbarSlot = parseInt(e.key) - 1;
+                document.querySelectorAll('.hotbar-slot').forEach((slot, i) => {
+                    slot.classList.toggle('active', i === game.player.hotbarSlot);
+                });
+            }
+
+            // Inventory
+            if (e.key === 'e' || e.key === 'E') {
+                const inv = document.getElementById('inventory');
+                inv.classList.toggle('show');
+                if (inv.classList.contains('show')) {
+                    renderInventory();
+                }
+            }
+
+            // ESC to release cursor
+            if (e.key === 'Escape') {
+                document.exitPointerLock();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            game.keys[e.key] = false;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!game.locked) return;
+
+            game.player.rotation.y -= e.movementX * 0.002;
+            game.player.rotation.x -= e.movementY * 0.002;
+            game.player.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, game.player.rotation.x));
+        });
+
+        document.addEventListener('mousedown', (e) => {
+            if (!game.locked) return;
+            if (document.getElementById('inventory').classList.contains('show')) return;
+
+            const target = getTargetBlock();
+            if (!target) return;
+
+            if (e.button === 0) { // Left click - mine
+                removeBlock(target.x, target.y, target.z);
+            } else if (e.button === 2) { // Right click - place
+                const item = game.player.inventory[game.player.hotbarSlot];
+                if (item && item.count > 0 && item.type) {
+                    const placePos = {
+                        x: target.x + target.normal.x,
+                        y: target.y + target.normal.y,
+                        z: target.z + target.normal.z
+                    };
+
+                    if (placeBlock(placePos.x, placePos.y, placePos.z, item.type)) {
+                        removeFromInventory(item.type, 1);
+                    }
+                }
+            }
+        });
+
+        document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        window.addEventListener('resize', () => {
+            game.camera.aspect = window.innerWidth / window.innerHeight;
+            game.camera.updateProjectionMatrix();
+            game.renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Render inventory screen
+        function renderInventory() {
+            const grid = document.getElementById('inventoryGrid');
+            grid.innerHTML = '';
+
+            for (let i = 0; i < 20; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'inventory-slot';
+                const item = game.player.inventory[i];
+
+                if (item && item.type) {
+                    slot.innerHTML = `
+                        <div style="font-size: 10px;">${blockTypes[item.type].name}</div>
+                        <div style="position: absolute; bottom: 2px; right: 4px; font-size: 12px;">${item.count}</div>
+                    `;
+                }
+
+                grid.appendChild(slot);
+            }
+        }
+
+        // Game loop
+        let lastTime = 0;
+        function animate(currentTime) {
+            requestAnimationFrame(animate);
+
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+
+            if (game.locked) {
+                updatePlayer(deltaTime);
+                updateTime(deltaTime);
+            }
+
+            game.renderer.render(game.scene, game.camera);
+        }
+
+        // Start game
+        initThree();
+        updateStatsUI();
+        updateInventoryUI();
+        animate(0);
+    </script>
+</body>
+</html>
