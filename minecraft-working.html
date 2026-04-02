@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VoxelCraft - Survival</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: monospace; overflow: hidden; }
+        canvas { display: block; }
+        #ui { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; color: white; text-shadow: 2px 2px 4px #000; }
+        #stats { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; }
+        #crosshair::before { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 2px; background: white; transform: translateY(-50%); }
+        #crosshair::after { content: ''; position: absolute; left: 50%; top: 0; width: 2px; height: 100%; background: white; transform: translateX(-50%); }
+        #hotbar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; }
+        .slot { width: 50px; height: 50px; background: rgba(0,0,0,0.7); border: 2px solid #666; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+        .slot.active { border-color: white; }
+        #start { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); padding: 30px; border: 3px solid #666; text-align: center; color: white; }
+        #start button { margin-top: 20px; padding: 10px 30px; background: #4CAF50; border: none; color: white; font-size: 16px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div id="stats">
+            <div>Health: <span id="health">100</span></div>
+            <div>Position: <span id="pos">0, 12, 0</span></div>
+        </div>
+        <div id="crosshair"></div>
+        <div id="hotbar">
+            <div class="slot active" data-slot="0">Hand</div>
+            <div class="slot" data-slot="1"></div>
+            <div class="slot" data-slot="2"></div>
+            <div class="slot" data-slot="3"></div>
+            <div class="slot" data-slot="4"></div>
+        </div>
+    </div>
+    <div id="start">
+        <h2>VoxelCraft</h2>
+        <p>WASD - Move | Mouse - Look | Space - Jump</p>
+        <p>Left Click - Mine | Right Click - Place</p>
+        <button onclick="start()">START</button>
+    </div>
+
+    <script type="importmap">
+    {"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        const game = {
+            scene: null, camera: null, renderer: null, world: new Map(),
+            player: { pos: new THREE.Vector3(0, 12, 0), vel: new THREE.Vector3(), rot: new THREE.Euler(-0.5, 0, 0), inv: Array(5).fill(null).map(() => ({type: null, count: 0})), slot: 0 },
+            keys: {}, locked: false
+        };
+
+        const blocks = {
+            grass: { color: 0x4CAF50, name: 'Grass' },
+            dirt: { color: 0x8B4513, name: 'Dirt' },
+            stone: { color: 0x808080, name: 'Stone' }
+        };
+
+        function init() {
+            game.scene = new THREE.Scene();
+            game.scene.background = new THREE.Color(0x87CEEB);
+            game.scene.fog = new THREE.Fog(0x87CEEB, 0, 60);
+
+            game.camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
+            game.camera.position.copy(game.player.pos);
+            game.camera.rotation.copy(game.player.rot);
+
+            game.renderer = new THREE.WebGLRenderer();
+            game.renderer.setSize(innerWidth, innerHeight);
+            document.body.insertBefore(game.renderer.domElement, document.body.firstChild);
+
+            game.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            const light = new THREE.DirectionalLight(0xffffff, 0.5);
+            light.position.set(50, 50, 50);
+            game.scene.add(light);
+
+            console.log('Generating terrain...');
+
+            // Simple platform
+            for (let x = -5; x <= 5; x++) {
+                for (let z = -5; z <= 5; z++) {
+                    makeBlock(x, 10, z, 'grass');
+                }
+            }
+
+            // Terrain
+            for (let x = -20; x < 20; x++) {
+                for (let z = -20; z < 20; z++) {
+                    const h = Math.floor(Math.sin(x*0.1)*3 + Math.cos(z*0.1)*3 + 10);
+                    for (let y = 0; y <= h; y++) {
+                        const type = y === h ? 'grass' : y > h-3 ? 'dirt' : 'stone';
+                        makeBlock(x, y, z, type);
+                    }
+                }
+            }
+
+            console.log('Created', game.world.size, 'blocks');
+        }
+
+        function makeBlock(x, y, z, type) {
+            const geo = new THREE.BoxGeometry(1, 1, 1);
+            const mat = new THREE.MeshLambertMaterial({ color: blocks[type].color });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, y, z);
+            game.scene.add(mesh);
+            game.world.set(`${x},${y},${z}`, { mesh, type, pos: {x, y, z} });
+        }
+
+        function getBlock() {
+            const ray = new THREE.Raycaster();
+            ray.setFromCamera({x:0, y:0}, game.camera);
+            const hits = ray.intersectObjects(Array.from(game.world.values()).map(b => b.mesh));
+            if (hits.length > 0) {
+                const pos = hits[0].object.position;
+                return { x: Math.round(pos.x), y: Math.round(pos.y), z: Math.round(pos.z), normal: hits[0].face.normal };
+            }
+            return null;
+        }
+
+        function update() {
+            const speed = game.keys.Shift ? 0.15 : 0.1;
+            const dir = new THREE.Vector3();
+            if (game.keys.w) dir.z -= 1;
+            if (game.keys.s) dir.z += 1;
+            if (game.keys.a) dir.x -= 1;
+            if (game.keys.d) dir.x += 1;
+
+            if (dir.length() > 0) {
+                dir.normalize().applyEuler(new THREE.Euler(0, game.player.rot.y, 0));
+                game.player.vel.x = dir.x * speed;
+                game.player.vel.z = dir.z * speed;
+            } else {
+                game.player.vel.x *= 0.8;
+                game.player.vel.z *= 0.8;
+            }
+
+            game.player.vel.y -= 0.01;
+
+            if (game.keys[' ']) game.player.vel.y = 0.15;
+
+            game.player.pos.add(game.player.vel);
+            if (game.player.pos.y < 11) game.player.pos.y = 11;
+
+            game.camera.position.copy(game.player.pos);
+            game.camera.rotation.copy(game.player.rot);
+
+            document.getElementById('pos').textContent =
+                `${game.player.pos.x.toFixed(1)}, ${game.player.pos.y.toFixed(1)}, ${game.player.pos.z.toFixed(1)}`;
+        }
+
+        window.start = function() {
+            document.getElementById('start').style.display = 'none';
+            document.body.requestPointerLock();
+        };
+
+        document.addEventListener('pointerlockchange', () => {
+            game.locked = document.pointerLockElement === document.body;
+        });
+
+        document.addEventListener('keydown', e => {
+            game.keys[e.key] = true;
+            if (e.key >= '1' && e.key <= '5') {
+                game.player.slot = parseInt(e.key) - 1;
+                document.querySelectorAll('.slot').forEach((s, i) => {
+                    s.classList.toggle('active', i === game.player.slot);
+                });
+            }
+        });
+
+        document.addEventListener('keyup', e => { game.keys[e.key] = false; });
+
+        document.addEventListener('mousemove', e => {
+            if (!game.locked) return;
+            game.player.rot.y -= e.movementX * 0.002;
+            game.player.rot.x -= e.movementY * 0.002;
+            game.player.rot.x = Math.max(-1.5, Math.min(1.5, game.player.rot.x));
+        });
+
+        document.addEventListener('mousedown', e => {
+            if (!game.locked) return;
+            const target = getBlock();
+            if (!target) return;
+
+            if (e.button === 0) {
+                const key = `${target.x},${target.y},${target.z}`;
+                const block = game.world.get(key);
+                if (block) {
+                    game.scene.remove(block.mesh);
+                    game.world.delete(key);
+                    console.log('Mined', block.type);
+                }
+            }
+        });
+
+        document.addEventListener('contextmenu', e => e.preventDefault());
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (game.locked) update();
+            game.renderer.render(game.scene, game.camera);
+        }
+
+        init();
+        animate();
+    </script>
+</body>
+</html>
