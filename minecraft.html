@@ -335,9 +335,9 @@
             renderer: null,
             world: new Map(),
             player: {
-                position: new THREE.Vector3(0, 25, 0),
+                position: new THREE.Vector3(0, 12, 0),
                 velocity: new THREE.Vector3(0, 0, 0),
-                rotation: new THREE.Euler(-0.3, 0, 0),
+                rotation: new THREE.Euler(-0.5, 0, 0),
                 health: 100,
                 hunger: 100,
                 inventory: new Array(20).fill(null).map(() => ({ type: null, count: 0 })),
@@ -386,6 +386,7 @@
 
             game.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             game.camera.position.copy(game.player.position);
+            game.camera.rotation.copy(game.player.rotation);
 
             game.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
             game.renderer.setSize(window.innerWidth, window.innerHeight);
