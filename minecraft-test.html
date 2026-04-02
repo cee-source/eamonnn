@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test - VoxelCraft</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: monospace;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h3>Debug Info:</h3>
+        <div id="status">Loading...</div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        const status = document.getElementById('status');
+
+        try {
+            status.innerHTML = 'Three.js loaded!<br>';
+
+            // Create scene
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB); // Sky blue
+            status.innerHTML += 'Scene created!<br>';
+
+            // Create camera
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 5, 10);
+            camera.lookAt(0, 0, 0);
+            status.innerHTML += 'Camera created at (0, 5, 10)<br>';
+
+            // Create renderer
+            const renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+            status.innerHTML += 'Renderer created!<br>';
+
+            // Add lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 5);
+            scene.add(directionalLight);
+            status.innerHTML += 'Lights added!<br>';
+
+            // Create test cubes - bright colors, easy to see
+            const colors = [0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF];
+            let cubeCount = 0;
+
+            for (let x = -2; x <= 2; x++) {
+                const geometry = new THREE.BoxGeometry(1, 1, 1);
+                const material = new THREE.MeshLambertMaterial({
+                    color: colors[x + 2]
+                });
+                const cube = new THREE.Mesh(geometry, material);
+                cube.position.set(x * 2, 0, 0);
+                scene.add(cube);
+                cubeCount++;
+            }
+
+            // Create a ground platform
+            for (let x = -5; x <= 5; x++) {
+                for (let z = -5; z <= 5; z++) {
+                    const geometry = new THREE.BoxGeometry(1, 1, 1);
+                    const material = new THREE.MeshLambertMaterial({
+                        color: 0x4CAF50 // Green
+                    });
+                    const cube = new THREE.Mesh(geometry, material);
+                    cube.position.set(x, -2, z);
+                    scene.add(cube);
+                    cubeCount++;
+                }
+            }
+
+            status.innerHTML += `Created ${cubeCount} cubes!<br>`;
+            status.innerHTML += 'Scene objects: ' + scene.children.length + '<br>';
+
+            console.log('Scene created with', cubeCount, 'cubes');
+            console.log('Camera position:', camera.position);
+            console.log('Scene children:', scene.children.length);
+
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+                renderer.render(scene, camera);
+            }
+
+            status.innerHTML += '<br><strong style="color: lime;">Rendering started!</strong><br>';
+            status.innerHTML += 'You should see colorful cubes!';
+
+            animate();
+
+        } catch (error) {
+            status.innerHTML += '<br><strong style="color: red;">ERROR:</strong> ' + error.message;
+            console.error('Error:', error);
+        }
+    </script>
+</body>
+</html>
