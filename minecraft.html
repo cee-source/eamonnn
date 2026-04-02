@@ -406,8 +406,21 @@
 
         // Generate terrain
         function generateWorld() {
+            console.log('Starting world generation...');
             const size = game.worldSize;
+            let blockCount = 0;
 
+            // Create a simple test platform first
+            console.log('Creating test platform at y=10');
+            for (let x = -5; x <= 5; x++) {
+                for (let z = -5; z <= 5; z++) {
+                    createBlock(x, 10, z, 'grass');
+                    blockCount++;
+                }
+            }
+            console.log(`Test platform created: ${blockCount} blocks`);
+
+            // Now generate the full terrain
             for (let x = -size / 2; x < size / 2; x++) {
                 for (let z = -size / 2; z < size / 2; z++) {
                     // Simple height map
@@ -429,16 +442,19 @@
                             type = 'stone';
                         }
                         createBlock(x, y, z, type);
+                        blockCount++;
                     }
 
                     // Add trees
                     if (Math.random() < 0.02 && height > 8) {
                         for (let y = height + 1; y <= height + 4; y++) {
                             createBlock(x, y, z, 'wood');
+                            blockCount++;
                         }
                     }
                 }
             }
+            console.log(`Total blocks created: ${blockCount}`);
         }
 
         // Create a block
@@ -450,13 +466,16 @@
             });
             const mesh = new THREE.Mesh(geometry, material);
             mesh.position.set(x, y, z);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
 
             game.scene.add(mesh);
 
             const key = `${x},${y},${z}`;
             game.world.set(key, { mesh, type, position: { x, y, z } });
+
+            // Debug first few blocks
+            if (game.world.size <= 5) {
+                console.log(`Block ${game.world.size}: ${type} at (${x}, ${y}, ${z})`);
+            }
         }
 
         // Remove block
@@ -690,6 +709,10 @@
 
             setTimeout(() => {
                 instructions.style.display = 'none';
+                console.log('Camera position:', game.camera.position);
+                console.log('Camera rotation:', game.camera.rotation);
+                console.log('Scene children:', game.scene.children.length);
+                console.log('World map size:', game.world.size);
                 document.getElementById('gameCanvas').requestPointerLock();
             }, 100);
         });
