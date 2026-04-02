@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Castle Defense RPG</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+        }
+        #game-container {
+            background: #0f0f1e;
+            border: 3px solid #16213e;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        canvas {
+            border: 2px solid #e94560;
+            display: block;
+            background: #2a2a3e;
+        }
+        #ui {
+            margin-top: 15px;
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        .panel {
+            background: #16213e;
+            padding: 15px;
+            border-radius: 5px;
+            flex: 1;
+        }
+        .stat {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        .bar {
+            height: 20px;
+            background: #0f0f1e;
+            border: 1px solid #e94560;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        .bar-fill {
+            height: 100%;
+            transition: width 0.3s;
+        }
+        .health-bar { background: #e94560; }
+        .exp-bar { background: #4ecca3; }
+        .castle-bar { background: #ffd700; }
+        button {
+            background: #e94560;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-family: inherit;
+            font-weight: bold;
+        }
+        button:hover { background: #ff6b81; }
+        button:disabled { background: #666; cursor: not-allowed; }
+        .tower-btn { background: #4ecca3; }
+        .tower-btn:hover { background: #5ef5b5; }
+        #controls { text-align: center; margin-top: 10px; font-size: 12px; color: #aaa; }
+        .wave-info {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffd700;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="canvas" width="800" height="600"></canvas>
+        <div id="ui">
+            <div class="panel">
+                <div class="wave-info">Wave: <span id="wave">1</span></div>
+                <div class="stat">Gold: <span id="gold">100</span></div>
+                <div class="stat">Score: <span id="score">0</span></div>
+            </div>
+            <div class="panel">
+                <div class="stat">Hero Level: <span id="level">1</span></div>
+                <div class="stat">HP: <span id="hp">100</span> / <span id="maxHp">100</span></div>
+                <div class="bar"><div class="bar-fill health-bar" id="hpBar" style="width: 100%"></div></div>
+                <div class="stat">EXP: <span id="exp">0</span> / <span id="maxExp">100</span></div>
+                <div class="bar"><div class="bar-fill exp-bar" id="expBar" style="width: 0%"></div></div>
+            </div>
+            <div class="panel">
+                <div class="stat">Castle HP: <span id="castleHp">500</span></div>
+                <div class="bar"><div class="bar-fill castle-bar" id="castleBar" style="width: 100%"></div></div>
+                <button class="tower-btn" onclick="game.selectTower('arrow')">Arrow Tower ($50)</button>
+                <button class="tower-btn" onclick="game.selectTower('cannon')">Cannon Tower ($100)</button>
+                <button onclick="game.upgrade()">Upgrade Hero ($<span id="upgradeCost">50</span>)</button>
+            </div>
+        </div>
+        <div id="controls">
+            WASD - Move Hero | Click - Attack | Right Click - Place Tower | Space - Dash
+        </div>
+    </div>
+
+    <script>
+        const game = {
+            canvas: document.getElementById('canvas'),
+            ctx: null,
+            width: 800,
+            height: 600,
+
+            // Player
+            player: {
+                x: 100,
+                y: 300,
+                size: 20,
+                hp: 100,
+                maxHp: 100,
+                speed: 3,
+                level: 1,
+                exp: 0,
+                maxExp: 100,
+                damage: 10,
+                attackCooldown: 0
+            },
+
+            // Castle
+            castle: {
+                x: 50,
+                y: 250,
+                width: 60,
+                height: 100,
+                hp: 500,
+                maxHp: 500
+            },
+
+            // Game state
+            gold: 100,
+            score: 0,
+            wave: 1,
+            enemies: [],
+            towers: [],
+            projectiles: [],
+            particles: [],
+            selectedTower: null,
+
+            keys: {},
+
+            init() {
+                this.ctx = this.canvas.getContext('2d');
+                this.canvas.addEventListener('click', (e) => this.onClick(e));
+                this.canvas.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    this.onRightClick(e);
+                });
+                window.addEventListener('keydown', (e) => this.keys[e.key] = true);
+                window.addEventListener('keyup', (e) => this.keys[e.key] = false);
+
+                this.spawnWave();
+                this.gameLoop();
+            },
+
+            spawnWave() {
+                const count = 3 + this.wave * 2;
+                for (let i = 0; i < count; i++) {
+                    setTimeout(() => {
+                        this.enemies.push({
+                            x: this.width,
+                            y: Math.random() * (this.height - 100) + 50,
+                            size: 15,
+                            hp: 30 + this.wave * 10,
+                            maxHp: 30 + this.wave * 10,
+                            speed: 0.5 + this.wave * 0.1,
+                            damage: 5 + this.wave * 2,
+                            gold: 10 + this.wave * 5,
+                            exp: 20 + this.wave * 10
+                        });
+                    }, i * 1000);
+                }
+            },
+
+            update() {
+                // Player movement
+                const p = this.player;
+                if (this.keys.w || this.keys.W) p.y -= p.speed;
+                if (this.keys.s || this.keys.S) p.y += p.speed;
+                if (this.keys.a || this.keys.A) p.x -= p.speed;
+                if (this.keys.d || this.keys.D) p.x += p.speed;
+
+                // Dash
+                if (this.keys[' ']) {
+                    if (this.keys.w || this.keys.W) p.y -= 10;
+                    if (this.keys.s || this.keys.S) p.y += 10;
+                    if (this.keys.a || this.keys.A) p.x -= 10;
+                    if (this.keys.d || this.keys.D) p.x += 10;
+                }
+
+                p.x = Math.max(0, Math.min(this.width, p.x));
+                p.y = Math.max(0, Math.min(this.height, p.y));
+
+                if (p.attackCooldown > 0) p.attackCooldown--;
+
+                // Update enemies
+                for (let i = this.enemies.length - 1; i >= 0; i--) {
+                    const e = this.enemies[i];
+                    e.x -= e.speed;
+
+                    // Check castle collision
+                    if (e.x < this.castle.x + this.castle.width) {
+                        this.castle.hp -= e.damage;
+                        this.enemies.splice(i, 1);
+
+                        if (this.castle.hp <= 0) {
+                            alert('Game Over! Wave: ' + this.wave + ' Score: ' + this.score);
+                            location.reload();
+                        }
+                    }
+                }
+
+                // Update towers
+                this.towers.forEach(tower => {
+                    if (tower.cooldown > 0) {
+                        tower.cooldown--;
+                    } else {
+                        const target = this.enemies.find(e =>
+                            Math.hypot(e.x - tower.x, e.y - tower.y) < tower.range
+                        );
+                        if (target) {
+                            this.projectiles.push({
+                                x: tower.x,
+                                y: tower.y,
+                                tx: target.x,
+                                ty: target.y,
+                                damage: tower.damage,
+                                speed: 5,
+                                color: tower.type === 'arrow' ? '#ffd700' : '#ff6b6b'
+                            });
+                            tower.cooldown = tower.fireRate;
+                        }
+                    }
+                });
+
+                // Update projectiles
+                for (let i = this.projectiles.length - 1; i >= 0; i--) {
+                    const proj = this.projectiles[i];
+                    const dx = proj.tx - proj.x;
+                    const dy = proj.ty - proj.y;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (dist < proj.speed) {
+                        const enemy = this.enemies.find(e =>
+                            Math.hypot(e.x - proj.tx, e.y - proj.ty) < 30
+                        );
+                        if (enemy) {
+                            enemy.hp -= proj.damage;
+                            if (enemy.hp <= 0) {
+                                this.gold += enemy.gold;
+                                this.score += enemy.gold * this.wave;
+                                this.player.exp += enemy.exp;
+                                this.checkLevelUp();
+                                this.enemies.splice(this.enemies.indexOf(enemy), 1);
+                                this.addParticles(enemy.x, enemy.y, '#e94560');
+                            }
+                        }
+                        this.projectiles.splice(i, 1);
+                    } else {
+                        proj.x += (dx / dist) * proj.speed;
+                        proj.y += (dy / dist) * proj.speed;
+                    }
+                }
+
+                // Update particles
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const p = this.particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.life--;
+                    if (p.life <= 0) this.particles.splice(i, 1);
+                }
+
+                // Check wave complete
+                if (this.enemies.length === 0) {
+                    this.wave++;
+                    this.gold += 50;
+                    this.spawnWave();
+                }
+
+                this.updateUI();
+            },
+
+            draw() {
+                this.ctx.fillStyle = '#2a2a3e';
+                this.ctx.fillRect(0, 0, this.width, this.height);
+
+                // Draw castle
+                this.ctx.fillStyle = '#ffd700';
+                this.ctx.fillRect(this.castle.x, this.castle.y, this.castle.width, this.castle.height);
+                this.ctx.fillStyle = '#ff6b6b';
+                this.ctx.fillRect(this.castle.x, this.castle.y - 20,
+                    this.castle.width * (this.castle.hp / this.castle.maxHp), 5);
+
+                // Draw towers
+                this.towers.forEach(t => {
+                    this.ctx.fillStyle = t.type === 'arrow' ? '#4ecca3' : '#e94560';
+                    this.ctx.fillRect(t.x - 15, t.y - 15, 30, 30);
+                    this.ctx.fillStyle = '#fff';
+                    this.ctx.font = '12px monospace';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText(t.type[0].toUpperCase(), t.x, t.y + 5);
+                });
+
+                // Draw player
+                this.ctx.fillStyle = '#4ecca3';
+                this.ctx.beginPath();
+                this.ctx.arc(this.player.x, this.player.y, this.player.size, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.fillStyle = '#ff6b6b';
+                this.ctx.fillRect(this.player.x - 20, this.player.y - 30,
+                    40 * (this.player.hp / this.player.maxHp), 5);
+
+                // Draw enemies
+                this.enemies.forEach(e => {
+                    this.ctx.fillStyle = '#e94560';
+                    this.ctx.beginPath();
+                    this.ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.fillStyle = '#ffd700';
+                    this.ctx.fillRect(e.x - 15, e.y - 25, 30 * (e.hp / e.maxHp), 4);
+                });
+
+                // Draw projectiles
+                this.projectiles.forEach(p => {
+                    this.ctx.fillStyle = p.color;
+                    this.ctx.beginPath();
+                    this.ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+                    this.ctx.fill();
+                });
+
+                // Draw particles
+                this.particles.forEach(p => {
+                    this.ctx.fillStyle = p.color;
+                    this.ctx.globalAlpha = p.life / 20;
+                    this.ctx.fillRect(p.x, p.y, 4, 4);
+                });
+                this.ctx.globalAlpha = 1;
+            },
+
+            onClick(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                // Attack nearest enemy
+                if (this.player.attackCooldown === 0) {
+                    const nearest = this.enemies.reduce((closest, e) => {
+                        const dist = Math.hypot(e.x - this.player.x, e.y - this.player.y);
+                        return dist < 150 && (!closest || dist < closest.dist)
+                            ? { enemy: e, dist } : closest;
+                    }, null);
+
+                    if (nearest) {
+                        nearest.enemy.hp -= this.player.damage;
+                        this.player.attackCooldown = 30;
+                        this.addParticles(nearest.enemy.x, nearest.enemy.y, '#ffd700');
+
+                        if (nearest.enemy.hp <= 0) {
+                            this.gold += nearest.enemy.gold;
+                            this.score += nearest.enemy.gold * this.wave;
+                            this.player.exp += nearest.enemy.exp;
+                            this.checkLevelUp();
+                            this.enemies.splice(this.enemies.indexOf(nearest.enemy), 1);
+                        }
+                    }
+                }
+            },
+
+            onRightClick(e) {
+                if (!this.selectedTower) return;
+
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                const cost = this.selectedTower === 'arrow' ? 50 : 100;
+                if (this.gold >= cost && x > 150) {
+                    this.gold -= cost;
+                    this.towers.push({
+                        x, y,
+                        type: this.selectedTower,
+                        damage: this.selectedTower === 'arrow' ? 15 : 30,
+                        range: this.selectedTower === 'arrow' ? 150 : 120,
+                        fireRate: this.selectedTower === 'arrow' ? 60 : 90,
+                        cooldown: 0
+                    });
+                    this.selectedTower = null;
+                }
+            },
+
+            selectTower(type) {
+                this.selectedTower = type;
+            },
+
+            upgrade() {
+                const cost = 50 + this.player.level * 25;
+                if (this.gold >= cost) {
+                    this.gold -= cost;
+                    this.player.maxHp += 20;
+                    this.player.hp = this.player.maxHp;
+                    this.player.damage += 5;
+                    this.player.speed += 0.2;
+                }
+            },
+
+            checkLevelUp() {
+                while (this.player.exp >= this.player.maxExp) {
+                    this.player.exp -= this.player.maxExp;
+                    this.player.level++;
+                    this.player.maxExp = Math.floor(this.player.maxExp * 1.5);
+                    this.player.maxHp += 20;
+                    this.player.hp = this.player.maxHp;
+                    this.player.damage += 5;
+                    this.addParticles(this.player.x, this.player.y, '#4ecca3');
+                }
+            },
+
+            addParticles(x, y, color) {
+                for (let i = 0; i < 10; i++) {
+                    this.particles.push({
+                        x, y,
+                        vx: (Math.random() - 0.5) * 4,
+                        vy: (Math.random() - 0.5) * 4,
+                        life: 20,
+                        color
+                    });
+                }
+            },
+
+            updateUI() {
+                document.getElementById('wave').textContent = this.wave;
+                document.getElementById('gold').textContent = this.gold;
+                document.getElementById('score').textContent = this.score;
+                document.getElementById('level').textContent = this.player.level;
+                document.getElementById('hp').textContent = Math.round(this.player.hp);
+                document.getElementById('maxHp').textContent = this.player.maxHp;
+                document.getElementById('exp').textContent = this.player.exp;
+                document.getElementById('maxExp').textContent = this.player.maxExp;
+                document.getElementById('castleHp').textContent = Math.round(this.castle.hp);
+                document.getElementById('upgradeCost').textContent = 50 + this.player.level * 25;
+
+                document.getElementById('hpBar').style.width =
+                    (this.player.hp / this.player.maxHp * 100) + '%';
+                document.getElementById('expBar').style.width =
+                    (this.player.exp / this.player.maxExp * 100) + '%';
+                document.getElementById('castleBar').style.width =
+                    (this.castle.hp / this.castle.maxHp * 100) + '%';
+            },
+
+            gameLoop() {
+                this.update();
+                this.draw();
+                requestAnimationFrame(() => this.gameLoop());
+            }
+        };
+
+        game.init();
+    </script>
+</body>
+</html>
