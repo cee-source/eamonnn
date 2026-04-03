@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Snake — JS Game Tutorial</title>
+  <style>
+    body {
+      background: #1a1a2e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      font-family: monospace;
+      color: #eee;
+    }
+    h1 { margin-bottom: 8px; color: #e94560; }
+    #score { font-size: 1.2rem; margin-bottom: 12px; }
+    canvas {
+      border: 3px solid #e94560;
+      background: #0f3460;
+    }
+    #message {
+      margin-top: 12px;
+      font-size: 1rem;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <h1>Snake</h1>
+  <div id="score">Score: 0</div>
+  <canvas id="gameCanvas" width="400" height="400"></canvas>
+  <div id="message">Press any arrow key to start</div>
+  <script src="game.js"></script>
+</body>
+</html>
