@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>3D Gem Collector</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; overflow: hidden; }
+    canvas { display: block; }
+    #ui {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      color: white;
+      font-family: monospace;
+      font-size: 1.2rem;
+      text-shadow: 0 0 8px #4ecca3;
+      pointer-events: none;
+    }
+    #message {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-family: monospace;
+      font-size: 1.5rem;
+      text-align: center;
+      text-shadow: 0 0 12px #e94560;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <div>Gems: <span id="gemCount">0</span></div>
+  </div>
+  <div id="message">WASD or Arrow Keys to move<br>Collect all the gems!</div>
+
+  <!-- Three.js from CDN — no installation needed -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
