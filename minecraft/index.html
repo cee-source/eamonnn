@@ -458,12 +458,16 @@ function loop() {
   last = now;
 
   if (locked) {
-    const cos=Math.cos(player.yaw), sin=Math.sin(player.yaw);
+    // Three.js camera looks in -Z at yaw=0
+    // forward = (-sin(yaw), 0, -cos(yaw))
+    // right   = ( cos(yaw), 0, -sin(yaw))
+    const fwdX = -Math.sin(player.yaw), fwdZ = -Math.cos(player.yaw);
+    const rgtX =  Math.cos(player.yaw), rgtZ = -Math.sin(player.yaw);
     let mx=0, mz=0;
-    if (keys['KeyW']||keys['ArrowUp'])    { mx+=cos; mz+=sin; }
-    if (keys['KeyS']||keys['ArrowDown'])  { mx-=cos; mz-=sin; }
-    if (keys['KeyA']||keys['ArrowLeft'])  { mx+=sin; mz-=cos; }
-    if (keys['KeyD']||keys['ArrowRight']) { mx-=sin; mz+=cos; }
+    if (keys['KeyW']||keys['ArrowUp'])    { mx+=fwdX; mz+=fwdZ; }
+    if (keys['KeyS']||keys['ArrowDown'])  { mx-=fwdX; mz-=fwdZ; }
+    if (keys['KeyA']||keys['ArrowLeft'])  { mx-=rgtX; mz-=rgtZ; }
+    if (keys['KeyD']||keys['ArrowRight']) { mx+=rgtX; mz+=rgtZ; }
     const len = Math.sqrt(mx*mx+mz*mz) || 1;
     player.vx = mx ? (mx/len)*SPEED : 0;
     player.vz = mz ? (mz/len)*SPEED : 0;
