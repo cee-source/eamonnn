@@ -20,7 +20,7 @@ def listen():
 def ask_bluefish(text):
     if history:
         context = "Previous conversation:\n"
-        for user_msg, bf_msg in history[-5:]:
+        for user_msg, bf_msg in history:
             context += f"Eamonn: {user_msg}\nBlue Fish: {bf_msg}\n"
         prompt = f"{context}\nNow respond to: {text}"
     else:
