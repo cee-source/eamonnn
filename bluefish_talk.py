@@ -1,36 +1,39 @@
 import subprocess
 import os
-import speech_recognition as sr
+import whisper
+import sounddevice as sd
+import scipy.io.wavfile as wav
 
-recognizer = sr.Recognizer()
-mic = sr.Microphone()
+model = whisper.load_model("tiny")
+history = []
 
 def listen():
-    with mic as source:
-        print("Listening... (speak now)")
-        recognizer.adjust_for_ambient_noise(source, duration=0.5)
-        try:
-            audio = recognizer.listen(source, timeout=5, phrase_time_limit=10)
-        except sr.WaitTimeoutError:
-            return None
-    try:
-        text = recognizer.recognize_google(audio)
-        return text
-    except sr.UnknownValueError:
-        return None
-    except sr.RequestError:
-        return None
+    print("Listening... (speak now)")
+    samplerate = 16000
+    audio = sd.rec(int(5 * samplerate), samplerate=samplerate, channels=1, dtype='int16')
+    sd.wait()
+    wav.write('/tmp/input.wav', samplerate, audio)
+    result = model.transcribe('/tmp/input.wav')
+    text = result['text'].strip()
+    return text if text else None
 
 def ask_bluefish(text):
+    if history:
+        context = "Previous conversation:\n"
+        for user_msg, bf_msg in history[-5:]:
+            context += f"Eamonn: {user_msg}\nBlue Fish: {bf_msg}\n"
+        prompt = f"{context}\nNow respond to: {text}"
+    else:
+        prompt = text
     result = subprocess.run(
-        ["ollama", "run", "bluefish", text],
+        ["ollama", "run", "bluefish", prompt],
         capture_output=True, text=True
     )
     return result.stdout.strip()
 
 def speak(text):
     text = text.replace("Eamonn", "A-mun").replace("eamonn", "A-mun")
-    os.system(f'echo "{text}" | piper --model /home/fussykitten12/piper_voices/en_US-ryan-medium.onnx --output_file /tmp/response.wav && sox /tmp/response.wav /tmp/response_loud.wav gain 10 && aplay -D bluealsa:DEV=71:A5:72:1E:F2:1A /tmp/response_loud.wav')
+    os.system(f'echo "{text}" | piper --model /home/fussykitten12/piper_voices/en_US-ryan-medium.onnx --sentence-silence 0.5 --output_file /tmp/response.wav && sox /tmp/response.wav -r 48000 -c 2 /tmp/response_final.wav gain -5 && aplay -D bluealsa:DEV=71:A5:72:1E:F2:1A /tmp/response_final.wav')
 
 print("Blue Fish is ready!")
 print("Press Enter to talk, type 'quit' to exit.")
@@ -47,6 +50,7 @@ while True:
         if response:
             print(f"Blue Fish: {response}")
             speak(response)
+            history.append((text, response))
         else:
             print("Blue Fish: (no response)")
     else:
