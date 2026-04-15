@@ -53,10 +53,28 @@ def listen_loop():
             if total_duration >= MIN_SPEECH_DURATION and not is_speaking:
                 full_audio = np.concatenate(audio_chunks)
                 wav.write('/tmp/input.wav', SAMPLERATE, full_audio)
-                result = model.transcribe('/tmp/input.wav')
+                result = model.transcribe('/tmp/input.wav', word_timestamps=True)
                 text = result['text'].strip()
-                if text:
-                    text_queue.put(text)
+                no_speech_prob = result.get('no_speech_prob', 0)
+
+                if not text or no_speech_prob > 0.5:
+                    continue
+
+                low_conf_words = []
+                for segment in result.get('segments', []):
+                    for word in segment.get('words', []):
+                        prob = word.get('probability', 1.0)
+                        if prob < 0.6:
+                            low_conf_words.append(f"'{word['word'].strip()}' ({prob:.2f})")
+
+                if low_conf_words:
+                    correction_prompt = f"Speech recognition heard: \"{text}\". Low confidence words: {', '.join(low_conf_words)}. Based on natural speech, what was most likely actually said? Reply with only the corrected sentence, nothing else."
+                    fix = subprocess.run(["ollama", "run", "bluefish", correction_prompt], capture_output=True, text=True)
+                    corrected = fix.stdout.strip()
+                    if corrected:
+                        text = corrected
+
+                text_queue.put(text)
 
 def ask_bluefish(text):
     if history:
