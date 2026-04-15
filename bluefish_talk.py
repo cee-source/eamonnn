@@ -61,7 +61,7 @@ def play_music(query):
     stop_music()
     print(f"Searching for: {query}")
     music_process = subprocess.Popen(
-        f'yt-dlp "ytsearch1:{query}" -o - -f bestaudio/best -q | ffmpeg -i pipe:0 -f s16le -ar 48000 -ac 2 - 2>/dev/null | aplay -D bluealsa:DEV=71:A5:72:1E:F2:1A -f S16_LE -r 48000 -c 2',
+        f'yt-dlp "ytsearch1:{query}" -o - -f bestaudio/best -q --extractor-args "youtube:player_client=web" | ffmpeg -i pipe:0 -f s16le -ar 48000 -ac 2 - 2>/dev/null | aplay -D bluealsa:DEV=71:A5:72:1E:F2:1A -f S16_LE -r 48000 -c 2',
         shell=True
     )
 
