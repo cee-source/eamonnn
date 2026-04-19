@@ -478,16 +478,12 @@ function render() {
 
     // Unit background
     ctx.fillStyle = u.owner === 'player' ? (u.moved && u.attacked ? '#334' : '#1a3a6a') : (u.moved && u.attacked ? '#433' : '#6a1a1a');
-    ctx.beginPath();
-    ctx.roundRect(px+4, py+4, TILE-8, TILE-8, 5);
-    ctx.fill();
+    ctx.fillRect(px+4, py+4, TILE-8, TILE-8);
 
     if (isSelected) {
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.roundRect(px+4, py+4, TILE-8, TILE-8, 5);
-      ctx.stroke();
+      ctx.strokeRect(px+4, py+4, TILE-8, TILE-8);
     }
 
     // Unit icon
