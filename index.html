@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Game of War</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a1a2e; color: #eee; font-family: 'Courier New', monospace; overflow: hidden; }
+  #app { display: flex; height: 100vh; }
+  #sidebar { width: 220px; background: #16213e; padding: 12px; display: flex; flex-direction: column; gap: 10px; border-right: 2px solid #0f3460; }
+  #sidebar h1 { color: #e94560; font-size: 18px; text-align: center; letter-spacing: 2px; text-transform: uppercase; }
+  .panel { background: #0f3460; border-radius: 6px; padding: 10px; }
+  .panel h3 { font-size: 12px; color: #a0a0c0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .stat { display: flex; justify-content: space-between; font-size: 13px; margin: 3px 0; }
+  .stat-val { color: #f5a623; font-weight: bold; }
+  #phase-display { text-align: center; font-size: 13px; padding: 6px; background: #e94560; border-radius: 4px; font-weight: bold; letter-spacing: 1px; }
+  #selected-info { min-height: 90px; }
+  #selected-info .unit-name { font-size: 15px; font-weight: bold; color: #f5a623; }
+  #selected-info .unit-stats { font-size: 12px; color: #ccc; margin-top: 5px; }
+  #btn-end-turn { background: #e94560; border: none; color: white; padding: 10px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: bold; letter-spacing: 1px; width: 100%; }
+  #btn-end-turn:hover { background: #c73652; }
+  #btn-end-turn:disabled { background: #555; cursor: not-allowed; }
+  #recruit-panel { display: flex; flex-direction: column; gap: 5px; }
+  .recruit-btn { background: #0f3460; border: 1px solid #e94560; color: #eee; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 12px; text-align: left; }
+  .recruit-btn:hover { background: #1a4a80; }
+  .recruit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  #map-area { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1a1a2e; }
+  #canvas { border: 2px solid #0f3460; cursor: pointer; }
+  #log { background: #16213e; border-right: 2px solid #0f3460; width: 200px; padding: 10px; overflow-y: auto; font-size: 11px; display: flex; flex-direction: column; gap: 3px; }
+  #log h3 { color: #a0a0c0; text-transform: uppercase; letter-spacing: 1px; font-size: 11px; margin-bottom: 5px; }
+  .log-entry { padding: 3px 5px; border-radius: 3px; background: #0f3460; color: #ccc; }
+  .log-player { color: #4fc3f7; }
+  .log-ai { color: #ef9a9a; }
+  .log-system { color: #a5d6a7; }
+  #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  #overlay.hidden { display: none; }
+  #overlay-box { background: #16213e; border: 2px solid #e94560; border-radius: 12px; padding: 40px; text-align: center; max-width: 400px; }
+  #overlay-box h2 { font-size: 32px; color: #e94560; margin-bottom: 15px; }
+  #overlay-box p { color: #ccc; margin-bottom: 25px; font-size: 15px; }
+  #btn-start { background: #e94560; border: none; color: white; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 16px; font-weight: bold; }
+  #btn-start:hover { background: #c73652; }
+  .turn-indicator { font-size: 12px; padding: 4px 8px; border-radius: 4px; text-align: center; }
+  .turn-player { background: #1a4a80; color: #4fc3f7; }
+  .turn-ai { background: #4a1020; color: #ef9a9a; }
+</style>
+</head>
+<body>
+<div id="overlay">
+  <div id="overlay-box">
+    <h2>⚔ THE GAME OF WAR</h2>
+    <p>Command your armies, conquer territories, and crush your enemy.<br><br>
+    <strong>Red = You &nbsp;|&nbsp; Blue = AI</strong><br><br>
+    Click units to select, click tiles to move/attack.<br>
+    Capture the enemy HQ to win!</p>
+    <button id="btn-start" onclick="startGame()">START BATTLE</button>
+  </div>
+</div>
+
+<div id="app">
+  <div id="log">
+    <h3>Battle Log</h3>
+  </div>
+  <div id="map-area">
+    <canvas id="canvas"></canvas>
+  </div>
+  <div id="sidebar">
+    <h1>War</h1>
+    <div id="turn-ind" class="turn-indicator turn-player">YOUR TURN</div>
+    <div id="phase-display">SELECT</div>
+    <div class="panel">
+      <h3>Resources</h3>
+      <div class="stat"><span>Gold</span><span class="stat-val" id="gold-display">0</span></div>
+      <div class="stat"><span>Income</span><span class="stat-val" id="income-display">+0/turn</span></div>
+      <div class="stat"><span>Turn</span><span class="stat-val" id="turn-display">1</span></div>
+    </div>
+    <div class="panel" id="selected-info">
+      <h3>Selected</h3>
+      <div style="color:#666;font-size:12px">Nothing selected</div>
+    </div>
+    <div class="panel">
+      <h3>Recruit (on HQ)</h3>
+      <div id="recruit-panel">
+        <button class="recruit-btn" id="btn-infantry" onclick="recruit('infantry')">Infantry (50g) ⚔</button>
+        <button class="recruit-btn" id="btn-archer" onclick="recruit('archer')">Archer (75g) 🏹</button>
+        <button class="recruit-btn" id="btn-cavalry" onclick="recruit('cavalry')">Cavalry (100g) 🐴</button>
+      </div>
+    </div>
+    <button id="btn-end-turn" onclick="endTurn()">END TURN</button>
+  </div>
+</div>
+
+<script>
+const TILE = 56;
+const COLS = 14;
+const ROWS = 10;
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = COLS * TILE;
+canvas.height = ROWS * TILE;
+
+const TERRAIN = { PLAIN: 0, FOREST: 1, MOUNTAIN: 2, WATER: 3, HQ: 4, TOWN: 5 };
+const TERRAIN_COLOR = ['#3a5a3a','#1e3b1e','#4a4a5a','#1a3a5a','#5a3a1a','#4a3a2a'];
+const TERRAIN_ICON = ['','🌲','⛰','💧','🏛','🏘'];
+const TERRAIN_DEF = [0, 1, 2, 0, 0, 1];
+
+const UNIT_TYPES = {
+  infantry: { name: 'Infantry', hp: 10, atk: 3, def: 1, mov: 3, range: 1, cost: 50, icon: '⚔' },
+  archer:   { name: 'Archer',   hp: 7,  atk: 4, def: 0, mov: 2, range: 2, cost: 75, icon: '🏹' },
+  cavalry:  { name: 'Cavalry',  hp: 9,  atk: 4, def: 1, mov: 5, range: 1, cost: 100, icon: '🐴' },
+  hq:       { name: 'HQ',       hp: 20, atk: 0, def: 3, mov: 0, range: 0, cost: 0, icon: '🏛' },
+};
+
+let map = [], units = [], selected = null, phase = 'select', turn = 1;
+let playerGold = 100, aiGold = 100;
+let movableTiles = [], attackableTiles = [];
+let playerTurn = true, gameOver = false;
+let logs = [];
+
+function mapIdx(x, y) { return y * COLS + x; }
+function inBounds(x, y) { return x >= 0 && y >= 0 && x < COLS && y < ROWS; }
+function tileAt(x, y) { return map[mapIdx(x, y)]; }
+function unitAt(x, y) { return units.find(u => u.x === x && u.y === y && u.hp > 0); }
+
+function addLog(msg, cls = '') {
+  logs.unshift({ msg, cls });
+  if (logs.length > 30) logs.pop();
+  renderLog();
+}
+
+function renderLog() {
+  const el = document.getElementById('log');
+  el.innerHTML = '<h3>Battle Log</h3>' + logs.map(l => `<div class="log-entry ${l.cls}">${l.msg}</div>`).join('');
+}
+
+function initMap() {
+  map = Array(COLS * ROWS).fill(TERRAIN.PLAIN);
+  const layout = [
+    [3,1],[4,1],[3,2],[4,2],[5,2],
+    [9,1],[10,1],[9,2],[10,2],[8,2],
+    [6,4],[7,4],[6,5],[7,5],
+    [2,5],[2,6],[11,3],[11,4],
+    [1,3],[12,6],
+    [5,7],[8,7],[3,8],[10,8],
+    [6,2],[7,2],[6,7],[7,7],
+  ];
+  const forests = [[1,1],[12,1],[2,3],[11,6],[4,6],[9,4],[3,4],[10,5],[5,5],[8,5],[6,8],[7,3],[1,7],[12,8]];
+  const mountains = [[0,4],[0,5],[13,4],[13,5],[6,0],[7,0],[6,9],[7,9],[3,6],[10,3]];
+  const towns = [[2,2],[11,7],[5,4],[8,4],[2,8],[11,1],[6,6],[7,6]];
+
+  layout.forEach(([x,y]) => { if(inBounds(x,y)) map[mapIdx(x,y)] = TERRAIN.WATER; });
+  forests.forEach(([x,y]) => { if(inBounds(x,y) && tileAt(x,y)===TERRAIN.PLAIN) map[mapIdx(x,y)] = TERRAIN.FOREST; });
+  mountains.forEach(([x,y]) => { if(inBounds(x,y) && tileAt(x,y)===TERRAIN.PLAIN) map[mapIdx(x,y)] = TERRAIN.MOUNTAIN; });
+  towns.forEach(([x,y]) => { if(inBounds(x,y) && tileAt(x,y)===TERRAIN.PLAIN) map[mapIdx(x,y)] = TERRAIN.TOWN; });
+  map[mapIdx(1,0)] = TERRAIN.HQ;
+  map[mapIdx(12,9)] = TERRAIN.HQ;
+}
+
+function initUnits() {
+  units = [
+    { id:1, owner:'player', type:'hq',       x:1,  y:0,  hp:20, maxHp:20, moved:false, attacked:false },
+    { id:2, owner:'player', type:'infantry',  x:2,  y:0,  hp:10, maxHp:10, moved:false, attacked:false },
+    { id:3, owner:'player', type:'infantry',  x:1,  y:1,  hp:10, maxHp:10, moved:false, attacked:false },
+    { id:4, owner:'player', type:'archer',    x:3,  y:0,  hp:7,  maxHp:7,  moved:false, attacked:false },
+    { id:5, owner:'ai',     type:'hq',        x:12, y:9,  hp:20, maxHp:20, moved:false, attacked:false },
+    { id:6, owner:'ai',     type:'infantry',  x:11, y:9,  hp:10, maxHp:10, moved:false, attacked:false },
+    { id:7, owner:'ai',     type:'infantry',  x:12, y:8,  hp:10, maxHp:10, moved:false, attacked:false },
+    { id:8, owner:'ai',     type:'archer',    x:10, y:9,  hp:7,  maxHp:7,  moved:false, attacked:false },
+  ];
+}
+
+let nextId = 100;
+function spawnUnit(owner, type, x, y) {
+  units.push({ id: nextId++, owner, type, x, y, hp: UNIT_TYPES[type].hp, maxHp: UNIT_TYPES[type].hp, moved: true, attacked: false });
+}
+
+function getMoveRange(unit) {
+  const t = UNIT_TYPES[unit.type];
+  if (!t || t.mov === 0 || unit.moved) return [];
+  const visited = new Set();
+  const result = [];
+  const queue = [{ x: unit.x, y: unit.y, steps: 0 }];
+  visited.add(`${unit.x},${unit.y}`);
+  const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
+  while (queue.length) {
+    const { x, y, steps } = queue.shift();
+    if (steps > 0) result.push({ x, y });
+    if (steps >= t.mov) continue;
+    for (const [dx, dy] of dirs) {
+      const nx = x+dx, ny = y+dy;
+      const key = `${nx},${ny}`;
+      if (!inBounds(nx,ny) || visited.has(key)) continue;
+      const tile = tileAt(nx, ny);
+      if (tile === TERRAIN.WATER) continue;
+      const occupant = unitAt(nx, ny);
+      if (occupant && occupant.owner !== unit.owner) continue;
+      visited.add(key);
+      queue.push({ x: nx, y: ny, steps: steps + 1 });
+    }
+  }
+  return result.filter(t => !unitAt(t.x, t.y) || (unitAt(t.x, t.y).id === unit.id));
+}
+
+function getAttackRange(unit) {
+  const t = UNIT_TYPES[unit.type];
+  if (!t || t.range === 0 || unit.attacked) return [];
+  const result = [];
+  for (let dx = -t.range; dx <= t.range; dx++) {
+    for (let dy = -t.range; dy <= t.range; dy++) {
+      const d = Math.abs(dx) + Math.abs(dy);
+      if (d < 1 || d > t.range) continue;
+      const nx = unit.x+dx, ny = unit.y+dy;
+      if (!inBounds(nx,ny)) continue;
+      const target = unitAt(nx, ny);
+      if (target && target.owner !== unit.owner) result.push({ x: nx, y: ny });
+    }
+  }
+  return result;
+}
+
+function calcDamage(attacker, defender) {
+  const at = UNIT_TYPES[attacker.type], dt = UNIT_TYPES[defender.type];
+  const terrainDef = TERRAIN_DEF[tileAt(defender.x, defender.y)] || 0;
+  const dmg = Math.max(1, at.atk - dt.def - terrainDef + Math.floor(Math.random() * 3) - 1);
+  return dmg;
+}
+
+function doAttack(attacker, defender) {
+  const dmg = calcDamage(attacker, defender);
+  defender.hp -= dmg;
+  addLog(`${attacker.owner==='player'?'Your':'AI'} ${UNIT_TYPES[attacker.type].name} hits for ${dmg}!`, attacker.owner==='player'?'log-player':'log-ai');
+  attacker.attacked = true;
+  if (defender.hp <= 0) {
+    addLog(`${UNIT_TYPES[defender.type].name} defeated!`, 'log-system');
+    if (defender.type === 'hq') {
+      const winner = attacker.owner === 'player' ? 'YOU WIN!' : 'AI WINS!';
+      setTimeout(() => showEndGame(winner), 300);
+      gameOver = true;
+    }
+  }
+  units = units.filter(u => u.hp > 0);
+}
+
+function getIncome(owner) {
+  let income = 10;
+  units.filter(u => u.owner === owner && u.hp > 0).forEach(u => {
+    const tile = tileAt(u.x, u.y);
+    if (tile === TERRAIN.TOWN) income += 10;
+    if (tile === TERRAIN.HQ) income += 5;
+  });
+  return income;
+}
+
+function startTurn() {
+  units.forEach(u => { u.moved = false; u.attacked = false; });
+  if (playerTurn) {
+    const inc = getIncome('player');
+    playerGold += inc;
+    addLog(`Turn ${turn}: You gain ${inc} gold`, 'log-system');
+    setPhase('select');
+    updateUI();
+  }
+}
+
+function endTurn() {
+  if (!playerTurn || gameOver) return;
+  playerTurn = false;
+  document.getElementById('btn-end-turn').disabled = true;
+  document.getElementById('turn-ind').className = 'turn-indicator turn-ai';
+  document.getElementById('turn-ind').textContent = 'AI TURN';
+  setPhase('select');
+  selected = null;
+  movableTiles = []; attackableTiles = [];
+  render();
+  setTimeout(aiTurn, 600);
+}
+
+function aiTurn() {
+  if (gameOver) return;
+  const inc = getIncome('ai');
+  aiGold += inc;
+
+  // AI recruit
+  const aiHQ = units.find(u => u.owner === 'ai' && u.type === 'hq');
+  if (aiHQ && !unitAt(aiHQ.x, aiHQ.y - 1)) {
+    if (aiGold >= 100) { spawnUnit('ai','cavalry', aiHQ.x, aiHQ.y-1); aiGold -= 100; }
+    else if (aiGold >= 75) { spawnUnit('ai','archer', aiHQ.x-1, aiHQ.y); aiGold -= 75; }
+    else if (aiGold >= 50) { spawnUnit('ai','infantry', aiHQ.x, aiHQ.y-1); aiGold -= 50; }
+  }
+
+  const playerUnits = units.filter(u => u.owner === 'player' && u.hp > 0);
+  const aiUnits = units.filter(u => u.owner === 'ai' && u.hp > 0 && u.type !== 'hq');
+
+  for (const unit of aiUnits) {
+    if (gameOver) break;
+    // Try to attack first
+    const atkRange = getAttackRange(unit);
+    if (atkRange.length > 0) {
+      const target = unitAt(atkRange[0].x, atkRange[0].y);
+      if (target) { doAttack(unit, target); if (gameOver) break; render(); continue; }
+    }
+    // Move toward nearest player unit or HQ
+    const moveRange = getMoveRange(unit);
+    if (!moveRange.length) continue;
+
+    let targets = [...playerUnits];
+    const playerHQ = units.find(u => u.owner === 'player' && u.type === 'hq');
+    if (playerHQ) targets.push(playerHQ);
+
+    if (!targets.length) continue;
+    const nearest = targets.reduce((a, b) => {
+      const da = Math.abs(a.x-unit.x) + Math.abs(a.y-unit.y);
+      const db = Math.abs(b.x-unit.x) + Math.abs(b.y-unit.y);
+      return da < db ? a : b;
+    });
+
+    const best = moveRange.reduce((a, b) => {
+      const da = Math.abs(a.x-nearest.x) + Math.abs(a.y-nearest.y);
+      const db = Math.abs(b.x-nearest.x) + Math.abs(b.y-nearest.y);
+      return da < db ? a : b;
+    });
+
+    unit.x = best.x; unit.y = best.y; unit.moved = true;
+
+    // Attack after move
+    const atkRange2 = getAttackRange(unit);
+    if (atkRange2.length > 0) {
+      const target = unitAt(atkRange2[0].x, atkRange2[0].y);
+      if (target) { doAttack(unit, target); if (gameOver) break; }
+    }
+    render();
+  }
+
+  if (!gameOver) {
+    turn++;
+    playerTurn = true;
+    document.getElementById('btn-end-turn').disabled = false;
+    document.getElementById('turn-ind').className = 'turn-indicator turn-player';
+    document.getElementById('turn-ind').textContent = 'YOUR TURN';
+    startTurn();
+    render();
+  }
+}
+
+function recruit(type) {
+  if (!playerTurn || gameOver) return;
+  const cost = UNIT_TYPES[type].cost;
+  if (playerGold < cost) { addLog('Not enough gold!', 'log-system'); return; }
+  const hq = units.find(u => u.owner === 'player' && u.type === 'hq');
+  if (!hq) return;
+  const spots = [[hq.x+1,hq.y],[hq.x,hq.y+1],[hq.x-1,hq.y],[hq.x,hq.y-1]];
+  const free = spots.find(([x,y]) => inBounds(x,y) && !unitAt(x,y) && tileAt(x,y) !== TERRAIN.WATER);
+  if (!free) { addLog('No space near HQ!', 'log-system'); return; }
+  spawnUnit('player', type, free[0], free[1]);
+  playerGold -= cost;
+  addLog(`Recruited ${UNIT_TYPES[type].name}!`, 'log-player');
+  updateUI(); render();
+}
+
+function setPhase(p) {
+  phase = p;
+  document.getElementById('phase-display').textContent = p.toUpperCase();
+}
+
+function updateUI() {
+  document.getElementById('gold-display').textContent = playerGold;
+  document.getElementById('income-display').textContent = `+${getIncome('player')}/turn`;
+  document.getElementById('turn-display').textContent = turn;
+  const hq = units.find(u => u.owner === 'player' && u.type === 'hq');
+  const canRecruit = playerTurn && hq && !unitAt(hq.x, hq.y);
+  ['infantry','archer','cavalry'].forEach(t => {
+    const btn = document.getElementById(`btn-${t}`);
+    btn.disabled = !canRecruit || playerGold < UNIT_TYPES[t].cost;
+  });
+  if (selected) {
+    const t = UNIT_TYPES[selected.type];
+    document.getElementById('selected-info').innerHTML = `
+      <h3>Selected</h3>
+      <div class="unit-name">${t.icon} ${t.name}</div>
+      <div class="unit-stats">
+        HP: ${selected.hp}/${selected.maxHp}<br>
+        ATK: ${t.atk} | DEF: ${t.def}<br>
+        MOV: ${t.mov} | RNG: ${t.range}<br>
+        ${selected.moved?'<span style="color:#e94560">Moved</span>':'<span style="color:#a5d6a7">Can Move</span>'} |
+        ${selected.attacked?'<span style="color:#e94560">Attacked</span>':'<span style="color:#a5d6a7">Can Attack</span>'}
+      </div>`;
+  } else {
+    document.getElementById('selected-info').innerHTML = '<h3>Selected</h3><div style="color:#666;font-size:12px">Click a unit</div>';
+  }
+}
+
+canvas.addEventListener('click', e => {
+  if (!playerTurn || gameOver) return;
+  const rect = canvas.getBoundingClientRect();
+  const cx = Math.floor((e.clientX - rect.left) / TILE);
+  const cy = Math.floor((e.clientY - rect.top) / TILE);
+  if (!inBounds(cx, cy)) return;
+
+  const clickedUnit = unitAt(cx, cy);
+
+  if (phase === 'select') {
+    if (clickedUnit && clickedUnit.owner === 'player') {
+      selected = clickedUnit;
+      movableTiles = getMoveRange(selected);
+      attackableTiles = getAttackRange(selected);
+      setPhase('action');
+      updateUI(); render();
+    }
+  } else if (phase === 'action') {
+    if (clickedUnit && clickedUnit.owner === 'player' && clickedUnit !== selected) {
+      selected = clickedUnit;
+      movableTiles = getMoveRange(selected);
+      attackableTiles = getAttackRange(selected);
+      updateUI(); render();
+      return;
+    }
+    const isMovable = movableTiles.some(t => t.x === cx && t.y === cy);
+    const isAttackable = attackableTiles.some(t => t.x === cx && t.y === cy);
+
+    if (isAttackable && clickedUnit && clickedUnit.owner === 'ai') {
+      doAttack(selected, clickedUnit);
+      attackableTiles = getAttackRange(selected);
+      movableTiles = [];
+      updateUI(); render();
+      if (gameOver) return;
+      if (selected.moved || !getMoveRange(selected).length) {
+        selected = null; setPhase('select');
+      }
+    } else if (isMovable) {
+      selected.x = cx; selected.y = cy; selected.moved = true;
+      movableTiles = [];
+      attackableTiles = getAttackRange(selected);
+      updateUI(); render();
+    } else if (!clickedUnit) {
+      selected = null; movableTiles = []; attackableTiles = [];
+      setPhase('select'); updateUI(); render();
+    }
+  }
+});
+
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const t = tileAt(x, y);
+      ctx.fillStyle = TERRAIN_COLOR[t];
+      ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(x*TILE, y*TILE, TILE, TILE);
+      if (TERRAIN_ICON[t]) {
+        ctx.font = '18px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(TERRAIN_ICON[t], x*TILE+TILE/2, y*TILE+TILE/2);
+      }
+    }
+  }
+
+  // Highlight movable
+  movableTiles.forEach(({ x, y }) => {
+    ctx.fillStyle = 'rgba(100,200,255,0.35)';
+    ctx.fillRect(x*TILE+1, y*TILE+1, TILE-2, TILE-2);
+  });
+
+  // Highlight attackable
+  attackableTiles.forEach(({ x, y }) => {
+    ctx.fillStyle = 'rgba(255,80,80,0.45)';
+    ctx.fillRect(x*TILE+1, y*TILE+1, TILE-2, TILE-2);
+  });
+
+  // Draw units
+  units.filter(u => u.hp > 0).forEach(u => {
+    const t = UNIT_TYPES[u.type];
+    const px = u.x * TILE, py = u.y * TILE;
+    const isSelected = selected && selected.id === u.id;
+
+    // Unit background
+    ctx.fillStyle = u.owner === 'player' ? (u.moved && u.attacked ? '#334' : '#1a3a6a') : (u.moved && u.attacked ? '#433' : '#6a1a1a');
+    ctx.beginPath();
+    ctx.roundRect(px+4, py+4, TILE-8, TILE-8, 5);
+    ctx.fill();
+
+    if (isSelected) {
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(px+4, py+4, TILE-8, TILE-8, 5);
+      ctx.stroke();
+    }
+
+    // Unit icon
+    ctx.font = '20px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(t.icon, px + TILE/2, py + TILE/2 - 2);
+
+    // HP bar
+    const barW = TILE - 12;
+    ctx.fillStyle = '#333';
+    ctx.fillRect(px+6, py+TILE-11, barW, 5);
+    const pct = u.hp / u.maxHp;
+    ctx.fillStyle = pct > 0.5 ? '#4caf50' : pct > 0.25 ? '#ff9800' : '#f44336';
+    ctx.fillRect(px+6, py+TILE-11, barW * pct, 5);
+
+    // Owner dot
+    ctx.fillStyle = u.owner === 'player' ? '#4fc3f7' : '#ef9a9a';
+    ctx.beginPath();
+    ctx.arc(px+TILE-8, py+8, 3, 0, Math.PI*2);
+    ctx.fill();
+  });
+}
+
+function showEndGame(msg) {
+  const overlay = document.getElementById('overlay');
+  const box = document.getElementById('overlay-box');
+  overlay.classList.remove('hidden');
+  box.innerHTML = `<h2>${msg}</h2><p>The battle is over!</p><button id="btn-start" onclick="startGame()">PLAY AGAIN</button>`;
+}
+
+function startGame() {
+  gameOver = false; playerTurn = true; turn = 1;
+  playerGold = 100; aiGold = 100;
+  selected = null; movableTiles = []; attackableTiles = [];
+  logs = [];
+  initMap(); initUnits();
+  document.getElementById('overlay').classList.add('hidden');
+  document.getElementById('btn-end-turn').disabled = false;
+  document.getElementById('turn-ind').className = 'turn-indicator turn-player';
+  document.getElementById('turn-ind').textContent = 'YOUR TURN';
+  setPhase('select');
+  addLog('Battle begins! Red vs Blue.', 'log-system');
+  startTurn();
+  updateUI(); render();
+}
+</script>
+</body>
+</html>
