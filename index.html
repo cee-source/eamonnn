@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Game of War</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+
+    #ui {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+    }
+
+    #status {
+      position: absolute;
+      top: 14px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.75);
+      border: 1px solid #555;
+      border-radius: 20px;
+      padding: 8px 22px;
+      color: #fff;
+      font-size: 0.95rem;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    #unit-panel {
+      position: absolute;
+      bottom: 20px; left: 20px;
+      background: rgba(8,8,24,0.92);
+      border: 1px solid #334;
+      border-radius: 10px;
+      padding: 14px;
+      min-width: 180px;
+      color: #fff;
+      display: none;
+      pointer-events: all;
+    }
+    #unit-panel h3 { font-size: 0.9rem; color: #aac; margin-bottom: 8px; }
+    .stat { display: flex; justify-content: space-between; font-size: 0.8rem; margin: 3px 0; }
+    .sl { color: #778; }
+    .sv { color: #fff; }
+
+    #hint {
+      position: absolute;
+      bottom: 20px; right: 20px;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #888;
+      font-size: 0.75rem;
+      line-height: 1.7;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+<div id="ui">
+  <div id="status">Game of War — click a unit to select it</div>
+
+  <div id="unit-panel">
+    <h3 id="panel-name">Unit</h3>
+    <div class="stat"><span class="sl">Player</span><span class="sv" id="panel-player">—</span></div>
+    <div class="stat"><span class="sl">Position</span><span class="sv" id="panel-pos">—</span></div>
+    <div class="stat"><span class="sl">HP</span><span class="sv" id="panel-hp">—</span></div>
+  </div>
+
+  <div id="hint">
+    🖱️ Right-drag to orbit<br>
+    🖱️ Scroll to zoom<br>
+    🖱️ Click unit to select<br>
+    🖱️ Click ground to move
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ─────────────────────────────────────────────
+// SCENE SETUP
+// ─────────────────────────────────────────────
+const GRID = 100;        // grid is GRID x GRID cells
+const CELL = 1;          // world units per cell
+
+const scene    = new THREE.Scene();
+scene.background = new THREE.Color(0x111122);
+scene.fog        = new THREE.Fog(0x111122, 60, 130);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 300);
+camera.position.set(GRID / 2, 35, GRID * 0.9);
+camera.lookAt(GRID / 2, 0, GRID / 2);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// Lights
+scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+
+const sun = new THREE.DirectionalLight(0xfff5dd, 1.1);
+sun.position.set(30, 50, 30);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 1;
+sun.shadow.camera.far  = 200;
+sun.shadow.camera.left = sun.shadow.camera.bottom = -80;
+sun.shadow.camera.right = sun.shadow.camera.top   =  80;
+scene.add(sun);
+
+// ─────────────────────────────────────────────
+// GRID FLOOR
+// ─────────────────────────────────────────────
+function buildFloor() {
+  // Large ground plane
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(GRID * CELL, GRID * CELL),
+    new THREE.MeshLambertMaterial({ color: 0x2e4a1e })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.set(GRID / 2, -0.02, GRID / 2);
+  ground.receiveShadow = true;
+  ground.name = 'ground';
+  scene.add(ground);
+
+  // Checkerboard tiles (only render within view distance for performance)
+  const lightTile = new THREE.MeshLambertMaterial({ color: 0x3a5c26 });
+  const darkTile  = new THREE.MeshLambertMaterial({ color: 0x2e4a1e });
+  const tileGeo   = new THREE.PlaneGeometry(CELL, CELL);
+
+  for (let z = 0; z < GRID; z++) {
+    for (let x = 0; x < GRID; x++) {
+      const tile = new THREE.Mesh(tileGeo, (x + z) % 2 === 0 ? lightTile : darkTile);
+      tile.rotation.x = -Math.PI / 2;
+      tile.position.set(x + 0.5, 0, z + 0.5);
+      tile.receiveShadow = true;
+      tile.name = 'tile';
+      scene.add(tile);
+    }
+  }
+
+  // Grid lines along the division between Player 1 (left) and Player 2 (right)
+  const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.15 });
+  const divX = GRID / 2;
+  const divLine = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(divX, 0.05, 0),
+      new THREE.Vector3(divX, 0.05, GRID),
+    ]),
+    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 })
+  );
+  scene.add(divLine);
+}
+buildFloor();
+
+// ─────────────────────────────────────────────
+// UNIT CLASS
+// ─────────────────────────────────────────────
+const PLAYER_COLORS = {
+  1: { body: 0x2255cc, head: 0xffe0b0, label: '🔵 Player 1' },
+  2: { body: 0xcc2222, head: 0xffe0b0, label: '🔴 Player 2' },
+};
+
+class Unit {
+  constructor({ type = 'Infantry', player = 1, gridX = 0, gridZ = 0, hp = 5 }) {
+    this.type   = type;
+    this.player = player;
+    this.gridX  = gridX;
+    this.gridZ  = gridZ;
+    this.hp     = hp;
+    this.maxHp  = hp;
+
+    this.group = this._buildMesh();
+    this._setPosition(gridX, gridZ);
+    scene.add(this.group);
+  }
+
+  _buildMesh() {
+    const col = PLAYER_COLORS[this.player];
+    const group = new THREE.Group();
+
+    // Body
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.28, 0.32, 0.65, 10),
+      new THREE.MeshLambertMaterial({ color: col.body })
+    );
+    body.position.y = 0.33;
+    body.castShadow = true;
+    group.add(body);
+
+    // Head
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(0.18, 10, 10),
+      new THREE.MeshLambertMaterial({ color: col.head })
+    );
+    head.position.y = 0.82;
+    head.castShadow = true;
+    group.add(head);
+
+    // Colour knob on top so you can tell units apart at a glance
+    const knob = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 6, 6),
+      new THREE.MeshLambertMaterial({ color: col.body })
+    );
+    knob.position.y = 1.04;
+    group.add(knob);
+
+    // Selection ring (hidden by default)
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.42, 0.05, 6, 24),
+      new THREE.MeshBasicMaterial({ color: 0xffff00 })
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.05;
+    ring.visible = false;
+    ring.name = 'selectionRing';
+    group.add(ring);
+
+    group.userData.unit = this;
+    return group;
+  }
+
+  _setPosition(gx, gz) {
+    this.group.position.set(gx + 0.5, 0, gz + 0.5);
+  }
+
+  // Move to a new grid cell (instant for now)
+  moveTo(gx, gz) {
+    this.gridX = gx;
+    this.gridZ = gz;
+    this._setPosition(gx, gz);
+  }
+
+  select(on) {
+    this.group.getObjectByName('selectionRing').visible = on;
+  }
+
+  get posLabel() { return `(${this.gridX}, ${this.gridZ})`; }
+}
+
+// ─────────────────────────────────────────────
+// SPAWN SOME TEST UNITS
+// ─────────────────────────────────────────────
+const units = [];
+function spawnUnit(cfg) {
+  const u = new Unit(cfg);
+  units.push(u);
+  return u;
+}
+
+// Player 1 — left half
+spawnUnit({ type: 'Infantry', player: 1, gridX: 10, gridZ: 30, hp: 5 });
+spawnUnit({ type: 'Archer',   player: 1, gridX: 12, gridZ: 40, hp: 3 });
+spawnUnit({ type: 'Knight',   player: 1, gridX: 10, gridZ: 50, hp: 7 });
+
+// Player 2 — right half
+spawnUnit({ type: 'Infantry', player: 2, gridX: 70, gridZ: 30, hp: 5 });
+spawnUnit({ type: 'Archer',   player: 2, gridX: 68, gridZ: 40, hp: 3 });
+spawnUnit({ type: 'Knight',   player: 2, gridX: 70, gridZ: 50, hp: 7 });
+
+// ─────────────────────────────────────────────
+// SELECTION & MOVEMENT
+// ─────────────────────────────────────────────
+let selectedUnit = null;
+const raycaster   = new THREE.Raycaster();
+const mouse       = new THREE.Vector2();
+
+// Objects the raycaster checks for units
+function unitObjects() {
+  return units.flatMap(u => u.group.children.filter(c => c.isMesh && c.name !== 'selectionRing'));
+}
+
+renderer.domElement.addEventListener('click', e => {
+  // Don't fire on right-drag release
+  if (e.button !== 0 || wasDragging) return;
+
+  mouse.x =  (e.clientX / innerWidth)  * 2 - 1;
+  mouse.y = -(e.clientY / innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+
+  // 1. Did we click a unit?
+  const unitHits = raycaster.intersectObjects(unitObjects(), false);
+  if (unitHits.length) {
+    const hitUnit = unitHits[0].object.parent.userData.unit;
+    if (!hitUnit) return;
+
+    if (selectedUnit && selectedUnit !== hitUnit) selectedUnit.select(false);
+    selectedUnit = hitUnit;
+    selectedUnit.select(true);
+    showPanel(selectedUnit);
+    setStatus(`Selected ${selectedUnit.type} — click ground to move`);
+    return;
+  }
+
+  // 2. Did we click the ground? → move selected unit there
+  if (selectedUnit) {
+    const groundObjs = scene.children.filter(o => o.name === 'ground' || o.name === 'tile');
+    const groundHits = raycaster.intersectObjects(groundObjs, false);
+    if (groundHits.length) {
+      const pt = groundHits[0].point;
+      const gx = Math.floor(pt.x);
+      const gz = Math.floor(pt.z);
+      if (gx >= 0 && gz >= 0 && gx < GRID && gz < GRID) {
+        selectedUnit.moveTo(gx, gz);
+        showPanel(selectedUnit);
+        setStatus(`Moved ${selectedUnit.type} to (${gx}, ${gz})`);
+        return;
+      }
+    }
+  }
+
+  // 3. Clicked empty space — deselect
+  if (selectedUnit) {
+    selectedUnit.select(false);
+    selectedUnit = null;
+    hidePanel();
+    setStatus('Game of War — click a unit to select it');
+  }
+});
+
+// ─────────────────────────────────────────────
+// ORBIT CAMERA (right-drag)
+// ─────────────────────────────────────────────
+let isRightDragging = false;
+let wasDragging     = false;
+let lastMX = 0, lastMY = 0;
+let camTheta = 0, camPhi = 0.75, camDist = 45;
+const camTarget = new THREE.Vector3(GRID / 2, 0, GRID / 2);
+
+function updateCamera() {
+  camera.position.set(
+    camTarget.x + camDist * Math.sin(camPhi) * Math.sin(camTheta),
+    camTarget.y + camDist * Math.cos(camPhi),
+    camTarget.z + camDist * Math.sin(camPhi) * Math.cos(camTheta)
+  );
+  camera.lookAt(camTarget);
+}
+updateCamera();
+
+renderer.domElement.addEventListener('mousedown', e => {
+  if (e.button === 2) { isRightDragging = true; wasDragging = false; lastMX = e.clientX; lastMY = e.clientY; }
+});
+renderer.domElement.addEventListener('mousemove', e => {
+  if (!isRightDragging) return;
+  const dx = e.clientX - lastMX, dy = e.clientY - lastMY;
+  if (Math.abs(dx) + Math.abs(dy) > 3) wasDragging = true;
+  camTheta -= dx * 0.008;
+  camPhi    = Math.max(0.15, Math.min(1.45, camPhi - dy * 0.008));
+  lastMX = e.clientX; lastMY = e.clientY;
+  updateCamera();
+});
+renderer.domElement.addEventListener('mouseup',    () => { isRightDragging = false; });
+renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+renderer.domElement.addEventListener('wheel', e => {
+  camDist = Math.max(5, Math.min(100, camDist + e.deltaY * 0.05));
+  updateCamera();
+});
+
+// ─────────────────────────────────────────────
+// UI HELPERS
+// ─────────────────────────────────────────────
+function setStatus(msg) { document.getElementById('status').textContent = msg; }
+
+function showPanel(u) {
+  const p = document.getElementById('unit-panel');
+  p.style.display = 'block';
+  document.getElementById('panel-name').textContent   = `${u.type}`;
+  document.getElementById('panel-player').textContent = PLAYER_COLORS[u.player].label;
+  document.getElementById('panel-pos').textContent    = u.posLabel;
+  document.getElementById('panel-hp').textContent     = `${u.hp} / ${u.maxHp}`;
+}
+function hidePanel() { document.getElementById('unit-panel').style.display = 'none'; }
+
+// ─────────────────────────────────────────────
+// ANIMATE
+// ─────────────────────────────────────────────
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  // Gently bob the selected unit
+  if (selectedUnit) {
+    selectedUnit.group.position.y = Math.sin(t * 3) * 0.06;
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
