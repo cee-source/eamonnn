@@ -7,97 +7,148 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
 
-    #ui {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      pointer-events: none;
+    /* ── Mode badge ─────────────────────────────── */
+    #mode-badge {
+      position: fixed; top: 14px; left: 14px;
+      padding: 5px 15px; border-radius: 20px;
+      font-size: 0.78rem; font-weight: bold; letter-spacing: 1px;
+      text-transform: uppercase; pointer-events: none;
+      transition: background 0.25s, border-color 0.25s;
     }
+    #mode-badge.strategy { background: rgba(20,60,160,0.85); border: 1px solid #446; color: #aac; }
+    #mode-badge.ghost    { background: rgba(120,30,200,0.85); border: 1px solid #84c; color: #ddf; }
 
+    /* ── Status bar ──────────────────────────────── */
     #status {
-      position: absolute;
-      top: 14px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.75);
-      border: 1px solid #555;
-      border-radius: 20px;
-      padding: 8px 22px;
-      color: #fff;
-      font-size: 0.95rem;
-      white-space: nowrap;
-      pointer-events: none;
+      position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.75); border: 1px solid #555; border-radius: 20px;
+      padding: 8px 22px; color: #fff; font-size: 0.9rem;
+      white-space: nowrap; pointer-events: none;
     }
 
+    /* ── Ghost lock-screen ───────────────────────── */
+    #ghost-lock-screen {
+      position: fixed; inset: 0;
+      background: rgba(10,0,20,0.78);
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center; gap: 18px;
+      color: #fff; z-index: 60; cursor: pointer;
+    }
+    #ghost-lock-screen h2 { font-size: 1.7rem; color: #cc99ff; }
+    #ghost-lock-screen p  { color: #bbb; font-size: 0.9rem; line-height: 2; text-align: center; }
+    .kbd {
+      display: inline-block; background: #1a1a2e; border: 1px solid #556;
+      border-radius: 4px; padding: 1px 9px;
+      font-family: monospace; font-size: 0.82rem; color: #ddf;
+    }
+
+    /* ── Crosshair ───────────────────────────────── */
+    #crosshair {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      width: 22px; height: 22px;
+      display: none; pointer-events: none;
+    }
+    #crosshair::before, #crosshair::after {
+      content: ''; position: absolute; background: rgba(255,255,255,0.85);
+    }
+    #crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+    #crosshair::after  { height: 2px; width: 100%;  top:  50%; transform: translateY(-50%); }
+
+    /* ── Unit info panel ─────────────────────────── */
     #unit-panel {
-      position: absolute;
-      bottom: 20px; left: 20px;
-      background: rgba(8,8,24,0.92);
-      border: 1px solid #334;
-      border-radius: 10px;
-      padding: 14px;
-      min-width: 180px;
-      color: #fff;
-      display: none;
-      pointer-events: all;
+      position: fixed; bottom: 20px; left: 20px;
+      background: rgba(8,8,24,0.92); border: 1px solid #334;
+      border-radius: 10px; padding: 14px; min-width: 180px;
+      color: #fff; display: none; pointer-events: none;
     }
     #unit-panel h3 { font-size: 0.9rem; color: #aac; margin-bottom: 8px; }
     .stat { display: flex; justify-content: space-between; font-size: 0.8rem; margin: 3px 0; }
-    .sl { color: #778; }
-    .sv { color: #fff; }
+    .sl { color: #778; } .sv { color: #fff; }
 
+    /* ── Hint box ────────────────────────────────── */
     #hint {
-      position: absolute;
-      bottom: 20px; right: 20px;
-      background: rgba(0,0,0,0.6);
-      border: 1px solid #333;
-      border-radius: 8px;
-      padding: 10px 14px;
-      color: #888;
-      font-size: 0.75rem;
-      line-height: 1.7;
+      position: fixed; bottom: 20px; right: 20px;
+      background: rgba(0,0,0,0.65); border: 1px solid #333;
+      border-radius: 8px; padding: 11px 15px;
+      color: #666; font-size: 0.75rem; line-height: 1.9;
       pointer-events: none;
     }
+    #hint b { color: #999; }
+    #hint-ghost { display: none; }
   </style>
 </head>
 <body>
 
-<div id="ui">
-  <div id="status">Game of War — click a unit to select it</div>
-
-  <div id="unit-panel">
-    <h3 id="panel-name">Unit</h3>
-    <div class="stat"><span class="sl">Player</span><span class="sv" id="panel-player">—</span></div>
-    <div class="stat"><span class="sl">Position</span><span class="sv" id="panel-pos">—</span></div>
-    <div class="stat"><span class="sl">HP</span><span class="sv" id="panel-hp">—</span></div>
-  </div>
-
-  <div id="hint">
-    🖱️ Right-drag to orbit<br>
-    🖱️ Scroll to zoom<br>
-    🖱️ Click unit to select<br>
-    🖱️ Click ground to move
-  </div>
+<!-- Ghost lock-prompt (click anywhere in it to lock pointer) -->
+<div id="ghost-lock-screen">
+  <h2>👻  Ghost Mode</h2>
+  <p>
+    <b style="color:#ddf">Click anywhere</b> to lock your mouse and fly freely.<br>
+    <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> &nbsp;—&nbsp; fly forward / strafe
+    &nbsp;&nbsp;
+    <span class="kbd">Space</span> &nbsp;—&nbsp; rise
+    &nbsp;&nbsp;
+    <span class="kbd">Shift</span> &nbsp;—&nbsp; descend<br>
+    <span class="kbd">Esc</span> &nbsp;—&nbsp; unlock mouse &nbsp;&nbsp;
+    <span class="kbd">F</span> &nbsp;—&nbsp; return to Strategy Mode
+  </p>
 </div>
 
+<!-- Crosshair (ghost only) -->
+<div id="crosshair"></div>
+
+<!-- Persistent UI -->
+<div id="mode-badge" class="strategy">⚔ Strategy</div>
+<div id="status">Click a unit · Right-drag to orbit · <b>F</b> = Ghost mode</div>
+
+<div id="unit-panel">
+  <h3 id="panel-name">Unit</h3>
+  <div class="stat"><span class="sl">Player</span>  <span class="sv" id="panel-player">—</span></div>
+  <div class="stat"><span class="sl">Position</span><span class="sv" id="panel-pos">—</span></div>
+  <div class="stat"><span class="sl">HP</span>       <span class="sv" id="panel-hp">—</span></div>
+</div>
+
+<div id="hint">
+  <span id="hint-strategy">
+    <b>Strategy Mode</b><br>
+    Left-click — select / move unit<br>
+    Right-drag — orbit camera<br>
+    Scroll — zoom<br>
+    <span class="kbd" style="font-size:0.7rem">F</span> — enter Ghost mode
+  </span>
+  <span id="hint-ghost" style="display:none">
+    <b>Ghost Mode</b><br>
+    Mouse — look around<br>
+    <span class="kbd" style="font-size:0.7rem">W A S D</span> — fly<br>
+    <span class="kbd" style="font-size:0.7rem">Space</span> — rise &nbsp;
+    <span class="kbd" style="font-size:0.7rem">Shift</span> — descend<br>
+    <span class="kbd" style="font-size:0.7rem">F</span> / <span class="kbd" style="font-size:0.7rem">Esc</span> — exit
+  </span>
+</div>
+
+<!-- Three.js core + controls -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
 <script>
-// ─────────────────────────────────────────────
-// SCENE SETUP
-// ─────────────────────────────────────────────
-const GRID = 100;        // grid is GRID x GRID cells
-const CELL = 1;          // world units per cell
+'use strict';
 
-const scene    = new THREE.Scene();
-scene.background = new THREE.Color(0x111122);
-scene.fog        = new THREE.Fog(0x111122, 60, 130);
-
-const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 300);
-camera.position.set(GRID / 2, 35, GRID * 0.9);
-camera.lookAt(GRID / 2, 0, GRID / 2);
-
+// ═══════════════════════════════════════════════════════
+// RENDERER & SCENE
+// ═══════════════════════════════════════════════════════
 const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(devicePixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x111122);
+scene.fog        = new THREE.FogExp2(0x111122, 0.012);
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 500);
 
 window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
@@ -105,70 +156,69 @@ window.addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 
-// Lights
-scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+// ── Lighting ─────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 
 const sun = new THREE.DirectionalLight(0xfff5dd, 1.1);
-sun.position.set(30, 50, 30);
+sun.position.set(40, 70, 40);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.near = 1;
-sun.shadow.camera.far  = 200;
-sun.shadow.camera.left = sun.shadow.camera.bottom = -80;
-sun.shadow.camera.right = sun.shadow.camera.top   =  80;
+Object.assign(sun.shadow.camera, { near:1, far:220, left:-80, right:80, top:80, bottom:-80 });
 scene.add(sun);
 
-// ─────────────────────────────────────────────
-// GRID FLOOR
-// ─────────────────────────────────────────────
-function buildFloor() {
-  // Large ground plane
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(GRID * CELL, GRID * CELL),
-    new THREE.MeshLambertMaterial({ color: 0x2e4a1e })
+// subtle fill from the opposite side
+const fill = new THREE.DirectionalLight(0x8899cc, 0.25);
+fill.position.set(-30, 20, -30);
+scene.add(fill);
+
+// ═══════════════════════════════════════════════════════
+// GRID & FLOOR  (100 × 100)
+// ═══════════════════════════════════════════════════════
+const GRID = 100;
+
+(function buildFloor() {
+  // Base ground
+  const base = new THREE.Mesh(
+    new THREE.PlaneGeometry(GRID, GRID),
+    new THREE.MeshLambertMaterial({ color: 0x2b4a1a })
   );
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.set(GRID / 2, -0.02, GRID / 2);
-  ground.receiveShadow = true;
-  ground.name = 'ground';
-  scene.add(ground);
+  base.rotation.x = -Math.PI / 2;
+  base.position.set(GRID / 2, -0.01, GRID / 2);
+  base.receiveShadow = true;
+  base.name = 'ground';
+  scene.add(base);
 
-  // Checkerboard tiles (only render within view distance for performance)
-  const lightTile = new THREE.MeshLambertMaterial({ color: 0x3a5c26 });
-  const darkTile  = new THREE.MeshLambertMaterial({ color: 0x2e4a1e });
-  const tileGeo   = new THREE.PlaneGeometry(CELL, CELL);
-
+  // Checkerboard tiles
+  const matA = new THREE.MeshLambertMaterial({ color: 0x375c22 });
+  const matB = new THREE.MeshLambertMaterial({ color: 0x2b4a1a });
+  const geo  = new THREE.PlaneGeometry(1, 1);
   for (let z = 0; z < GRID; z++) {
     for (let x = 0; x < GRID; x++) {
-      const tile = new THREE.Mesh(tileGeo, (x + z) % 2 === 0 ? lightTile : darkTile);
-      tile.rotation.x = -Math.PI / 2;
-      tile.position.set(x + 0.5, 0, z + 0.5);
-      tile.receiveShadow = true;
-      tile.name = 'tile';
-      scene.add(tile);
+      const m = new THREE.Mesh(geo, (x + z) % 2 === 0 ? matA : matB);
+      m.rotation.x = -Math.PI / 2;
+      m.position.set(x + 0.5, 0, z + 0.5);
+      m.receiveShadow = true;
+      m.name = 'tile';
+      scene.add(m);
     }
   }
 
-  // Grid lines along the division between Player 1 (left) and Player 2 (right)
-  const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.15 });
-  const divX = GRID / 2;
-  const divLine = new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(divX, 0.05, 0),
-      new THREE.Vector3(divX, 0.05, GRID),
-    ]),
-    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 })
-  );
-  scene.add(divLine);
-}
-buildFloor();
+  // Centre dividing line
+  const divGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(GRID / 2, 0.05, 0),
+    new THREE.Vector3(GRID / 2, 0.05, GRID),
+  ]);
+  scene.add(new THREE.Line(divGeo,
+    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 })
+  ));
+})();
 
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
 // UNIT CLASS
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
 const PLAYER_COLORS = {
-  1: { body: 0x2255cc, head: 0xffe0b0, label: '🔵 Player 1' },
-  2: { body: 0xcc2222, head: 0xffe0b0, label: '🔴 Player 2' },
+  1: { body: 0x2255cc, label: '🔵 Player 1' },
+  2: { body: 0xcc2222, label: '🔴 Player 2' },
 };
 
 class Unit {
@@ -179,219 +229,303 @@ class Unit {
     this.gridZ  = gridZ;
     this.hp     = hp;
     this.maxHp  = hp;
-
-    this.group = this._buildMesh();
-    this._setPosition(gridX, gridZ);
+    this.group  = this._buildMesh();
+    this._syncPos();
     scene.add(this.group);
   }
 
   _buildMesh() {
-    const col = PLAYER_COLORS[this.player];
+    const col   = PLAYER_COLORS[this.player].body;
     const group = new THREE.Group();
 
-    // Body
     const body = new THREE.Mesh(
       new THREE.CylinderGeometry(0.28, 0.32, 0.65, 10),
-      new THREE.MeshLambertMaterial({ color: col.body })
+      new THREE.MeshLambertMaterial({ color: col })
     );
-    body.position.y = 0.33;
-    body.castShadow = true;
+    body.position.y = 0.33; body.castShadow = true;
     group.add(body);
 
-    // Head
     const head = new THREE.Mesh(
       new THREE.SphereGeometry(0.18, 10, 10),
-      new THREE.MeshLambertMaterial({ color: col.head })
+      new THREE.MeshLambertMaterial({ color: 0xffe0b0 })
     );
-    head.position.y = 0.82;
-    head.castShadow = true;
+    head.position.y = 0.82; head.castShadow = true;
     group.add(head);
 
-    // Colour knob on top so you can tell units apart at a glance
     const knob = new THREE.Mesh(
       new THREE.SphereGeometry(0.09, 6, 6),
-      new THREE.MeshLambertMaterial({ color: col.body })
+      new THREE.MeshLambertMaterial({ color: col })
     );
     knob.position.y = 1.04;
     group.add(knob);
 
-    // Selection ring (hidden by default)
+    // Yellow selection ring — hidden by default
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(0.42, 0.05, 6, 24),
-      new THREE.MeshBasicMaterial({ color: 0xffff00 })
+      new THREE.TorusGeometry(0.44, 0.05, 6, 24),
+      new THREE.MeshBasicMaterial({ color: 0xffee00 })
     );
     ring.rotation.x = Math.PI / 2;
-    ring.position.y = 0.05;
-    ring.visible = false;
-    ring.name = 'selectionRing';
+    ring.position.y = 0.04;
+    ring.visible    = false;
+    ring.name       = 'selRing';
     group.add(ring);
 
     group.userData.unit = this;
     return group;
   }
 
-  _setPosition(gx, gz) {
-    this.group.position.set(gx + 0.5, 0, gz + 0.5);
-  }
+  _syncPos() { this.group.position.set(this.gridX + 0.5, 0, this.gridZ + 0.5); }
 
-  // Move to a new grid cell (instant for now)
-  moveTo(gx, gz) {
-    this.gridX = gx;
-    this.gridZ = gz;
-    this._setPosition(gx, gz);
-  }
+  moveTo(gx, gz) { this.gridX = gx; this.gridZ = gz; this._syncPos(); }
 
-  select(on) {
-    this.group.getObjectByName('selectionRing').visible = on;
-  }
+  select(on) { this.group.getObjectByName('selRing').visible = on; }
 
   get posLabel() { return `(${this.gridX}, ${this.gridZ})`; }
 }
 
-// ─────────────────────────────────────────────
-// SPAWN SOME TEST UNITS
-// ─────────────────────────────────────────────
+// ── Test units ───────────────────────────────────────
 const units = [];
-function spawnUnit(cfg) {
-  const u = new Unit(cfg);
-  units.push(u);
-  return u;
+const spawn = cfg => { const u = new Unit(cfg); units.push(u); return u; };
+
+spawn({ type:'Infantry', player:1, gridX:10, gridZ:30, hp:5 });
+spawn({ type:'Archer',   player:1, gridX:12, gridZ:45, hp:3 });
+spawn({ type:'Knight',   player:1, gridX:10, gridZ:60, hp:7 });
+spawn({ type:'Infantry', player:2, gridX:85, gridZ:30, hp:5 });
+spawn({ type:'Archer',   player:2, gridX:83, gridZ:45, hp:3 });
+spawn({ type:'Knight',   player:2, gridX:85, gridZ:60, hp:7 });
+
+// ═══════════════════════════════════════════════════════
+// CAMERA MODE STATE
+// ═══════════════════════════════════════════════════════
+let cameraMode = 'strategy'; // 'strategy' | 'ghost'
+
+// ─── Strategy: OrbitControls ────────────────────────
+const orbit = new THREE.OrbitControls(camera, renderer.domElement);
+orbit.target.set(GRID / 2, 0, GRID / 2);
+orbit.minDistance    = 5;
+orbit.maxDistance    = 120;
+orbit.maxPolarAngle  = Math.PI / 2 - 0.04; // can't go below ground
+orbit.enableDamping  = true;
+orbit.dampingFactor  = 0.08;
+orbit.mouseButtons   = {               // only right-drag orbits; left stays for clicking
+  LEFT  : null,
+  MIDDLE: THREE.MOUSE.DOLLY,
+  RIGHT : THREE.MOUSE.ROTATE,
+};
+
+// Starting camera position
+camera.position.set(GRID / 2, 38, GRID * 0.88);
+orbit.update();
+
+// ─── Ghost: PointerLockControls ─────────────────────
+const ghost = new THREE.PointerLockControls(camera, document.body);
+scene.add(ghost.getObject()); // required even though it's the camera
+
+const GHOST_SPEED = 22;       // units per second (normal)
+const GHOST_BOOST = 3.5;      // multiplier when Ctrl held
+const ghostKeys   = {};       // tracks which keys are currently down
+
+ghost.addEventListener('lock',   onGhostLocked);
+ghost.addEventListener('unlock', onGhostUnlocked);
+
+// ═══════════════════════════════════════════════════════
+// MODE SWITCHING
+// ═══════════════════════════════════════════════════════
+function enterGhostMode() {
+  if (cameraMode === 'ghost') return;
+  cameraMode = 'strategy';           // set before lock (lock is async)
+  orbit.enabled = false;
+  document.getElementById('ghost-lock-screen').style.display = 'flex';
+  setBadge('ghost');
+  setStatus('👻 Ghost Mode — click the screen to lock your mouse');
+  document.getElementById('hint-strategy').style.display = 'none';
+  document.getElementById('hint-ghost').style.display    = 'block';
+  // hide unit panel while in ghost mode
+  document.getElementById('unit-panel').style.display = 'none';
+  if (selectedUnit) { selectedUnit.select(false); selectedUnit = null; }
 }
 
-// Player 1 — left half
-spawnUnit({ type: 'Infantry', player: 1, gridX: 10, gridZ: 30, hp: 5 });
-spawnUnit({ type: 'Archer',   player: 1, gridX: 12, gridZ: 40, hp: 3 });
-spawnUnit({ type: 'Knight',   player: 1, gridX: 10, gridZ: 50, hp: 7 });
+function exitGhostMode() {
+  if (cameraMode === 'strategy') return;
+  ghost.unlock();                    // triggers onGhostUnlocked
+}
 
-// Player 2 — right half
-spawnUnit({ type: 'Infantry', player: 2, gridX: 70, gridZ: 30, hp: 5 });
-spawnUnit({ type: 'Archer',   player: 2, gridX: 68, gridZ: 40, hp: 3 });
-spawnUnit({ type: 'Knight',   player: 2, gridX: 70, gridZ: 50, hp: 7 });
+function onGhostLocked() {
+  cameraMode = 'ghost';
+  document.getElementById('ghost-lock-screen').style.display = 'none';
+  document.getElementById('crosshair').style.display         = 'block';
+  setStatus('👻 Ghost Mode — flying freely · F or Esc to exit');
+}
 
-// ─────────────────────────────────────────────
-// SELECTION & MOVEMENT
-// ─────────────────────────────────────────────
+function onGhostUnlocked() {
+  // If we're coming back to strategy (not just a stray Esc while already in strategy)
+  cameraMode = 'strategy';
+  orbit.enabled = true;
+  // Snap orbit target to current camera focus (roughly)
+  orbit.target.set(GRID / 2, 0, GRID / 2);
+  orbit.update();
+  document.getElementById('ghost-lock-screen').style.display = 'none';
+  document.getElementById('crosshair').style.display         = 'none';
+  setBadge('strategy');
+  setStatus('Strategy Mode — click a unit · F = Ghost mode');
+  document.getElementById('hint-strategy').style.display = 'block';
+  document.getElementById('hint-ghost').style.display    = 'none';
+}
+
+// ── F key toggles, Esc is handled automatically by PointerLock API ──
+document.addEventListener('keydown', e => {
+  ghostKeys[e.code] = true;
+
+  if (e.code === 'KeyF') {
+    if (cameraMode === 'strategy') enterGhostMode();
+    else                           exitGhostMode();
+  }
+
+  // Prevent browser shortcuts eating Space
+  if (cameraMode === 'ghost' && e.code === 'Space') e.preventDefault();
+});
+document.addEventListener('keyup', e => { ghostKeys[e.code] = false; });
+
+// Clicking the lock-screen itself triggers the pointer lock
+document.getElementById('ghost-lock-screen').addEventListener('click', () => ghost.lock());
+
+// ═══════════════════════════════════════════════════════
+// GHOST CAMERA MOVEMENT  (called each frame)
+// ═══════════════════════════════════════════════════════
+const _fwd   = new THREE.Vector3();
+const _right = new THREE.Vector3();
+const _worldUp = new THREE.Vector3(0, 1, 0);
+
+function tickGhostMovement(dt) {
+  if (!ghost.isLocked) return;
+
+  const speed = GHOST_SPEED
+    * (ghostKeys['ControlLeft'] || ghostKeys['ControlRight'] ? GHOST_BOOST : 1)
+    * dt;
+
+  // Forward vector from camera look direction (full 3-D so you can dive/soar)
+  camera.getWorldDirection(_fwd);
+
+  // Right vector kept level (no accidental roll)
+  _right.crossVectors(_fwd, _worldUp).normalize();
+
+  if (ghostKeys['KeyW'])                                   camera.position.addScaledVector(_fwd,    speed);
+  if (ghostKeys['KeyS'])                                   camera.position.addScaledVector(_fwd,   -speed);
+  if (ghostKeys['KeyA'])                                   camera.position.addScaledVector(_right, -speed);
+  if (ghostKeys['KeyD'])                                   camera.position.addScaledVector(_right,  speed);
+  if (ghostKeys['Space'])                                  camera.position.y += speed;
+  if (ghostKeys['ShiftLeft'] || ghostKeys['ShiftRight'])   camera.position.y -= speed;
+
+  // Soft floor — don't go below 0.5
+  if (camera.position.y < 0.5) camera.position.y = 0.5;
+}
+
+// ═══════════════════════════════════════════════════════
+// UNIT SELECTION & MOVEMENT  (strategy mode only)
+// ═══════════════════════════════════════════════════════
 let selectedUnit = null;
-const raycaster   = new THREE.Raycaster();
-const mouse       = new THREE.Vector2();
+let wasDragging  = false;
+const raycaster  = new THREE.Raycaster();
+const mouse2     = new THREE.Vector2();
 
-// Objects the raycaster checks for units
-function unitObjects() {
-  return units.flatMap(u => u.group.children.filter(c => c.isMesh && c.name !== 'selectionRing'));
+function unitMeshes() {
+  return units.flatMap(u => u.group.children.filter(c => c.isMesh && c.name !== 'selRing'));
 }
+
+// Track whether the left-button drag moved enough to count as a drag (not a click)
+let mouseDownPos = { x: 0, y: 0 };
+renderer.domElement.addEventListener('mousedown', e => {
+  if (e.button === 0) { mouseDownPos = { x: e.clientX, y: e.clientY }; wasDragging = false; }
+});
+renderer.domElement.addEventListener('mousemove', e => {
+  if (e.buttons === 1) {
+    const d = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
+    if (d > 4) wasDragging = true;
+  }
+});
 
 renderer.domElement.addEventListener('click', e => {
-  // Don't fire on right-drag release
-  if (e.button !== 0 || wasDragging) return;
+  if (e.button !== 0 || wasDragging || cameraMode !== 'strategy') return;
 
-  mouse.x =  (e.clientX / innerWidth)  * 2 - 1;
-  mouse.y = -(e.clientY / innerHeight) * 2 + 1;
-  raycaster.setFromCamera(mouse, camera);
+  mouse2.x =  (e.clientX / innerWidth)  * 2 - 1;
+  mouse2.y = -(e.clientY / innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse2, camera);
 
-  // 1. Did we click a unit?
-  const unitHits = raycaster.intersectObjects(unitObjects(), false);
+  // Hit a unit?
+  const unitHits = raycaster.intersectObjects(unitMeshes(), false);
   if (unitHits.length) {
-    const hitUnit = unitHits[0].object.parent.userData.unit;
-    if (!hitUnit) return;
-
-    if (selectedUnit && selectedUnit !== hitUnit) selectedUnit.select(false);
-    selectedUnit = hitUnit;
+    const hit = unitHits[0].object.parent.userData.unit;
+    if (!hit) return;
+    if (selectedUnit && selectedUnit !== hit) selectedUnit.select(false);
+    selectedUnit = hit;
     selectedUnit.select(true);
     showPanel(selectedUnit);
-    setStatus(`Selected ${selectedUnit.type} — click ground to move`);
+    setStatus(`Selected ${selectedUnit.type} (P${selectedUnit.player}) — click ground to move`);
     return;
   }
 
-  // 2. Did we click the ground? → move selected unit there
+  // Hit the ground with a unit selected → move it
   if (selectedUnit) {
     const groundObjs = scene.children.filter(o => o.name === 'ground' || o.name === 'tile');
     const groundHits = raycaster.intersectObjects(groundObjs, false);
     if (groundHits.length) {
       const pt = groundHits[0].point;
-      const gx = Math.floor(pt.x);
-      const gz = Math.floor(pt.z);
+      const gx = Math.floor(pt.x), gz = Math.floor(pt.z);
       if (gx >= 0 && gz >= 0 && gx < GRID && gz < GRID) {
         selectedUnit.moveTo(gx, gz);
         showPanel(selectedUnit);
-        setStatus(`Moved ${selectedUnit.type} to (${gx}, ${gz})`);
+        setStatus(`Moved ${selectedUnit.type} → (${gx}, ${gz})`);
         return;
       }
     }
   }
 
-  // 3. Clicked empty space — deselect
+  // Clicked empty space → deselect
   if (selectedUnit) {
     selectedUnit.select(false);
     selectedUnit = null;
-    hidePanel();
-    setStatus('Game of War — click a unit to select it');
+    document.getElementById('unit-panel').style.display = 'none';
+    setStatus('Click a unit · Right-drag to orbit · F = Ghost mode');
   }
 });
 
-// ─────────────────────────────────────────────
-// ORBIT CAMERA (right-drag)
-// ─────────────────────────────────────────────
-let isRightDragging = false;
-let wasDragging     = false;
-let lastMX = 0, lastMY = 0;
-let camTheta = 0, camPhi = 0.75, camDist = 45;
-const camTarget = new THREE.Vector3(GRID / 2, 0, GRID / 2);
-
-function updateCamera() {
-  camera.position.set(
-    camTarget.x + camDist * Math.sin(camPhi) * Math.sin(camTheta),
-    camTarget.y + camDist * Math.cos(camPhi),
-    camTarget.z + camDist * Math.sin(camPhi) * Math.cos(camTheta)
-  );
-  camera.lookAt(camTarget);
-}
-updateCamera();
-
-renderer.domElement.addEventListener('mousedown', e => {
-  if (e.button === 2) { isRightDragging = true; wasDragging = false; lastMX = e.clientX; lastMY = e.clientY; }
-});
-renderer.domElement.addEventListener('mousemove', e => {
-  if (!isRightDragging) return;
-  const dx = e.clientX - lastMX, dy = e.clientY - lastMY;
-  if (Math.abs(dx) + Math.abs(dy) > 3) wasDragging = true;
-  camTheta -= dx * 0.008;
-  camPhi    = Math.max(0.15, Math.min(1.45, camPhi - dy * 0.008));
-  lastMX = e.clientX; lastMY = e.clientY;
-  updateCamera();
-});
-renderer.domElement.addEventListener('mouseup',    () => { isRightDragging = false; });
-renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
-renderer.domElement.addEventListener('wheel', e => {
-  camDist = Math.max(5, Math.min(100, camDist + e.deltaY * 0.05));
-  updateCamera();
-});
-
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
 // UI HELPERS
-// ─────────────────────────────────────────────
-function setStatus(msg) { document.getElementById('status').textContent = msg; }
+// ═══════════════════════════════════════════════════════
+function setStatus(msg) { document.getElementById('status').innerHTML = msg; }
+
+function setBadge(mode) {
+  const b = document.getElementById('mode-badge');
+  b.className   = `${mode}`;
+  b.textContent = mode === 'strategy' ? '⚔ Strategy' : '👻 Ghost';
+}
 
 function showPanel(u) {
   const p = document.getElementById('unit-panel');
   p.style.display = 'block';
-  document.getElementById('panel-name').textContent   = `${u.type}`;
+  document.getElementById('panel-name').textContent   = u.type;
   document.getElementById('panel-player').textContent = PLAYER_COLORS[u.player].label;
   document.getElementById('panel-pos').textContent    = u.posLabel;
   document.getElementById('panel-hp').textContent     = `${u.hp} / ${u.maxHp}`;
 }
-function hidePanel() { document.getElementById('unit-panel').style.display = 'none'; }
 
-// ─────────────────────────────────────────────
-// ANIMATE
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+// RENDER LOOP
+// ═══════════════════════════════════════════════════════
 const clock = new THREE.Clock();
+
 function animate() {
   requestAnimationFrame(animate);
-  const t = clock.getElapsedTime();
+  const dt = clock.getDelta();
 
-  // Gently bob the selected unit
-  if (selectedUnit) {
-    selectedUnit.group.position.y = Math.sin(t * 3) * 0.06;
+  if (cameraMode === 'strategy') {
+    orbit.update(); // applies damping
+    // Gently bob the selected unit
+    if (selectedUnit) {
+      selectedUnit.group.position.y = Math.sin(clock.getElapsedTime() * 3) * 0.07;
+    }
+  } else {
+    tickGhostMovement(dt);
   }
 
   renderer.render(scene, camera);
