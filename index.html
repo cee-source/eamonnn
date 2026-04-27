@@ -232,11 +232,14 @@ function makeArcherFort(player, wx, wz){
   return g;
 }
 
-// ─── Global game arrays ───────────────────────────────────────
+// ─── Global game arrays (declared first to avoid temporal dead zone) ──
+const units        = [];
 const forts        = [];
 const arrows       = [];
 const shockwaves   = [];
 const destructibles = [];
+const chunks       = new Map();
+let   _lastCX = null, _lastCZ = null;
 const ARROW_GEO = new THREE.CylinderGeometry(0.04,0.04,0.5,5);
 const ARROW_MAT = new THREE.MeshLambertMaterial({color:0xffcc00});
 const BLAST_R   = 5 * CS;
@@ -309,8 +312,6 @@ for(let row=0;row<ROWS;row++){
 // INFINITE CHUNK SYSTEM
 // ═══════════════════════════════════════════════════════════════
 const CHUNK_CELLS = 16, CHUNK_W = CHUNK_CELLS * CS; // 48 world units per chunk
-const chunks = new Map(); // "cx,cz" → THREE.Group
-let _lastCX = null, _lastCZ = null;
 
 function procType(col, row){
   const n = generateHeight(col*CS+CS/2, row*CS+CS/2) / 2; // normalise 0..1
@@ -322,6 +323,7 @@ function procType(col, row){
 
 function buildChunk(cx, cz){
   const g = new THREE.Group();
+  const chunkDst = []; // track this chunk's destructibles for cleanup on unload
   const rand = seededRand(cx*73856093 ^ cz*19349663+1);
   for(let dr=0; dr<CHUNK_CELLS; dr++){
     for(let dc=0; dc<CHUNK_CELLS; dc++){
@@ -345,7 +347,7 @@ function buildChunk(cx, cz){
           const tree=makeTree(rand), a=rand()*Math.PI*2, r=0.4+rand()*0.45;
           tree.position.set(Math.cos(a)*r,0.4,Math.sin(a)*r);
           tree.rotation.y=rand()*Math.PI*2; cell.add(tree);
-          destructibles.push({obj:tree});
+          const entry={obj:tree}; destructibles.push(entry); chunkDst.push(entry);
         }
       }
       if(type===T.MOUNTAIN){
@@ -358,6 +360,7 @@ function buildChunk(cx, cz){
       g.add(cell);
     }
   }
+  g.userData.destructibles = chunkDst;
   return g;
 }
 
@@ -372,7 +375,16 @@ function updateChunks(){
   }
   for(const [key,c] of chunks){
     const [kx,kz]=key.split(',').map(Number);
-    if(Math.abs(kx-cx)>3||Math.abs(kz-cz)>3){ scene.remove(c); chunks.delete(key); }
+    if(Math.abs(kx-cx)>3||Math.abs(kz-cz)>3){
+      // Purge this chunk's trees from the global destructibles list
+      if(c.userData.destructibles){
+        const toRemove = new Set(c.userData.destructibles);
+        for(let i=destructibles.length-1; i>=0; i--){
+          if(toRemove.has(destructibles[i])) destructibles.splice(i,1);
+        }
+      }
+      scene.remove(c); chunks.delete(key);
+    }
   }
 }
 updateChunks(); // seed initial neighbours
@@ -380,8 +392,6 @@ updateChunks(); // seed initial neighbours
 // ═══════════════════════════════════════════════════════════════
 // UNITS
 // ═══════════════════════════════════════════════════════════════
-
-const units = [];
 
 // Unit body colours
 const U_COL = { 1: 0xcc2222, 2: 0x2244cc };
@@ -767,7 +777,7 @@ function tickArrows(dt){
       const dz=a.mesh.position.z-unit.mesh.position.z;
       if(dx*dx+dy*dy+dz*dz < 0.64){ unit.hp-=5; if(unit.hp<=0) killUnit(unit); hit=true; break; }
     }
-    if(hit||a.traveled>a.maxDist){ scene.remove(a.mesh); arrows.splice(i,1); }
+    if(hit||a.traveled>a.maxDist){ scene.remove(a.mesh); a.mesh=null; arrows.splice(i,1); }
   }
 }
 
