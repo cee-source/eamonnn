@@ -232,6 +232,15 @@ function makeArcherFort(player, wx, wz){
   return g;
 }
 
+// ─── Global game arrays ───────────────────────────────────────
+const forts        = [];
+const arrows       = [];
+const shockwaves   = [];
+const destructibles = [];
+const ARROW_GEO = new THREE.CylinderGeometry(0.04,0.04,0.5,5);
+const ARROW_MAT = new THREE.MeshLambertMaterial({color:0xffcc00});
+const BLAST_R   = 5 * CS;
+
 // ─── Build terrain ────────────────────────────────────────────
 const envGroup = new THREE.Group();
 scene.add(envGroup);
@@ -285,14 +294,6 @@ for(let row=0;row<ROWS;row++){
 });
 
 // ─── Archer Forts ─────────────────────────────────────────────
-const forts       = [];
-const arrows      = [];
-const shockwaves  = [];
-const destructibles = []; // trees + env objects removable by explosions
-const ARROW_GEO = new THREE.CylinderGeometry(0.04,0.04,0.5,5);
-const ARROW_MAT = new THREE.MeshLambertMaterial({color:0xffcc00});
-const BLAST_R   = 5 * CS; // 15 world units
-
 [{player:1,col:2,row:2},{player:1,col:2,row:8},
  {player:2,col:11,row:2},{player:2,col:11,row:8}].forEach(({player,col,row})=>{
   const wx=col*CS+CS/2, wz=row*CS+CS/2;
