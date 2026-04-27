@@ -467,55 +467,48 @@ function possessUnit(unit){
   possessedUnit = unit;
   cameraMode    = 'possess';
   possessPitch  = 0;
-  // Snap camera first-person inside the unit
-  camera.position.set(unit.mesh.position.x, 1.5, unit.mesh.position.z);
-  camera.rotation.set(0, unit.mesh.rotation.y, 0, 'YXZ');
-  // Show ring
+  // Parent camera to unit mesh at head height
+  unit.mesh.add(camera);
+  camera.position.set(0, 2, 0);
+  camera.rotation.set(0, 0, 0, 'YXZ');
   selRing.position.set(unit.mesh.position.x, 0.42, unit.mesh.position.z);
   selRing.visible = true;
   document.getElementById('possess-hint').style.display = 'block';
-  setHUD(`👁 Possessing Player ${unit.player} unit — F to exit`);
+  setHUD(`👁 Possessing P${unit.player} unit — F to exit`);
 }
 
 function exitPossession(){
-  // Drop back to ghost mode at eye level of the unit
+  // Unparent camera back to scene, preserving world transform
+  scene.attach(camera);
   camera.position.set(
     possessedUnit.mesh.position.x,
-    4,
+    possessedUnit.mesh.position.y + 4,
     possessedUnit.mesh.position.z + 3
   );
   possessedUnit = null;
   cameraMode    = 'ghost';
   selRing.visible = false;
   document.getElementById('possess-hint').style.display = 'none';
-  setHUD('👻 Ghost Mode — click a unit to possess | F to exit');
+  setHUD('👻 Ghost Mode — click unit to possess | F to exit');
 }
 
 function tickPossess(dt){
   if(!possessedUnit || !ghostLocked) return;
-  const unit = possessedUnit;
-  const spd  = UNIT_SPD * dt;
-
-  // Move in direction unit is facing (its local -Z)
+  const unit = possessedUnit, spd = UNIT_SPD * dt;
   const yaw  = unit.mesh.rotation.y;
   const fwdX = -Math.sin(yaw), fwdZ = -Math.cos(yaw);
   const rtX  = -Math.cos(yaw), rtZ  =  Math.sin(yaw);
 
+  // WASD moves the unit — camera follows as child automatically
   if(ghostKeys['KeyW']){ unit.mesh.position.x+=fwdX*spd; unit.mesh.position.z+=fwdZ*spd; }
   if(ghostKeys['KeyS']){ unit.mesh.position.x-=fwdX*spd; unit.mesh.position.z-=fwdZ*spd; }
   if(ghostKeys['KeyA']){ unit.mesh.position.x+=rtX*spd;  unit.mesh.position.z+=rtZ*spd;  }
   if(ghostKeys['KeyD']){ unit.mesh.position.x-=rtX*spd;  unit.mesh.position.z-=rtZ*spd;  }
 
-  // Clamp to battlefield
   unit.mesh.position.x = Math.max(0.5, Math.min(COLS*CS-0.5, unit.mesh.position.x));
   unit.mesh.position.z = Math.max(0.5, Math.min(ROWS*CS-0.5, unit.mesh.position.z));
   unit.mesh.position.y = 0.4;
 
-  // Camera stays first-person inside unit
-  camera.position.set(unit.mesh.position.x, 1.5, unit.mesh.position.z);
-  camera.rotation.set(possessPitch, unit.mesh.rotation.y, 0, 'YXZ');
-
-  // Selection ring follows
   selRing.position.set(unit.mesh.position.x, 0.42, unit.mesh.position.z);
 }
 
@@ -569,11 +562,10 @@ document.addEventListener('mousemove', e=>{
     camera.quaternion.setFromEuler(_euler);
   }
   if(cameraMode==='possess' && possessedUnit){
-    // Mouse X rotates unit body
     possessedUnit.mesh.rotation.y -= e.movementX*0.002;
-    // Mouse Y tilts camera only
     possessPitch -= e.movementY*0.002;
     possessPitch  = Math.max(-Math.PI/3, Math.min(Math.PI/3, possessPitch));
+    camera.rotation.x = possessPitch; // tilt in unit-local space
   }
 });
 
