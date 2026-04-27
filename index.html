@@ -62,8 +62,8 @@ function tileAt(c,r){ return RAW_MAP[r][c]; }
 
 // ─── Scene / Camera / Renderer ───────────────────────────────
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
-scene.fog        = new THREE.Fog(0x87ceeb, 45, 95);
+scene.background = new THREE.Color(0x1a1a2e);
+scene.fog        = new THREE.FogExp2(0x1a1a2e, 0.02);
 
 const CX = COLS*CS/2, CZ = ROWS*CS/2;
 const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 200);
@@ -84,16 +84,17 @@ window.addEventListener('resize', ()=>{
 });
 
 // ─── Lighting ─────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-const sun = new THREE.DirectionalLight(0xfff4cc, 1.2);
-sun.position.set(20,40,20); sun.castShadow=true;
-sun.shadow.mapSize.set(2048,2048);
-Object.assign(sun.shadow.camera,{left:-70,right:70,top:70,bottom:-70});
+scene.add(new THREE.AmbientLight(0x8899bb, 0.7));
+const sun = new THREE.DirectionalLight(0xffeedd, 1.5);
+sun.position.set(30, 60, 20);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, {left:-80,right:80,top:80,bottom:-80,far:200});
 scene.add(sun);
 
 // ─── Terrain materials ────────────────────────────────────────
 const MAT = {
-  grass:    new THREE.MeshLambertMaterial({color:0x4a7c3f}),
+  grass:    new THREE.MeshStandardMaterial({color:0x4a7c3f, roughness:0.8, metalness:0.2}),
   trunk:    new THREE.MeshLambertMaterial({color:0x5c3d1e}),
   mountain: new THREE.MeshLambertMaterial({color:0x7a7a8a}),
   snow:     new THREE.MeshLambertMaterial({color:0xeeeeee}),
