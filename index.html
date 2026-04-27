@@ -421,7 +421,8 @@ const _groundHit  = new THREE.Vector3();
 let cameraMode    = 'strategy';
 let ghostLocked   = false;
 let possessedUnit = null;
-let possessPitch  = 0;           // camera tilt while possessing
+let isPossessing  = false;
+let possessPitch  = 0;
 
 // ─── Strategy orbit (manual, right-drag) ─────────────────────
 let orbitTheta=0, orbitPhi=0.72, orbitDist=38;
@@ -479,10 +480,10 @@ const UNIT_SPD = 5;
 function possessUnit(unit){
   possessedUnit = unit;
   cameraMode    = 'possess';
+  isPossessing  = true;
   possessPitch  = 0;
-  // Parent camera to unit mesh at head height
   unit.mesh.add(camera);
-  camera.position.set(0, 2, 0);
+  camera.position.set(0, 1.5, 0.5);   // eyes inside unit
   camera.rotation.set(0, 0, 0, 'YXZ');
   selRing.position.set(unit.mesh.position.x, 0.42, unit.mesh.position.z);
   selRing.visible = true;
@@ -491,14 +492,14 @@ function possessUnit(unit){
 }
 
 function exitPossession(){
-  // Unparent camera back to scene, preserving world transform
-  scene.attach(camera);
+  scene.attach(camera);   // unparent, preserve world transform
   camera.position.set(
     possessedUnit.mesh.position.x,
     possessedUnit.mesh.position.y + 4,
     possessedUnit.mesh.position.z + 3
   );
   possessedUnit = null;
+  isPossessing  = false;
   cameraMode    = 'ghost';
   selRing.visible = false;
   document.getElementById('possess-hint').style.display = 'none';
@@ -506,23 +507,20 @@ function exitPossession(){
 }
 
 function tickPossess(dt){
-  if(!possessedUnit || !ghostLocked) return;
-  const unit = possessedUnit, spd = UNIT_SPD * dt;
-  const yaw  = unit.mesh.rotation.y;
-  const fwdX = -Math.sin(yaw), fwdZ = -Math.cos(yaw);
-  const rtX  = -Math.cos(yaw), rtZ  =  Math.sin(yaw);
+  if(!isPossessing || !possessedUnit || !ghostLocked) return;
+  const mesh = possessedUnit.mesh, spd = UNIT_SPD * dt;
 
-  // WASD moves the unit — camera follows as child automatically
-  if(ghostKeys['KeyW']){ unit.mesh.position.x+=fwdX*spd; unit.mesh.position.z+=fwdZ*spd; }
-  if(ghostKeys['KeyS']){ unit.mesh.position.x-=fwdX*spd; unit.mesh.position.z-=fwdZ*spd; }
-  if(ghostKeys['KeyA']){ unit.mesh.position.x+=rtX*spd;  unit.mesh.position.z+=rtZ*spd;  }
-  if(ghostKeys['KeyD']){ unit.mesh.position.x-=rtX*spd;  unit.mesh.position.z-=rtZ*spd;  }
+  // translateZ/X uses the unit's local axes — no manual trig needed
+  if(ghostKeys['KeyW']) mesh.translateZ(-spd);
+  if(ghostKeys['KeyS']) mesh.translateZ( spd);
+  if(ghostKeys['KeyA']) mesh.translateX(-spd);
+  if(ghostKeys['KeyD']) mesh.translateX( spd);
 
-  unit.mesh.position.x = Math.max(0.5, Math.min(COLS*CS-0.5, unit.mesh.position.x));
-  unit.mesh.position.z = Math.max(0.5, Math.min(ROWS*CS-0.5, unit.mesh.position.z));
-  unit.mesh.position.y = 0.4;
+  mesh.position.x = Math.max(0.5, Math.min(COLS*CS-0.5, mesh.position.x));
+  mesh.position.z = Math.max(0.5, Math.min(ROWS*CS-0.5, mesh.position.z));
+  mesh.position.y = 0.4;
 
-  selRing.position.set(unit.mesh.position.x, 0.42, unit.mesh.position.z);
+  selRing.position.set(mesh.position.x, 0.42, mesh.position.z);
 }
 
 // ─── Pointer lock ─────────────────────────────────────────────
@@ -574,11 +572,11 @@ document.addEventListener('mousemove', e=>{
     _euler.x  = Math.max(-Math.PI/2+0.01, Math.min(Math.PI/2-0.01, _euler.x));
     camera.quaternion.setFromEuler(_euler);
   }
-  if(cameraMode==='possess' && possessedUnit){
-    possessedUnit.mesh.rotation.y -= e.movementX*0.002;
+  if(isPossessing && possessedUnit){
+    possessedUnit.mesh.rotation.y -= e.movementX*0.002;  // turn the unit body
     possessPitch -= e.movementY*0.002;
     possessPitch  = Math.max(-Math.PI/3, Math.min(Math.PI/3, possessPitch));
-    camera.rotation.x = possessPitch; // tilt in unit-local space
+    camera.rotation.x = possessPitch;  // tilt camera in unit-local space
   }
 });
 
