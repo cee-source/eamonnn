@@ -782,12 +782,18 @@ function tickArrows(dt){
 }
 
 // ─── Fort auto-fire ───────────────────────────────────────────
+const FORT_RELOAD = 2;      // seconds between shots
+const FORT_RANGE  = 12*CS;  // 36 world units — hard cap
+const FORT_SPREAD = 1.4;    // ±units of aim error at target point
+
 function tickForts(dt){
   for(const fort of forts){
     if(fort===possessedFort) continue;
     fort.lastShot+=dt;
-    if(fort.lastShot<2) continue;
-    let nearest=null, nearDist=15*CS;
+    if(fort.lastShot < FORT_RELOAD) continue;
+
+    // Find closest enemy unit within FORT_RANGE (units only — ghost camera is ignored)
+    let nearest=null, nearDist=FORT_RANGE;
     for(const unit of units){
       if(unit.player===fort.player) continue;
       const dx=unit.mesh.position.x-fort.mesh.position.x;
@@ -796,9 +802,13 @@ function tickForts(dt){
       if(d<nearDist){ nearest=unit; nearDist=d; }
     }
     if(!nearest) continue;
+
     fort.lastShot=0;
     const from=fort.mesh.position.clone(); from.y+=3.9;
     const to=nearest.mesh.position.clone(); to.y+=0.8;
+    // Spread: random offset perpendicular to the shot so close shots still feel threatening
+    to.x += (Math.random()-0.5)*FORT_SPREAD*2;
+    to.z += (Math.random()-0.5)*FORT_SPREAD*2;
     spawnArrow(from, to.sub(from).normalize(), fort.player);
   }
 }
