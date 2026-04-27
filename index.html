@@ -132,6 +132,32 @@ function seededRand(seed){
   return ()=>{ s=(s*1664525+1013904223)&0xffffffff; return (s>>>0)/0xffffffff; };
 }
 
+// ─── Perlin noise (deterministic, 2-octave) ───────────────────
+const _P = new Uint8Array(512);
+(function(){
+  const t = Array.from({length:256},(_,i)=>i);
+  let s = 0xdeadbeef;
+  for(let i=255;i>0;i--){
+    s=(Math.imul(s,1664525)+1013904223)|0;
+    const j=(s>>>0)%(i+1); [t[i],t[j]]=[t[j],t[i]];
+  }
+  for(let i=0;i<512;i++) _P[i]=t[i&255];
+})();
+function _fd(t){ return t*t*t*(t*(t*6-15)+10); }
+function _lp(a,b,t){ return a+(b-a)*t; }
+function _gr(h,x,y){ const v=h&3; return(v===0?x+y:v===1?-x+y:v===2?x-y:-x-y); }
+function _n2(x,y){
+  const X=Math.floor(x)&255, Y=Math.floor(y)&255;
+  x-=Math.floor(x); y-=Math.floor(y);
+  const u=_fd(x),v=_fd(y),A=_P[X]+Y,B=_P[X+1]+Y;
+  return 0.5+0.5*_lp(_lp(_gr(_P[A],x,y),_gr(_P[B],x-1,y),u),
+                      _lp(_gr(_P[A+1],x,y-1),_gr(_P[B+1],x-1,y-1),u),v);
+}
+// Returns 0..2 for grass, caller returns -1 for water
+function generateHeight(wx,wz){
+  return (_n2(wx*0.05,wz*0.05)*0.7 + _n2(wx*0.12,wz*0.12)*0.3) * 2;
+}
+
 // ─── Tree builder ─────────────────────────────────────────────
 function makeTree(rand){
   const g=new THREE.Group(), sc=0.75+rand()*0.5, th=0.6*sc, tr=0.12*sc;
@@ -194,7 +220,8 @@ const BASE_GEO = new THREE.BoxGeometry(CS-0.08,0.4,CS-0.08);
 for(let row=0;row<ROWS;row++){
   for(let col=0;col<COLS;col++){
     const type=tileAt(col,row), wx=col*CS+CS/2, wz=row*CS+CS/2;
-    const cell=new THREE.Group(); cell.position.set(wx,0,wz);
+    const cellY = type===T.WATER ? -1 : generateHeight(wx,wz);
+    const cell=new THREE.Group(); cell.position.set(wx,cellY,wz);
 
     if(type!==T.WATER){
       const base=new THREE.Mesh(BASE_GEO,MAT.grass);
