@@ -5,321 +5,524 @@
   <title>Game of War</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #111; overflow: hidden; }
+    body { background: #111; overflow: hidden; font-family: monospace; }
+
+    #hud {
+      position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.65); border: 1px solid #444; border-radius: 16px;
+      padding: 6px 18px; color: #eee; font-size: 13px; pointer-events: none;
+      letter-spacing: 1px;
+    }
+
+    #crosshair {
+      display: none; position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%,-50%); pointer-events: none;
+    }
+    #crosshair::before, #crosshair::after {
+      content:''; position:absolute; background:rgba(255,255,255,0.85);
+    }
+    #crosshair::before { width:2px; height:18px; left:50%; transform:translateX(-50%); }
+    #crosshair::after  { height:2px; width:18px; top:50%;  transform:translateY(-50%); }
+
+    #possess-hint {
+      display: none; position: fixed; bottom: 18px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,200,255,0.15); border: 1px solid rgba(0,200,255,0.5);
+      border-radius: 10px; padding: 7px 18px; color: #7ef; font-size: 12px;
+      pointer-events: none; letter-spacing: 1px;
+    }
   </style>
 </head>
 <body>
+<div id="hud">⚔ GAME OF WAR &nbsp;|&nbsp; F = Ghost Mode &nbsp;|&nbsp; Right-drag = Orbit</div>
+<div id="crosshair"></div>
+<div id="possess-hint">WASD — Move Unit &nbsp;|&nbsp; Mouse — Look &nbsp;|&nbsp; F — Exit Possession</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 'use strict';
 
 // ─── Grid constants ───────────────────────────────────────────
-const COLS = 14;
-const ROWS = 10;
-const CS   = 3;
-
-const T = { PLAIN: 0, FOREST: 1, WATER: 2, MOUNTAIN: 3, HQ: 4 };
+const COLS = 14, ROWS = 10, CS = 3;
+const T = { PLAIN:0, FOREST:1, WATER:2, MOUNTAIN:3, HQ:4 };
 
 const RAW_MAP = [
-//  0  1  2  3  4  5  6  7  8  9 10 11 12 13
-    [4, 0, 0, 0, 0, 0, 3, 3, 0, 0, 0, 0, 0, 0],  // row 0
-    [0, 1, 0, 2, 2, 0, 0, 0, 2, 2, 0, 1, 0, 0],  // row 1
-    [0, 0, 0, 2, 2, 2, 3, 3, 2, 2, 2, 0, 0, 0],  // row 2
-    [0, 2, 0, 0, 1, 0, 0, 1, 0, 0, 3, 0, 2, 0],  // row 3
-    [3, 0, 0, 1, 0, 2, 2, 2, 2, 1, 0, 0, 0, 3],  // row 4
-    [3, 0, 2, 0, 1, 0, 0, 0, 0, 1, 0, 2, 0, 3],  // row 5
-    [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],  // row 6
-    [0, 1, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 1, 0],  // row 7
-    [0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0],  // row 8
-    [0, 0, 0, 0, 0, 0, 3, 3, 0, 0, 0, 0, 4, 0],  // row 9
+    [4,0,0,0,0,0,3,3,0,0,0,0,0,0],
+    [0,1,0,2,2,0,0,0,2,2,0,1,0,0],
+    [0,0,0,2,2,2,3,3,2,2,2,0,0,0],
+    [0,2,0,0,1,0,0,1,0,0,3,0,2,0],
+    [3,0,0,1,0,2,2,2,2,1,0,0,0,3],
+    [3,0,2,0,1,0,0,0,0,1,0,2,0,3],
+    [0,0,0,1,0,0,0,0,0,0,1,0,0,0],
+    [0,1,0,0,0,2,0,0,2,0,0,0,1,0],
+    [0,0,0,0,0,0,2,2,0,0,0,0,0,0],
+    [0,0,0,0,0,0,3,3,0,0,0,0,4,0],
 ];
+function tileAt(c,r){ return RAW_MAP[r][c]; }
 
-function tileAt(col, row) { return RAW_MAP[row][col]; }
-
-// ─── Scene / Renderer / Camera ───────────────────────────────
+// ─── Scene / Camera / Renderer ───────────────────────────────
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 scene.fog        = new THREE.Fog(0x87ceeb, 45, 95);
 
-const CX = (COLS * CS) / 2;
-const CZ = (ROWS * CS) / 2;
-const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 200);
-camera.position.set(CX, 28, CZ + 22);
+const CX = COLS*CS/2, CZ = ROWS*CS/2;
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 200);
+camera.position.set(CX, 28, CZ+22);
 camera.lookAt(CX, 0, CZ);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias:true });
 renderer.setPixelRatio(devicePixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-window.addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight;
+window.addEventListener('resize', ()=>{
+  camera.aspect = innerWidth/innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
 
-// ─── Lighting ────────────────────────────────────────────────
+// ─── Lighting ─────────────────────────────────────────────────
 scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-
 const sun = new THREE.DirectionalLight(0xfff4cc, 1.2);
-sun.position.set(20, 40, 20);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left:-70, right:70, top:70, bottom:-70 });
+sun.position.set(20,40,20); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera,{left:-70,right:70,top:70,bottom:-70});
 scene.add(sun);
 
-// ─── Terrain materials (Lambert) ─────────────────────────────
+// ─── Terrain materials ────────────────────────────────────────
 const MAT = {
-  grass:    new THREE.MeshLambertMaterial({ color: 0x4a7c3f }),
-  trunk:    new THREE.MeshLambertMaterial({ color: 0x5c3d1e }),
-  mountain: new THREE.MeshLambertMaterial({ color: 0x7a7a8a }),
-  snow:     new THREE.MeshLambertMaterial({ color: 0xeeeeee }),
-  water:    new THREE.MeshLambertMaterial({ color: 0x1a6aa0, transparent: true, opacity: 0.6 }),
-  waterBed: new THREE.MeshLambertMaterial({ color: 0x0d3d5c }),
+  grass:    new THREE.MeshLambertMaterial({color:0x4a7c3f}),
+  trunk:    new THREE.MeshLambertMaterial({color:0x5c3d1e}),
+  mountain: new THREE.MeshLambertMaterial({color:0x7a7a8a}),
+  snow:     new THREE.MeshLambertMaterial({color:0xeeeeee}),
+  water:    new THREE.MeshLambertMaterial({color:0x1a6aa0,transparent:true,opacity:0.6}),
+  waterBed: new THREE.MeshLambertMaterial({color:0x0d3d5c}),
 };
+const LEAF_COLS=[0x2d6a2d,0x1e5c1e,0x3a7a2a,0x256325,0x2e7a1e];
+function leafMat(i){ return new THREE.MeshLambertMaterial({color:LEAF_COLS[i%5]}); }
 
-const LEAF_COLORS = [0x2d6a2d, 0x1e5c1e, 0x3a7a2a, 0x256325, 0x2e7a1e];
-function leafMat(i) { return new THREE.MeshLambertMaterial({ color: LEAF_COLORS[i % 5] }); }
-
-// ─── Building materials (Standard for PBR shading) ────────────
+// ─── Building materials (Standard PBR) ────────────────────────
 const BMAT = {
-  stone:   new THREE.MeshStandardMaterial({ color: 0x70707f, roughness: 0.85, metalness: 0.05 }),
-  dark:    new THREE.MeshStandardMaterial({ color: 0x4a4a58, roughness: 0.90, metalness: 0.05 }),
-  wood:    new THREE.MeshStandardMaterial({ color: 0x7a5520, roughness: 0.80 }),
-  flagP1:  new THREE.MeshStandardMaterial({ color: 0xcc2020, side: THREE.DoubleSide, roughness: 0.9 }),
-  flagP2:  new THREE.MeshStandardMaterial({ color: 0x2040cc, side: THREE.DoubleSide, roughness: 0.9 }),
-  flagN:   new THREE.MeshStandardMaterial({ color: 0xdddddd, side: THREE.DoubleSide, roughness: 0.9 }),
+  stone:  new THREE.MeshStandardMaterial({color:0x70707f,roughness:0.85,metalness:0.05}),
+  dark:   new THREE.MeshStandardMaterial({color:0x4a4a58,roughness:0.90,metalness:0.05}),
+  wood:   new THREE.MeshStandardMaterial({color:0x7a5520,roughness:0.80}),
+  flagP1: new THREE.MeshStandardMaterial({color:0xcc2020,side:THREE.DoubleSide,roughness:0.9}),
+  flagP2: new THREE.MeshStandardMaterial({color:0x2040cc,side:THREE.DoubleSide,roughness:0.9}),
+  flagN:  new THREE.MeshStandardMaterial({color:0xdddddd,side:THREE.DoubleSide,roughness:0.9}),
 };
 
-// ─── Collision registry (ghost camera uses this) ──────────────
-const collidables = [];   // { wx, wz, radius }
-const flagMeshes  = [];   // animated flag planes
+// ─── Collision + flag animation registers ─────────────────────
+const collidables = [];   // {wx,wz,radius}
+const flagMeshes  = [];
 
-function checkBuildingCollision(pos) {
-  for (const c of collidables) {
-    const dx = pos.x - c.wx, dz = pos.z - c.wz;
-    if (dx * dx + dz * dz < c.radius * c.radius) return true;
+function checkBuildingCollision(pos){
+  for(const c of collidables){
+    const dx=pos.x-c.wx, dz=pos.z-c.wz;
+    if(dx*dx+dz*dz < c.radius*c.radius) return true;
   }
   return false;
 }
 
+// ─── PRNG ─────────────────────────────────────────────────────
+function seededRand(seed){
+  let s=seed;
+  return ()=>{ s=(s*1664525+1013904223)&0xffffffff; return (s>>>0)/0xffffffff; };
+}
+
+// ─── Tree builder ─────────────────────────────────────────────
+function makeTree(rand){
+  const g=new THREE.Group(), sc=0.75+rand()*0.5, th=0.6*sc, tr=0.12*sc;
+  const lc=leafMat(Math.floor(rand()*5));
+  const trunk=new THREE.Mesh(new THREE.CylinderGeometry(tr*0.7,tr,th,7),MAT.trunk);
+  trunk.position.y=th/2; trunk.castShadow=true; g.add(trunk);
+  const c1=new THREE.Mesh(new THREE.ConeGeometry(0.55*sc,0.9*sc,7),lc);
+  c1.position.y=th+0.35*sc; c1.castShadow=true; g.add(c1);
+  const c2=new THREE.Mesh(new THREE.ConeGeometry(0.35*sc,0.75*sc,7),lc);
+  c2.position.y=th+0.9*sc; c2.castShadow=true; g.add(c2);
+  return g;
+}
+
 // ─── Castle Tower ─────────────────────────────────────────────
-//   Tall CylinderGeometry body + wider battlement ring + merlons + flag
-function makeCastleTower(flagMat, wx, wz) {
-  const g = new THREE.Group();
-  g.userData.isBuilding = true;
-
-  // Main cylindrical shaft
-  const shaft = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.70, 0.85, 8, 12),
-    BMAT.stone
-  );
-  shaft.position.y = 4.2;
-  shaft.castShadow = shaft.receiveShadow = true;
-  g.add(shaft);
-
-  // Wider battlement ring on top
-  const ring = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.05, 1.05, 0.55, 12),
-    BMAT.dark
-  );
-  ring.position.y = 8.5;
-  ring.castShadow = true;
-  g.add(ring);
-
-  // Merlons (8 square crenellations around the top)
-  const merGeo = new THREE.BoxGeometry(0.32, 0.55, 0.32);
-  for (let i = 0; i < 8; i++) {
-    const angle = (i / 8) * Math.PI * 2;
-    const m = new THREE.Mesh(merGeo, BMAT.stone);
-    m.position.set(Math.cos(angle) * 0.95, 9.1, Math.sin(angle) * 0.95);
-    m.castShadow = true;
-    g.add(m);
+function makeCastleTower(fm, wx, wz){
+  const g=new THREE.Group(); g.userData.isBuilding=true;
+  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.70,0.85,8,12),BMAT.stone);
+  shaft.position.y=4.2; shaft.castShadow=shaft.receiveShadow=true; g.add(shaft);
+  const ring=new THREE.Mesh(new THREE.CylinderGeometry(1.05,1.05,0.55,12),BMAT.dark);
+  ring.position.y=8.5; ring.castShadow=true; g.add(ring);
+  const merGeo=new THREE.BoxGeometry(0.32,0.55,0.32);
+  for(let i=0;i<8;i++){
+    const a=(i/8)*Math.PI*2, m=new THREE.Mesh(merGeo,BMAT.stone);
+    m.position.set(Math.cos(a)*0.95,9.1,Math.sin(a)*0.95); m.castShadow=true; g.add(m);
   }
-
-  // Flagpole
-  const pole = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.045, 0.045, 2.8, 6),
-    BMAT.wood
-  );
-  pole.position.y = 10.2;
-  g.add(pole);
-
-  // Flag
-  const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.65), flagMat);
-  flag.position.set(0.55, 11.35, 0);
-  g.add(flag);
-  flagMeshes.push(flag);
-
-  // Register for collision
-  collidables.push({ wx, wz, radius: 1.2 });
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,2.8,6),BMAT.wood);
+  pole.position.y=10.2; g.add(pole);
+  const flag=new THREE.Mesh(new THREE.PlaneGeometry(1.1,0.65),fm);
+  flag.position.set(0.55,11.35,0); g.add(flag); flagMeshes.push(flag);
+  collidables.push({wx,wz,radius:1.2});
   return g;
 }
 
-// ─── Medieval Fortress ───────────────────────────────────────
-//   Wide flat BoxGeometry body + battlement layer + 4 corner turrets + flag
-function makeFortress(flagMat, wx, wz) {
-  const g = new THREE.Group();
-  g.userData.isBuilding = true;
-
-  const W = CS * 0.82;   // fortress footprint relative to cell
-
-  // Main body
-  const body = new THREE.Mesh(new THREE.BoxGeometry(W, 2.2, W), BMAT.stone);
-  body.position.y = 1.1;
-  body.castShadow = body.receiveShadow = true;
-  g.add(body);
-
-  // Battlement layer (slightly wider, sits on top)
-  const batt = new THREE.Mesh(new THREE.BoxGeometry(W + 0.25, 0.45, W + 0.25), BMAT.dark);
-  batt.position.y = 2.42;
-  batt.castShadow = true;
-  g.add(batt);
-
-  // 4 corner turrets
-  const turGeo = new THREE.BoxGeometry(0.52, 1.1, 0.52);
-  const half   = W / 2 - 0.12;
-  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx, sz]) => {
-    const t = new THREE.Mesh(turGeo, BMAT.stone);
-    t.position.set(sx * half, 3.2, sz * half);
-    t.castShadow = true;
-    g.add(t);
+// ─── Medieval Fortress ────────────────────────────────────────
+function makeFortress(fm, wx, wz){
+  const g=new THREE.Group(); g.userData.isBuilding=true;
+  const W=CS*0.82;
+  const body=new THREE.Mesh(new THREE.BoxGeometry(W,2.2,W),BMAT.stone);
+  body.position.y=1.1; body.castShadow=body.receiveShadow=true; g.add(body);
+  const batt=new THREE.Mesh(new THREE.BoxGeometry(W+0.25,0.45,W+0.25),BMAT.dark);
+  batt.position.y=2.42; batt.castShadow=true; g.add(batt);
+  const turGeo=new THREE.BoxGeometry(0.52,1.1,0.52), half=W/2-0.12;
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>{
+    const t=new THREE.Mesh(turGeo,BMAT.stone);
+    t.position.set(sx*half,3.2,sz*half); t.castShadow=true; g.add(t);
   });
-
-  // Flagpole
-  const pole = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.04, 0.04, 2.2, 6),
-    BMAT.wood
-  );
-  pole.position.y = 4.6;
-  g.add(pole);
-
-  // Flag
-  const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.58), flagMat);
-  flag.position.set(0.47, 5.6, 0);
-  g.add(flag);
-  flagMeshes.push(flag);
-
-  // Register for collision (use half-diagonal of footprint)
-  collidables.push({ wx, wz, radius: W * 0.72 });
-  return g;
-}
-
-// ─── Seeded PRNG ─────────────────────────────────────────────
-function seededRand(seed) {
-  let s = seed;
-  return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
-}
-
-// ─── Tree builder ────────────────────────────────────────────
-function makeTree(rand) {
-  const g = new THREE.Group();
-  const sc = 0.75 + rand() * 0.5;
-  const th = 0.6 * sc;
-  const tr = 0.12 * sc;
-  const lc = leafMat(Math.floor(rand() * 5));
-
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(tr * 0.7, tr, th, 7), MAT.trunk);
-  trunk.position.y = th / 2; trunk.castShadow = true; g.add(trunk);
-
-  const c1 = new THREE.Mesh(new THREE.ConeGeometry(0.55 * sc, 0.9 * sc, 7), lc);
-  c1.position.y = th + 0.35 * sc; c1.castShadow = true; g.add(c1);
-
-  const c2 = new THREE.Mesh(new THREE.ConeGeometry(0.35 * sc, 0.75 * sc, 7), lc);
-  c2.position.y = th + 0.9 * sc; c2.castShadow = true; g.add(c2);
-
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,2.2,6),BMAT.wood);
+  pole.position.y=4.6; g.add(pole);
+  const flag=new THREE.Mesh(new THREE.PlaneGeometry(0.95,0.58),fm);
+  flag.position.set(0.47,5.6,0); g.add(flag); flagMeshes.push(flag);
+  collidables.push({wx,wz,radius:W*0.72});
   return g;
 }
 
 // ─── Build terrain ────────────────────────────────────────────
 const envGroup = new THREE.Group();
 scene.add(envGroup);
+const BASE_GEO = new THREE.BoxGeometry(CS-0.08,0.4,CS-0.08);
 
-const BASE_GEO = new THREE.BoxGeometry(CS - 0.08, 0.4, CS - 0.08);
+for(let row=0;row<ROWS;row++){
+  for(let col=0;col<COLS;col++){
+    const type=tileAt(col,row), wx=col*CS+CS/2, wz=row*CS+CS/2;
+    const cell=new THREE.Group(); cell.position.set(wx,0,wz);
 
-for (let row = 0; row < ROWS; row++) {
-  for (let col = 0; col < COLS; col++) {
-    const type = tileAt(col, row);
-    const wx   = col * CS + CS / 2;
-    const wz   = row * CS + CS / 2;
-    const cell = new THREE.Group();
-    cell.position.set(wx, 0, wz);
-
-    // Grass base (all non-water tiles)
-    if (type !== T.WATER) {
-      const base = new THREE.Mesh(BASE_GEO, MAT.grass);
-      base.position.y = 0.2; base.receiveShadow = true;
-      cell.add(base);
+    if(type!==T.WATER){
+      const base=new THREE.Mesh(BASE_GEO,MAT.grass);
+      base.position.y=0.2; base.receiveShadow=true; cell.add(base);
     }
-
-    if (type === T.WATER) {
-      const bed = new THREE.Mesh(new THREE.BoxGeometry(CS-0.08,0.4,CS-0.08), MAT.waterBed);
-      bed.position.y = -0.5; bed.receiveShadow = true; cell.add(bed);
-      const surf = new THREE.Mesh(new THREE.PlaneGeometry(CS-0.08,CS-0.08), MAT.water);
-      surf.rotation.x = -Math.PI / 2; surf.position.y = -0.28; cell.add(surf);
+    if(type===T.WATER){
+      const bed=new THREE.Mesh(new THREE.BoxGeometry(CS-0.08,0.4,CS-0.08),MAT.waterBed);
+      bed.position.y=-0.5; bed.receiveShadow=true; cell.add(bed);
+      const surf=new THREE.Mesh(new THREE.PlaneGeometry(CS-0.08,CS-0.08),MAT.water);
+      surf.rotation.x=-Math.PI/2; surf.position.y=-0.28; cell.add(surf);
     }
-
-    if (type === T.FOREST) {
-      const rand  = seededRand(col * 100 + row * 7 + 42);
-      const count = 2 + Math.floor(rand() * 3);
-      for (let i = 0; i < count; i++) {
-        const tree  = makeTree(rand);
-        const angle = rand() * Math.PI * 2;
-        const r     = 0.45 + rand() * 0.45;
-        tree.position.set(Math.cos(angle) * r, 0.4, Math.sin(angle) * r);
-        tree.rotation.y = rand() * Math.PI * 2;
-        cell.add(tree);
+    if(type===T.FOREST){
+      const rand=seededRand(col*100+row*7+42), count=2+Math.floor(rand()*3);
+      for(let i=0;i<count;i++){
+        const tree=makeTree(rand), a=rand()*Math.PI*2, r=0.45+rand()*0.45;
+        tree.position.set(Math.cos(a)*r,0.4,Math.sin(a)*r);
+        tree.rotation.y=rand()*Math.PI*2; cell.add(tree);
       }
     }
-
-    if (type === T.MOUNTAIN) {
-      const rand  = seededRand(col * 13 + row * 97);
-      const sc    = 0.9 + rand() * 0.4;
-      const peak  = new THREE.Mesh(new THREE.ConeGeometry(0.85*sc,2.0*sc,7), MAT.mountain);
-      peak.position.y = 0.4 + 1.0 * sc; peak.castShadow = true; cell.add(peak);
-      const snow  = new THREE.Mesh(new THREE.ConeGeometry(0.35*sc,0.7*sc,7), MAT.snow);
-      snow.position.y = 0.4 + 1.8 * sc; snow.castShadow = true; cell.add(snow);
+    if(type===T.MOUNTAIN){
+      const rand=seededRand(col*13+row*97), sc=0.9+rand()*0.4;
+      const peak=new THREE.Mesh(new THREE.ConeGeometry(0.85*sc,2.0*sc,7),MAT.mountain);
+      peak.position.y=0.4+1.0*sc; peak.castShadow=true; cell.add(peak);
+      const snow=new THREE.Mesh(new THREE.ConeGeometry(0.35*sc,0.7*sc,7),MAT.snow);
+      snow.position.y=0.4+1.8*sc; snow.castShadow=true; cell.add(snow);
     }
-
-    // HQ tiles → Castle Towers (replace old gold box)
-    if (type === T.HQ) {
-      const isP1  = col < COLS / 2;
-      const tower = makeCastleTower(isP1 ? BMAT.flagP1 : BMAT.flagP2, wx, wz);
-      tower.position.y = 0.4;   // sit on top of the grass base
-      cell.add(tower);
+    if(type===T.HQ){
+      const tower=makeCastleTower(col<COLS/2?BMAT.flagP1:BMAT.flagP2,wx,wz);
+      tower.position.y=0.4; cell.add(tower);
     }
-
     envGroup.add(cell);
   }
 }
 
-// ─── Place Medieval Fortresses (neutral — strategic mid positions)
-const FORTRESS_POSITIONS = [
-  { col: 2,  row: 4, flag: BMAT.flagP1 },   // P1-side stronghold
-  { col: 11, row: 4, flag: BMAT.flagP2 },   // P2-side stronghold
-];
-
-FORTRESS_POSITIONS.forEach(({ col, row, flag }) => {
-  const wx = col * CS + CS / 2;
-  const wz = row * CS + CS / 2;
-  const fort = makeFortress(flag, wx, wz);
-  fort.position.set(wx, 0.4, wz);   // sit on grass level
-  envGroup.add(fort);
+// Mid-map fortresses
+[{col:2,row:4,fm:BMAT.flagP1},{col:11,row:4,fm:BMAT.flagP2}].forEach(({col,row,fm})=>{
+  const wx=col*CS+CS/2, wz=row*CS+CS/2;
+  const fort=makeFortress(fm,wx,wz);
+  fort.position.set(wx,0.4,wz); envGroup.add(fort);
 });
 
-// ─── Animate ─────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// UNITS
+// ═══════════════════════════════════════════════════════════════
+
+const units = [];
+
+// Unit body colours
+const U_COL = { 1: 0xcc2222, 2: 0x2244cc };
+
+function buildUnitMesh(player){
+  const col = U_COL[player];
+  const g   = new THREE.Group();
+  g.userData.isUnit = true;
+
+  // Cylinder body
+  const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.22, 0.28, 0.75, 10),
+    new THREE.MeshLambertMaterial({ color: col })
+  );
+  body.position.y = 0.38; body.castShadow = true; g.add(body);
+
+  // Sphere head
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.2, 10, 10),
+    new THREE.MeshLambertMaterial({ color: 0xffe0b0 })
+  );
+  head.position.y = 0.9; head.castShadow = true; g.add(head);
+
+  // Small colour cap on head (player identifier)
+  const cap = new THREE.Mesh(
+    new THREE.SphereGeometry(0.09, 6, 6),
+    new THREE.MeshLambertMaterial({ color: col })
+  );
+  cap.position.y = 1.08; g.add(cap);
+
+  return g;
+}
+
+function spawnUnit(player, col, row){
+  const wx = col*CS + CS/2;
+  const wz = row*CS + CS/2;
+  const mesh = buildUnitMesh(player);
+  mesh.position.set(wx, 0.4, wz);
+  // Face toward centre of map
+  mesh.rotation.y = player === 1 ? -Math.PI/2 : Math.PI/2;
+  scene.add(mesh);
+  const unit = { player, mesh, col, row, wx, wz };
+  // Let raycaster find parent from any child
+  mesh.traverse(c => { c.userData.unitRef = unit; });
+  units.push(unit);
+  return unit;
+}
+
+// Spawn 5 units per player on open tiles
+const P1_SPAWNS = [[1,2],[2,3],[1,4],[3,5],[1,6]];
+const P2_SPAWNS = [[12,2],[11,3],[12,4],[10,5],[12,6]];
+P1_SPAWNS.forEach(([c,r]) => spawnUnit(1,c,r));
+P2_SPAWNS.forEach(([c,r]) => spawnUnit(2,c,r));
+
+// ─── Selection ring (glowing torus under possessed unit) ──────
+const selRing = new THREE.Mesh(
+  new THREE.TorusGeometry(0.6, 0.06, 8, 40),
+  new THREE.MeshBasicMaterial({ color: 0x00e8ff, transparent: true, opacity: 0.9 })
+);
+selRing.rotation.x = Math.PI / 2;
+selRing.visible    = false;
+scene.add(selRing);
+
+// ═══════════════════════════════════════════════════════════════
+// CAMERA MODES  'strategy' | 'ghost' | 'possess'
+// ═══════════════════════════════════════════════════════════════
+let cameraMode    = 'strategy';
+let ghostLocked   = false;
+let possessedUnit = null;
+let possessPitch  = 0;           // camera tilt while possessing
+
+// ─── Strategy orbit (manual, right-drag) ─────────────────────
+let orbitTheta=0, orbitPhi=0.72, orbitDist=38;
+let tTheta=0,     tPhi=0.72,     tDist=38;
+const orbitTarget = new THREE.Vector3(CX, 0, CZ);
+let rightDrag=false, lastRX=0, lastRY=0;
+
+renderer.domElement.addEventListener('mousedown', e=>{
+  if(e.button===2){ rightDrag=true; lastRX=e.clientX; lastRY=e.clientY; }
+});
+document.addEventListener('mouseup', e=>{ if(e.button===2) rightDrag=false; });
+renderer.domElement.addEventListener('wheel', e=>{
+  if(cameraMode!=='strategy') return;
+  tDist = Math.max(8, Math.min(80, tDist + e.deltaY*0.05));
+});
+renderer.domElement.addEventListener('contextmenu', e=>e.preventDefault());
+
+function tickOrbit(){
+  orbitTheta += (tTheta-orbitTheta)*0.1;
+  orbitPhi   += (tPhi-orbitPhi)*0.1;
+  orbitDist  += (tDist-orbitDist)*0.1;
+  camera.position.set(
+    orbitTarget.x + orbitDist*Math.sin(orbitPhi)*Math.sin(orbitTheta),
+    orbitTarget.y + orbitDist*Math.cos(orbitPhi),
+    orbitTarget.z + orbitDist*Math.sin(orbitPhi)*Math.cos(orbitTheta)
+  );
+  camera.lookAt(orbitTarget);
+}
+
+// ─── Ghost camera ─────────────────────────────────────────────
+const ghostKeys = {};
+const GHOST_SPD  = 14;
+const _fwd   = new THREE.Vector3();
+const _right = new THREE.Vector3();
+const _up    = new THREE.Vector3(0,1,0);
+const _euler = new THREE.Euler(0,0,0,'YXZ');
+
+function tickGhost(dt){
+  if(!ghostLocked) return;
+  camera.getWorldDirection(_fwd);
+  _right.crossVectors(_fwd,_up).normalize();
+  const spd = GHOST_SPD * dt;
+  if(ghostKeys['KeyW']) camera.position.addScaledVector(_fwd,  spd);
+  if(ghostKeys['KeyS']) camera.position.addScaledVector(_fwd, -spd);
+  if(ghostKeys['KeyA']) camera.position.addScaledVector(_right,-spd);
+  if(ghostKeys['KeyD']) camera.position.addScaledVector(_right, spd);
+  if(ghostKeys['Space'])    camera.position.y += spd;
+  if(ghostKeys['ShiftLeft'] || ghostKeys['ShiftRight']) camera.position.y -= spd;
+  camera.position.y = Math.max(0.6, camera.position.y);
+}
+
+// ─── Possession ───────────────────────────────────────────────
+const UNIT_SPD = 5;
+
+function possessUnit(unit){
+  possessedUnit = unit;
+  cameraMode    = 'possess';
+  possessPitch  = 0;
+  // Snap camera first-person inside the unit
+  camera.position.set(unit.mesh.position.x, 1.5, unit.mesh.position.z);
+  camera.rotation.set(0, unit.mesh.rotation.y, 0, 'YXZ');
+  // Show ring
+  selRing.position.set(unit.mesh.position.x, 0.42, unit.mesh.position.z);
+  selRing.visible = true;
+  document.getElementById('possess-hint').style.display = 'block';
+  setHUD(`👁 Possessing Player ${unit.player} unit — F to exit`);
+}
+
+function exitPossession(){
+  // Drop back to ghost mode at eye level of the unit
+  camera.position.set(
+    possessedUnit.mesh.position.x,
+    4,
+    possessedUnit.mesh.position.z + 3
+  );
+  possessedUnit = null;
+  cameraMode    = 'ghost';
+  selRing.visible = false;
+  document.getElementById('possess-hint').style.display = 'none';
+  setHUD('👻 Ghost Mode — click a unit to possess | F to exit');
+}
+
+function tickPossess(dt){
+  if(!possessedUnit || !ghostLocked) return;
+  const unit = possessedUnit;
+  const spd  = UNIT_SPD * dt;
+
+  // Move in direction unit is facing (its local -Z)
+  const yaw  = unit.mesh.rotation.y;
+  const fwdX = -Math.sin(yaw), fwdZ = -Math.cos(yaw);
+  const rtX  = -Math.cos(yaw), rtZ  =  Math.sin(yaw);
+
+  if(ghostKeys['KeyW']){ unit.mesh.position.x+=fwdX*spd; unit.mesh.position.z+=fwdZ*spd; }
+  if(ghostKeys['KeyS']){ unit.mesh.position.x-=fwdX*spd; unit.mesh.position.z-=fwdZ*spd; }
+  if(ghostKeys['KeyA']){ unit.mesh.position.x+=rtX*spd;  unit.mesh.position.z+=rtZ*spd;  }
+  if(ghostKeys['KeyD']){ unit.mesh.position.x-=rtX*spd;  unit.mesh.position.z-=rtZ*spd;  }
+
+  // Clamp to battlefield
+  unit.mesh.position.x = Math.max(0.5, Math.min(COLS*CS-0.5, unit.mesh.position.x));
+  unit.mesh.position.z = Math.max(0.5, Math.min(ROWS*CS-0.5, unit.mesh.position.z));
+  unit.mesh.position.y = 0.4;
+
+  // Camera stays first-person inside unit
+  camera.position.set(unit.mesh.position.x, 1.5, unit.mesh.position.z);
+  camera.rotation.set(possessPitch, unit.mesh.rotation.y, 0, 'YXZ');
+
+  // Selection ring follows
+  selRing.position.set(unit.mesh.position.x, 0.42, unit.mesh.position.z);
+}
+
+// ─── Pointer lock ─────────────────────────────────────────────
+document.addEventListener('pointerlockchange', ()=>{
+  ghostLocked = !!document.pointerLockElement;
+  document.getElementById('crosshair').style.display = ghostLocked ? 'block' : 'none';
+  if(ghostLocked && cameraMode==='strategy'){
+    cameraMode='ghost';
+    setHUD('👻 Ghost Mode — click a unit to possess | F to exit');
+  }
+  if(!ghostLocked && cameraMode==='ghost'){
+    cameraMode='strategy';
+    setHUD('⚔ GAME OF WAR | F = Ghost Mode | Right-drag = Orbit');
+  }
+  if(!ghostLocked && cameraMode==='possess'){
+    exitPossession(); cameraMode='strategy';
+    setHUD('⚔ GAME OF WAR | F = Ghost Mode | Right-drag = Orbit');
+  }
+});
+
+// ─── Key events ───────────────────────────────────────────────
+document.addEventListener('keydown', e=>{
+  ghostKeys[e.code]=true;
+  if(e.code==='Space') e.preventDefault();
+
+  if(e.code==='KeyF'){
+    if(cameraMode==='strategy') document.body.requestPointerLock();
+    else if(cameraMode==='ghost') document.exitPointerLock();
+    else if(cameraMode==='possess') exitPossession();
+  }
+});
+document.addEventListener('keyup', e=>{ ghostKeys[e.code]=false; });
+
+// ─── Mouse look ───────────────────────────────────────────────
+document.addEventListener('mousemove', e=>{
+  if(!ghostLocked) {
+    // Strategy orbit drag
+    if(rightDrag){
+      tTheta -= (e.clientX-lastRX)*0.008;
+      tPhi = Math.max(0.1, Math.min(Math.PI/2-0.04, tPhi-(e.clientY-lastRY)*0.008));
+      lastRX=e.clientX; lastRY=e.clientY;
+    }
+    return;
+  }
+  if(cameraMode==='ghost'){
+    _euler.setFromQuaternion(camera.quaternion);
+    _euler.y -= e.movementX*0.002;
+    _euler.x -= e.movementY*0.002;
+    _euler.x  = Math.max(-Math.PI/2+0.01, Math.min(Math.PI/2-0.01, _euler.x));
+    camera.quaternion.setFromEuler(_euler);
+  }
+  if(cameraMode==='possess' && possessedUnit){
+    // Mouse X rotates unit body
+    possessedUnit.mesh.rotation.y -= e.movementX*0.002;
+    // Mouse Y tilts camera only
+    possessPitch -= e.movementY*0.002;
+    possessPitch  = Math.max(-Math.PI/3, Math.min(Math.PI/3, possessPitch));
+  }
+});
+
+// ─── Raycast click → possess a unit (ghost mode only) ─────────
+const raycaster = new THREE.Raycaster();
+const screenCentre = new THREE.Vector2(0,0);   // pointer-locked = always screen centre
+
+renderer.domElement.addEventListener('click', e=>{
+  if(cameraMode==='ghost' && ghostLocked){
+    raycaster.setFromCamera(screenCentre, camera);
+    // Collect all unit child meshes
+    const targets = units.flatMap(u => {
+      const arr = [];
+      u.mesh.traverse(c => { if(c.isMesh) arr.push(c); });
+      return arr;
+    });
+    const hits = raycaster.intersectObjects(targets, false);
+    if(hits.length){
+      const unit = hits[0].object.userData.unitRef;
+      if(unit) possessUnit(unit);
+    }
+  }
+});
+
+// ─── HUD helper ───────────────────────────────────────────────
+function setHUD(msg){ document.getElementById('hud').textContent = msg; }
+
+// ─── Animate ──────────────────────────────────────────────────
 const clock = new THREE.Clock();
 
-function animate() {
+function animate(){
   requestAnimationFrame(animate);
-  const t = clock.getElapsedTime();
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t  = clock.getElapsedTime();
 
-  // Gently wave all flags
-  flagMeshes.forEach((f, i) => {
-    f.rotation.y = Math.sin(t * 1.8 + i * 1.3) * 0.25;
-  });
+  // Flag wave
+  flagMeshes.forEach((f,i)=>{ f.rotation.y = Math.sin(t*1.8+i*1.3)*0.25; });
+
+  // Selection ring pulse
+  if(selRing.visible){
+    const p = 0.92 + Math.sin(t*4)*0.08;
+    selRing.scale.set(p,p,p);
+    selRing.material.opacity = 0.6 + Math.sin(t*4)*0.3;
+  }
+
+  if(cameraMode==='strategy') tickOrbit();
+  else if(cameraMode==='ghost')   tickGhost(dt);
+  else if(cameraMode==='possess') tickPossess(dt);
 
   renderer.render(scene, camera);
 }
