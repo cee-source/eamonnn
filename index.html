@@ -16,11 +16,10 @@
 // ─── Grid constants ───────────────────────────────────────────
 const COLS = 14;
 const ROWS = 10;
-const CS   = 3;          // cell size in world units
+const CS   = 3;
 
 const T = { PLAIN: 0, FOREST: 1, WATER: 2, MOUNTAIN: 3, HQ: 4 };
 
-// Hand-crafted terrain layout (matches original game map)
 const RAW_MAP = [
 //  0  1  2  3  4  5  6  7  8  9 10 11 12 13
     [4, 0, 0, 0, 0, 0, 3, 3, 0, 0, 0, 0, 0, 0],  // row 0
@@ -38,13 +37,13 @@ const RAW_MAP = [
 function tileAt(col, row) { return RAW_MAP[row][col]; }
 
 // ─── Scene / Renderer / Camera ───────────────────────────────
-const scene    = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);          // sky blue
-scene.fog        = new THREE.Fog(0x87ceeb, 40, 90);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog        = new THREE.Fog(0x87ceeb, 45, 95);
 
-const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 200);
 const CX = (COLS * CS) / 2;
 const CZ = (ROWS * CS) / 2;
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 200);
 camera.position.set(CX, 28, CZ + 22);
 camera.lookAt(CX, 0, CZ);
 
@@ -62,86 +61,180 @@ window.addEventListener('resize', () => {
 });
 
 // ─── Lighting ────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
 
 const sun = new THREE.DirectionalLight(0xfff4cc, 1.2);
 sun.position.set(20, 40, 20);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left   = -60;
-sun.shadow.camera.right  =  60;
-sun.shadow.camera.top    =  60;
-sun.shadow.camera.bottom = -60;
+Object.assign(sun.shadow.camera, { left:-70, right:70, top:70, bottom:-70 });
 scene.add(sun);
 
-// ─── Shared geometry / material cache ────────────────────────
+// ─── Terrain materials (Lambert) ─────────────────────────────
 const MAT = {
   grass:    new THREE.MeshLambertMaterial({ color: 0x4a7c3f }),
-  dirt:     new THREE.MeshLambertMaterial({ color: 0x6b4f2a }),
+  trunk:    new THREE.MeshLambertMaterial({ color: 0x5c3d1e }),
   mountain: new THREE.MeshLambertMaterial({ color: 0x7a7a8a }),
   snow:     new THREE.MeshLambertMaterial({ color: 0xeeeeee }),
-  hq:       new THREE.MeshLambertMaterial({ color: 0xd4a017 }),
-  trunk:    new THREE.MeshLambertMaterial({ color: 0x5c3d1e }),
   water:    new THREE.MeshLambertMaterial({ color: 0x1a6aa0, transparent: true, opacity: 0.6 }),
   waterBed: new THREE.MeshLambertMaterial({ color: 0x0d3d5c }),
 };
 
-// Leaf greens — slight variation so trees look different
 const LEAF_COLORS = [0x2d6a2d, 0x1e5c1e, 0x3a7a2a, 0x256325, 0x2e7a1e];
-function leafMat(idx) {
-  return new THREE.MeshLambertMaterial({ color: LEAF_COLORS[idx % LEAF_COLORS.length] });
+function leafMat(i) { return new THREE.MeshLambertMaterial({ color: LEAF_COLORS[i % 5] }); }
+
+// ─── Building materials (Standard for PBR shading) ────────────
+const BMAT = {
+  stone:   new THREE.MeshStandardMaterial({ color: 0x70707f, roughness: 0.85, metalness: 0.05 }),
+  dark:    new THREE.MeshStandardMaterial({ color: 0x4a4a58, roughness: 0.90, metalness: 0.05 }),
+  wood:    new THREE.MeshStandardMaterial({ color: 0x7a5520, roughness: 0.80 }),
+  flagP1:  new THREE.MeshStandardMaterial({ color: 0xcc2020, side: THREE.DoubleSide, roughness: 0.9 }),
+  flagP2:  new THREE.MeshStandardMaterial({ color: 0x2040cc, side: THREE.DoubleSide, roughness: 0.9 }),
+  flagN:   new THREE.MeshStandardMaterial({ color: 0xdddddd, side: THREE.DoubleSide, roughness: 0.9 }),
+};
+
+// ─── Collision registry (ghost camera uses this) ──────────────
+const collidables = [];   // { wx, wz, radius }
+const flagMeshes  = [];   // animated flag planes
+
+function checkBuildingCollision(pos) {
+  for (const c of collidables) {
+    const dx = pos.x - c.wx, dz = pos.z - c.wz;
+    if (dx * dx + dz * dz < c.radius * c.radius) return true;
+  }
+  return false;
 }
 
-// ─── Seeded pseudo-random (same map = same trees every load) ─
+// ─── Castle Tower ─────────────────────────────────────────────
+//   Tall CylinderGeometry body + wider battlement ring + merlons + flag
+function makeCastleTower(flagMat, wx, wz) {
+  const g = new THREE.Group();
+  g.userData.isBuilding = true;
+
+  // Main cylindrical shaft
+  const shaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.70, 0.85, 8, 12),
+    BMAT.stone
+  );
+  shaft.position.y = 4.2;
+  shaft.castShadow = shaft.receiveShadow = true;
+  g.add(shaft);
+
+  // Wider battlement ring on top
+  const ring = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.05, 1.05, 0.55, 12),
+    BMAT.dark
+  );
+  ring.position.y = 8.5;
+  ring.castShadow = true;
+  g.add(ring);
+
+  // Merlons (8 square crenellations around the top)
+  const merGeo = new THREE.BoxGeometry(0.32, 0.55, 0.32);
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2;
+    const m = new THREE.Mesh(merGeo, BMAT.stone);
+    m.position.set(Math.cos(angle) * 0.95, 9.1, Math.sin(angle) * 0.95);
+    m.castShadow = true;
+    g.add(m);
+  }
+
+  // Flagpole
+  const pole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.045, 0.045, 2.8, 6),
+    BMAT.wood
+  );
+  pole.position.y = 10.2;
+  g.add(pole);
+
+  // Flag
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.65), flagMat);
+  flag.position.set(0.55, 11.35, 0);
+  g.add(flag);
+  flagMeshes.push(flag);
+
+  // Register for collision
+  collidables.push({ wx, wz, radius: 1.2 });
+  return g;
+}
+
+// ─── Medieval Fortress ───────────────────────────────────────
+//   Wide flat BoxGeometry body + battlement layer + 4 corner turrets + flag
+function makeFortress(flagMat, wx, wz) {
+  const g = new THREE.Group();
+  g.userData.isBuilding = true;
+
+  const W = CS * 0.82;   // fortress footprint relative to cell
+
+  // Main body
+  const body = new THREE.Mesh(new THREE.BoxGeometry(W, 2.2, W), BMAT.stone);
+  body.position.y = 1.1;
+  body.castShadow = body.receiveShadow = true;
+  g.add(body);
+
+  // Battlement layer (slightly wider, sits on top)
+  const batt = new THREE.Mesh(new THREE.BoxGeometry(W + 0.25, 0.45, W + 0.25), BMAT.dark);
+  batt.position.y = 2.42;
+  batt.castShadow = true;
+  g.add(batt);
+
+  // 4 corner turrets
+  const turGeo = new THREE.BoxGeometry(0.52, 1.1, 0.52);
+  const half   = W / 2 - 0.12;
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx, sz]) => {
+    const t = new THREE.Mesh(turGeo, BMAT.stone);
+    t.position.set(sx * half, 3.2, sz * half);
+    t.castShadow = true;
+    g.add(t);
+  });
+
+  // Flagpole
+  const pole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.04, 0.04, 2.2, 6),
+    BMAT.wood
+  );
+  pole.position.y = 4.6;
+  g.add(pole);
+
+  // Flag
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.58), flagMat);
+  flag.position.set(0.47, 5.6, 0);
+  g.add(flag);
+  flagMeshes.push(flag);
+
+  // Register for collision (use half-diagonal of footprint)
+  collidables.push({ wx, wz, radius: W * 0.72 });
+  return g;
+}
+
+// ─── Seeded PRNG ─────────────────────────────────────────────
 function seededRand(seed) {
   let s = seed;
-  return function () {
-    s = (s * 1664525 + 1013904223) & 0xffffffff;
-    return (s >>> 0) / 0xffffffff;
-  };
+  return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
 }
 
-// ─── Tree builder ─────────────────────────────────────────────
+// ─── Tree builder ────────────────────────────────────────────
 function makeTree(rand) {
-  const group = new THREE.Group();
+  const g = new THREE.Group();
+  const sc = 0.75 + rand() * 0.5;
+  const th = 0.6 * sc;
+  const tr = 0.12 * sc;
+  const lc = leafMat(Math.floor(rand() * 5));
 
-  const scale      = 0.75 + rand() * 0.5;      // 0.75 – 1.25
-  const trunkH     = 0.6 * scale;
-  const trunkR     = 0.12 * scale;
-  const leafColor  = leafMat(Math.floor(rand() * LEAF_COLORS.length));
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(tr * 0.7, tr, th, 7), MAT.trunk);
+  trunk.position.y = th / 2; trunk.castShadow = true; g.add(trunk);
 
-  // Trunk
-  const trunk = new THREE.Mesh(
-    new THREE.CylinderGeometry(trunkR * 0.7, trunkR, trunkH, 7),
-    MAT.trunk
-  );
-  trunk.position.y = trunkH / 2;
-  trunk.castShadow  = true;
-  group.add(trunk);
+  const c1 = new THREE.Mesh(new THREE.ConeGeometry(0.55 * sc, 0.9 * sc, 7), lc);
+  c1.position.y = th + 0.35 * sc; c1.castShadow = true; g.add(c1);
 
-  // Lower cone (wider)
-  const cone1 = new THREE.Mesh(
-    new THREE.ConeGeometry(0.55 * scale, 0.9 * scale, 7),
-    leafColor
-  );
-  cone1.position.y = trunkH + 0.35 * scale;
-  cone1.castShadow  = true;
-  group.add(cone1);
+  const c2 = new THREE.Mesh(new THREE.ConeGeometry(0.35 * sc, 0.75 * sc, 7), lc);
+  c2.position.y = th + 0.9 * sc; c2.castShadow = true; g.add(c2);
 
-  // Upper cone (narrower, stacked)
-  const cone2 = new THREE.Mesh(
-    new THREE.ConeGeometry(0.35 * scale, 0.75 * scale, 7),
-    leafColor
-  );
-  cone2.position.y = trunkH + 0.9 * scale;
-  cone2.castShadow  = true;
-  group.add(cone2);
-
-  return group;
+  return g;
 }
 
-// ─── Build the full map ───────────────────────────────────────
-const envGroup = new THREE.Group();   // all terrain / decoration
+// ─── Build terrain ────────────────────────────────────────────
+const envGroup = new THREE.Group();
 scene.add(envGroup);
 
 const BASE_GEO = new THREE.BoxGeometry(CS - 0.08, 0.4, CS - 0.08);
@@ -151,103 +244,83 @@ for (let row = 0; row < ROWS; row++) {
     const type = tileAt(col, row);
     const wx   = col * CS + CS / 2;
     const wz   = row * CS + CS / 2;
+    const cell = new THREE.Group();
+    cell.position.set(wx, 0, wz);
 
-    const cellGroup = new THREE.Group();
-    cellGroup.position.set(wx, 0, wz);
-
-    // ── Grass base tile ───────────────────────────────────────
+    // Grass base (all non-water tiles)
     if (type !== T.WATER) {
       const base = new THREE.Mesh(BASE_GEO, MAT.grass);
-      base.position.y   = 0.2;
-      base.receiveShadow = true;
-      cellGroup.add(base);
+      base.position.y = 0.2; base.receiveShadow = true;
+      cell.add(base);
     }
 
-    // ── WATER ─────────────────────────────────────────────────
     if (type === T.WATER) {
-      // Lowered dirt bed
-      const bed = new THREE.Mesh(
-        new THREE.BoxGeometry(CS - 0.08, 0.4, CS - 0.08),
-        MAT.waterBed
-      );
-      bed.position.y    = -0.5;          // below ground level
-      bed.receiveShadow = true;
-      cellGroup.add(bed);
-
-      // Semi-transparent water surface
-      const surface = new THREE.Mesh(
-        new THREE.PlaneGeometry(CS - 0.08, CS - 0.08),
-        MAT.water
-      );
-      surface.rotation.x = -Math.PI / 2;
-      surface.position.y = -0.28;        // sit just above the bed
-      cellGroup.add(surface);
+      const bed = new THREE.Mesh(new THREE.BoxGeometry(CS-0.08,0.4,CS-0.08), MAT.waterBed);
+      bed.position.y = -0.5; bed.receiveShadow = true; cell.add(bed);
+      const surf = new THREE.Mesh(new THREE.PlaneGeometry(CS-0.08,CS-0.08), MAT.water);
+      surf.rotation.x = -Math.PI / 2; surf.position.y = -0.28; cell.add(surf);
     }
 
-    // ── FOREST ────────────────────────────────────────────────
     if (type === T.FOREST) {
-      const rand = seededRand(col * 100 + row * 7 + 42);
-
-      // 2-4 trees per forest tile, offset from centre so units fit
+      const rand  = seededRand(col * 100 + row * 7 + 42);
       const count = 2 + Math.floor(rand() * 3);
       for (let i = 0; i < count; i++) {
-        const tree = makeTree(rand);
-
-        // Place in a ring around the tile centre (avoid dead centre)
-        const angle  = rand() * Math.PI * 2;
-        const radius = 0.45 + rand() * 0.45;   // 0.45 – 0.9 units from centre
-        tree.position.set(
-          Math.cos(angle) * radius,
-          0.4,                                  // sit on top of grass tile
-          Math.sin(angle) * radius
-        );
+        const tree  = makeTree(rand);
+        const angle = rand() * Math.PI * 2;
+        const r     = 0.45 + rand() * 0.45;
+        tree.position.set(Math.cos(angle) * r, 0.4, Math.sin(angle) * r);
         tree.rotation.y = rand() * Math.PI * 2;
-        tree.castShadow = true;
-        cellGroup.add(tree);
+        cell.add(tree);
       }
     }
 
-    // ── MOUNTAIN ──────────────────────────────────────────────
     if (type === T.MOUNTAIN) {
       const rand  = seededRand(col * 13 + row * 97);
-      const scale = 0.9 + rand() * 0.4;
-
-      const peak = new THREE.Mesh(
-        new THREE.ConeGeometry(0.85 * scale, 2.0 * scale, 7),
-        MAT.mountain
-      );
-      peak.position.y = 0.4 + 1.0 * scale;
-      peak.castShadow = true;
-      cellGroup.add(peak);
-
-      // Snow cap
-      const snow = new THREE.Mesh(
-        new THREE.ConeGeometry(0.35 * scale, 0.7 * scale, 7),
-        MAT.snow
-      );
-      snow.position.y = 0.4 + 1.8 * scale;
-      snow.castShadow = true;
-      cellGroup.add(snow);
+      const sc    = 0.9 + rand() * 0.4;
+      const peak  = new THREE.Mesh(new THREE.ConeGeometry(0.85*sc,2.0*sc,7), MAT.mountain);
+      peak.position.y = 0.4 + 1.0 * sc; peak.castShadow = true; cell.add(peak);
+      const snow  = new THREE.Mesh(new THREE.ConeGeometry(0.35*sc,0.7*sc,7), MAT.snow);
+      snow.position.y = 0.4 + 1.8 * sc; snow.castShadow = true; cell.add(snow);
     }
 
-    // ── HQ ────────────────────────────────────────────────────
+    // HQ tiles → Castle Towers (replace old gold box)
     if (type === T.HQ) {
-      const fort = new THREE.Mesh(
-        new THREE.BoxGeometry(CS * 0.6, 1.2, CS * 0.6),
-        MAT.hq
-      );
-      fort.position.y  = 0.4 + 0.6;
-      fort.castShadow  = true;
-      cellGroup.add(fort);
+      const isP1  = col < COLS / 2;
+      const tower = makeCastleTower(isP1 ? BMAT.flagP1 : BMAT.flagP2, wx, wz);
+      tower.position.y = 0.4;   // sit on top of the grass base
+      cell.add(tower);
     }
 
-    envGroup.add(cellGroup);
+    envGroup.add(cell);
   }
 }
 
+// ─── Place Medieval Fortresses (neutral — strategic mid positions)
+const FORTRESS_POSITIONS = [
+  { col: 2,  row: 4, flag: BMAT.flagP1 },   // P1-side stronghold
+  { col: 11, row: 4, flag: BMAT.flagP2 },   // P2-side stronghold
+];
+
+FORTRESS_POSITIONS.forEach(({ col, row, flag }) => {
+  const wx = col * CS + CS / 2;
+  const wz = row * CS + CS / 2;
+  const fort = makeFortress(flag, wx, wz);
+  fort.position.set(wx, 0.4, wz);   // sit on grass level
+  envGroup.add(fort);
+});
+
 // ─── Animate ─────────────────────────────────────────────────
+const clock = new THREE.Clock();
+
 function animate() {
   requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  // Gently wave all flags
+  flagMeshes.forEach((f, i) => {
+    f.rotation.y = Math.sin(t * 1.8 + i * 1.3) * 0.25;
+  });
+
   renderer.render(scene, camera);
 }
 animate();
