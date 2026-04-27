@@ -466,6 +466,131 @@ function spawnTNT(player, col, row){
   return unit;
 }
 
+// ─── Wizard mesh ──────────────────────────────────────────────
+function buildWizardMesh(player){
+  const col=player===1?0x8822cc:0x2288cc;
+  const g=new THREE.Group(); g.userData.isUnit=true;
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.20,0.26,0.75,8),new THREE.MeshLambertMaterial({color:col}));
+  body.position.y=0.38; body.castShadow=true; g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.2,10,10),new THREE.MeshLambertMaterial({color:0xffe0b0}));
+  head.position.y=0.9; g.add(head);
+  // pointy hat
+  const hat=new THREE.Mesh(new THREE.ConeGeometry(0.22,0.55,8),new THREE.MeshLambertMaterial({color:col}));
+  hat.position.y=1.22; g.add(hat);
+  return g;
+}
+function spawnWizard(player,col,row){
+  const wx=col*CS+CS/2, wz=row*CS+CS/2;
+  const mesh=buildWizardMesh(player);
+  mesh.position.set(wx,0.4,wz);
+  mesh.rotation.y=player===1?-Math.PI/2:Math.PI/2;
+  scene.add(mesh);
+  const unit={player,mesh,col,row,wx,wz,hp:15,isWizard:true,teleportCooldown:0,fireballCooldown:0};
+  mesh.traverse(c=>{c.userData.unitRef=unit;});
+  units.push(unit); return unit;
+}
+
+// ─── Cook mesh ────────────────────────────────────────────────
+function buildCookMesh(player){
+  const col=player===1?0xcc6622:0x22aacc;
+  const g=new THREE.Group(); g.userData.isUnit=true;
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.28,0.75,10),new THREE.MeshLambertMaterial({color:col}));
+  body.position.y=0.38; body.castShadow=true; g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.2,10,10),new THREE.MeshLambertMaterial({color:0xffe0b0}));
+  head.position.y=0.9; g.add(head);
+  // chef hat (white cylinder)
+  const hat=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.21,0.35,8),new THREE.MeshLambertMaterial({color:0xffffff}));
+  hat.position.y=1.14; g.add(hat);
+  return g;
+}
+function spawnCook(player,col,row){
+  const wx=col*CS+CS/2, wz=row*CS+CS/2;
+  const mesh=buildCookMesh(player);
+  mesh.position.set(wx,0.4,wz);
+  mesh.rotation.y=player===1?-Math.PI/2:Math.PI/2;
+  scene.add(mesh);
+  const unit={player,mesh,col,row,wx,wz,hp:18,isCook:true,healTimer:0};
+  mesh.traverse(c=>{c.userData.unitRef=unit;});
+  units.push(unit); return unit;
+}
+
+// ─── Spy mesh ─────────────────────────────────────────────────
+function buildSpyMesh(player){
+  const col=player===1?0x444422:0x224444;
+  const g=new THREE.Group(); g.userData.isUnit=true;
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.24,0.75,10),new THREE.MeshLambertMaterial({color:col,transparent:true,opacity:0.28}));
+  body.position.y=0.38; body.castShadow=true; g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.2,10,10),new THREE.MeshLambertMaterial({color:0xffe0b0,transparent:true,opacity:0.28}));
+  head.position.y=0.9; g.add(head);
+  return g;
+}
+function spawnSpy(player,col,row){
+  const wx=col*CS+CS/2, wz=row*CS+CS/2;
+  const mesh=buildSpyMesh(player);
+  mesh.position.set(wx,0.4,wz);
+  mesh.rotation.y=player===1?-Math.PI/2:Math.PI/2;
+  scene.add(mesh);
+  const unit={player,mesh,col,row,wx,wz,hp:12,isSpy:true};
+  mesh.traverse(c=>{c.userData.unitRef=unit;});
+  units.push(unit); return unit;
+}
+
+// ─── Fireball projectiles ─────────────────────────────────────
+const fireballs = [];
+const FB_GEO = new THREE.SphereGeometry(0.28,8,6);
+function spawnFireball(from, dir, ownerPlayer){
+  const mat=new THREE.MeshLambertMaterial({color:0xff6600,emissive:0xff3300,emissiveIntensity:1});
+  const mesh=new THREE.Mesh(FB_GEO,mat);
+  mesh.position.copy(from); scene.add(mesh);
+  fireballs.push({mesh,mat,dir:dir.clone().normalize(),speed:18,ownerPlayer,traveled:0,maxDist:10*CS});
+}
+function tickFireballs(dt){
+  for(let i=fireballs.length-1;i>=0;i--){
+    const fb=fireballs[i];
+    const step=fb.speed*dt; fb.traveled+=step;
+    fb.mesh.position.addScaledVector(fb.dir,step);
+    let hit=false;
+    for(const u of units){
+      if(u.player===fb.ownerPlayer) continue;
+      const dx=fb.mesh.position.x-u.mesh.position.x;
+      const dz=fb.mesh.position.z-u.mesh.position.z;
+      if(dx*dx+dz*dz<(2*CS)*(2*CS)){  // AoE: 2-tile blast
+        // damage all enemies in radius
+        units.filter(e=>{ const ex=e.mesh.position.x-fb.mesh.position.x,ez=e.mesh.position.z-fb.mesh.position.z; return e.player!==fb.ownerPlayer&&ex*ex+ez*ez<(2*CS)*(2*CS); }).forEach(e=>{e.hp-=12;if(e.hp<=0)killUnit(e);});
+        spawnShockwave(fb.mesh.position.clone());
+        hit=true; break;
+      }
+    }
+    if(hit||fb.traveled>fb.maxDist){ scene.remove(fb.mesh); fb.mat.dispose(); fireballs.splice(i,1); }
+  }
+}
+
+// ─── Special unit ticks ───────────────────────────────────────
+function tickSpecialUnits(dt){
+  // Cook: heal nearby friendlies every 5 seconds
+  for(const u of units){
+    if(!u.isCook) continue;
+    u.healTimer=(u.healTimer||0)+dt;
+    if(u.healTimer<5) continue;
+    u.healTimer=0;
+    for(const f of units){
+      if(f.player!==u.player) continue;
+      const dx=f.mesh.position.x-u.mesh.position.x, dz=f.mesh.position.z-u.mesh.position.z;
+      if(dx*dx+dz*dz<(3*CS)*(3*CS)) f.hp=Math.min(f.hp+2,30);
+    }
+  }
+  // Spy: reveal enemy spies within 15-tile radius
+  for(const u of units){
+    if(!u.isSpy) continue;
+    for(const e of units){
+      if(!e.isSpy||e.player===u.player) continue;
+      const dx=e.mesh.position.x-u.mesh.position.x, dz=e.mesh.position.z-u.mesh.position.z;
+      const close=dx*dx+dz*dz<(15*CS)*(15*CS);
+      e.mesh.traverse(c=>{ if(c.material&&c.material.transparent) c.material.opacity=close?1.0:0.28; });
+    }
+  }
+}
+
 // Spawn 5 units per player on open tiles
 const P1_SPAWNS = [[1,2],[2,3],[1,4],[3,5],[1,6]];
 const P2_SPAWNS = [[12,2],[11,3],[12,4],[10,5],[12,6]];
@@ -474,6 +599,10 @@ P2_SPAWNS.forEach(([c,r]) => spawnUnit(2,c,r));
 // TNT units — 2 per player
 [[3,3],[2,7]].forEach(([c,r])=>spawnTNT(1,c,r));
 [[11,6],[10,7]].forEach(([c,r])=>spawnTNT(2,c,r));
+// Special units
+spawnWizard(1,1,1); spawnWizard(2,12,1);
+spawnCook(1,1,8);   spawnCook(2,12,8);
+spawnSpy(1,3,1);    spawnSpy(2,10,1);
 
 // ─── Possession ring (cyan) ───────────────────────────────────
 const selRing = new THREE.Mesh(
@@ -643,6 +772,27 @@ document.addEventListener('keydown', e=>{
     possessedUnit.fuseActive = true;
     possessedUnit.fuseTimer  = 3;
     setHUD('💥 Fuse lit! — 3 seconds...');
+  }
+  if(e.code==='KeyE' && isPossessing && possessedUnit?.isWizard){
+    const u=possessedUnit;
+    if((u.fireballCooldown||0)<=0){
+      const from=u.mesh.position.clone(); from.y+=1.0;
+      const dir=new THREE.Vector3(); camera.getWorldDirection(dir);
+      spawnFireball(from,dir,u.player);
+      u.fireballCooldown=3;
+      setHUD('🔥 Fireball!');
+    } else { setHUD(`🔥 Fireball cooldown: ${u.fireballCooldown.toFixed(1)}s`); }
+  }
+  if((e.code==='ShiftLeft'||e.code==='ShiftRight') && isPossessing && possessedUnit?.isWizard){
+    const u=possessedUnit;
+    if((u.teleportCooldown||0)<=0){
+      const dir=new THREE.Vector3(); u.mesh.getWorldDirection(dir);
+      u.mesh.position.addScaledVector(dir,10*CS);
+      u.mesh.position.x=Math.max(0.5,Math.min(COLS*CS-0.5,u.mesh.position.x));
+      u.mesh.position.z=Math.max(0.5,Math.min(ROWS*CS-0.5,u.mesh.position.z));
+      u.teleportCooldown=8;
+      setHUD('✨ Teleported!');
+    } else { setHUD(`✨ Teleport cooldown: ${u.teleportCooldown.toFixed(1)}s`); }
   }
 });
 document.addEventListener('keyup', e=>{ ghostKeys[e.code]=false; });
@@ -909,6 +1059,10 @@ function animate(){
   tickShockwaves(dt);
   tickForts(dt);
   tickArrows(dt);
+  tickFireballs(dt);
+  tickSpecialUnits(dt);
+  // Wizard cooldown timers
+  for(const u of units){ if(u.isWizard){ if(u.fireballCooldown>0) u.fireballCooldown-=dt; if(u.teleportCooldown>0) u.teleportCooldown-=dt; } }
   updateChunks();
   if(cameraMode==='strategy') tickOrbit();
   else if(cameraMode==='ghost')   tickGhost(dt);
