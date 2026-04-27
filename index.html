@@ -259,6 +259,7 @@ for(let row=0;row<ROWS;row++){
         const tree=makeTree(rand), a=rand()*Math.PI*2, r=0.45+rand()*0.45;
         tree.position.set(Math.cos(a)*r,0.4,Math.sin(a)*r);
         tree.rotation.y=rand()*Math.PI*2; cell.add(tree);
+        destructibles.push({obj:tree});
       }
     }
     if(type===T.MOUNTAIN){
@@ -284,10 +285,13 @@ for(let row=0;row<ROWS;row++){
 });
 
 // ─── Archer Forts ─────────────────────────────────────────────
-const forts  = [];
-const arrows = [];
+const forts       = [];
+const arrows      = [];
+const shockwaves  = [];
+const destructibles = []; // trees + env objects removable by explosions
 const ARROW_GEO = new THREE.CylinderGeometry(0.04,0.04,0.5,5);
 const ARROW_MAT = new THREE.MeshLambertMaterial({color:0xffcc00});
+const BLAST_R   = 5 * CS; // 15 world units
 
 [{player:1,col:2,row:2},{player:1,col:2,row:8},
  {player:2,col:11,row:2},{player:2,col:11,row:8}].forEach(({player,col,row})=>{
@@ -340,6 +344,7 @@ function buildChunk(cx, cz){
           const tree=makeTree(rand), a=rand()*Math.PI*2, r=0.4+rand()*0.45;
           tree.position.set(Math.cos(a)*r,0.4,Math.sin(a)*r);
           tree.rotation.y=rand()*Math.PI*2; cell.add(tree);
+          destructibles.push({obj:tree});
         }
       }
       if(type===T.MOUNTAIN){
@@ -424,11 +429,40 @@ function spawnUnit(player, col, row){
   return unit;
 }
 
+// ─── TNT unit ─────────────────────────────────────────────────
+function buildTNTMesh(){
+  const g = new THREE.Group(); g.userData.isUnit = true;
+  const mat = new THREE.MeshLambertMaterial({color:0xcc1111});
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.55,0.55), mat);
+  body.position.y=0.28; body.castShadow=true; g.add(body);
+  const band = new THREE.Mesh(new THREE.BoxGeometry(0.58,0.13,0.58),
+    new THREE.MeshLambertMaterial({color:0x111111}));
+  band.position.y=0.28; g.add(band);
+  const fuse = new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.22,4),
+    new THREE.MeshLambertMaterial({color:0x998833}));
+  fuse.position.y=0.66; fuse.rotation.z=0.3; g.add(fuse);
+  return {mesh:g, mat};
+}
+function spawnTNT(player, col, row){
+  const wx=col*CS+CS/2, wz=row*CS+CS/2;
+  const {mesh,mat} = buildTNTMesh();
+  mesh.position.set(wx,0.4,wz);
+  mesh.rotation.y = player===1 ? -Math.PI/2 : Math.PI/2;
+  scene.add(mesh);
+  const unit={player,mesh,col,row,wx,wz,hp:30,isTNT:true,tntMat:mat,fuseActive:false,fuseTimer:0};
+  mesh.traverse(c=>{ c.userData.unitRef=unit; });
+  units.push(unit);
+  return unit;
+}
+
 // Spawn 5 units per player on open tiles
 const P1_SPAWNS = [[1,2],[2,3],[1,4],[3,5],[1,6]];
 const P2_SPAWNS = [[12,2],[11,3],[12,4],[10,5],[12,6]];
 P1_SPAWNS.forEach(([c,r]) => spawnUnit(1,c,r));
 P2_SPAWNS.forEach(([c,r]) => spawnUnit(2,c,r));
+// TNT units — 2 per player
+[[3,3],[2,7]].forEach(([c,r])=>spawnTNT(1,c,r));
+[[11,6],[10,7]].forEach(([c,r])=>spawnTNT(2,c,r));
 
 // ─── Possession ring (cyan) ───────────────────────────────────
 const selRing = new THREE.Mesh(
@@ -593,6 +627,11 @@ document.addEventListener('keydown', e=>{
     else if(cameraMode==='ghost')   document.exitPointerLock();
     else if(cameraMode==='possess') exitPossession();
     else if(cameraMode==='fort')    exitFortPossession();
+  }
+  if(e.code==='KeyE' && isPossessing && possessedUnit?.isTNT && !possessedUnit.fuseActive){
+    possessedUnit.fuseActive = true;
+    possessedUnit.fuseTimer  = 3;
+    setHUD('💥 Fuse lit! — 3 seconds...');
   }
 });
 document.addEventListener('keyup', e=>{ ghostKeys[e.code]=false; });
@@ -761,6 +800,67 @@ function killUnit(unit){
   const i=units.indexOf(unit); if(i!==-1) units.splice(i,1);
 }
 
+// ─── TNT fuse tick ────────────────────────────────────────────
+function tickTNT(dt, t){
+  const toExplode=[];
+  for(const unit of units){
+    if(!unit.isTNT || !unit.fuseActive) continue;
+    unit.fuseTimer -= dt;
+    const prog = Math.min(1, 1 - unit.fuseTimer/3); // 0→1 as timer counts down
+    const pulse = 1 + Math.sin(t*14)*0.18;
+    unit.mesh.scale.set(pulse, pulse, pulse);
+    unit.tntMat.color.setRGB(1, 1-prog, 1-prog); // red → white
+    if(Math.ceil(unit.fuseTimer) !== Math.ceil(unit.fuseTimer+dt))
+      setHUD(`💥 ${Math.max(0,Math.ceil(unit.fuseTimer))}...`);
+    if(unit.fuseTimer <= 0) toExplode.push(unit);
+  }
+  toExplode.forEach(u => explode(u));
+}
+
+// ─── Explosion ────────────────────────────────────────────────
+function explode(unit){
+  const pos = unit.mesh.position.clone();
+
+  // Kill all units inside blast radius (collect first to avoid splice-while-iterate)
+  units.filter(u=>{
+    const dx=u.mesh.position.x-pos.x, dz=u.mesh.position.z-pos.z;
+    return dx*dx+dz*dz <= BLAST_R*BLAST_R;
+  }).forEach(u=>killUnit(u));
+
+  // Remove nearby destructible terrain objects (trees)
+  for(let i=destructibles.length-1; i>=0; i--){
+    const d=destructibles[i];
+    if(!d.obj.parent){ destructibles.splice(i,1); continue; }
+    const wp=new THREE.Vector3(); d.obj.getWorldPosition(wp);
+    const dx=wp.x-pos.x, dz=wp.z-pos.z;
+    if(dx*dx+dz*dz <= BLAST_R*BLAST_R){
+      d.obj.parent.remove(d.obj);
+      destructibles.splice(i,1);
+    }
+  }
+
+  spawnShockwave(pos);
+}
+
+// ─── Shockwave ────────────────────────────────────────────────
+function spawnShockwave(pos){
+  const mat=new THREE.MeshBasicMaterial({color:0xff6600,transparent:true,opacity:0.65,side:THREE.DoubleSide});
+  const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,16,8),mat);
+  mesh.position.copy(pos); mesh.position.y+=0.5;
+  scene.add(mesh);
+  shockwaves.push({mesh,mat,t:0});
+}
+function tickShockwaves(dt){
+  for(let i=shockwaves.length-1; i>=0; i--){
+    const s=shockwaves[i];
+    s.t += dt*2.5;
+    const r=BLAST_R*s.t;
+    s.mesh.scale.set(r, r*0.22, r); // flat disc
+    s.mat.opacity = 0.65*(1-s.t);
+    if(s.t>=1){ scene.remove(s.mesh); s.mat.dispose(); shockwaves.splice(i,1); }
+  }
+}
+
 // ─── HUD helper ───────────────────────────────────────────────
 function setHUD(msg){ document.getElementById('hud').textContent = msg; }
 
@@ -784,6 +884,8 @@ function animate(){
   });
 
   tickUnitMovement(dt);
+  tickTNT(dt, t);
+  tickShockwaves(dt);
   tickForts(dt);
   tickArrows(dt);
   updateChunks();
