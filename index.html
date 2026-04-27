@@ -5,35 +5,252 @@
   <title>Game of War</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #000; overflow: hidden; }
+    body { background: #111; overflow: hidden; }
   </style>
 </head>
 <body>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-  const scene    = new THREE.Scene();
-  const camera   = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+'use strict';
 
+// ─── Grid constants ───────────────────────────────────────────
+const COLS = 14;
+const ROWS = 10;
+const CS   = 3;          // cell size in world units
+
+const T = { PLAIN: 0, FOREST: 1, WATER: 2, MOUNTAIN: 3, HQ: 4 };
+
+// Hand-crafted terrain layout (matches original game map)
+const RAW_MAP = [
+//  0  1  2  3  4  5  6  7  8  9 10 11 12 13
+    [4, 0, 0, 0, 0, 0, 3, 3, 0, 0, 0, 0, 0, 0],  // row 0
+    [0, 1, 0, 2, 2, 0, 0, 0, 2, 2, 0, 1, 0, 0],  // row 1
+    [0, 0, 0, 2, 2, 2, 3, 3, 2, 2, 2, 0, 0, 0],  // row 2
+    [0, 2, 0, 0, 1, 0, 0, 1, 0, 0, 3, 0, 2, 0],  // row 3
+    [3, 0, 0, 1, 0, 2, 2, 2, 2, 1, 0, 0, 0, 3],  // row 4
+    [3, 0, 2, 0, 1, 0, 0, 0, 0, 1, 0, 2, 0, 3],  // row 5
+    [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],  // row 6
+    [0, 1, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 1, 0],  // row 7
+    [0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0],  // row 8
+    [0, 0, 0, 0, 0, 0, 3, 3, 0, 0, 0, 0, 4, 0],  // row 9
+];
+
+function tileAt(col, row) { return RAW_MAP[row][col]; }
+
+// ─── Scene / Renderer / Camera ───────────────────────────────
+const scene    = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);          // sky blue
+scene.fog        = new THREE.Fog(0x87ceeb, 40, 90);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 200);
+const CX = (COLS * CS) / 2;
+const CZ = (ROWS * CS) / 2;
+camera.position.set(CX, 28, CZ + 22);
+camera.lookAt(CX, 0, CZ);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
-  document.body.appendChild(renderer.domElement);
+});
 
-  camera.position.set(0, 5, 10);
-  camera.lookAt(0, 0, 0);
+// ─── Lighting ────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+const sun = new THREE.DirectionalLight(0xfff4cc, 1.2);
+sun.position.set(20, 40, 20);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left   = -60;
+sun.shadow.camera.right  =  60;
+sun.shadow.camera.top    =  60;
+sun.shadow.camera.bottom = -60;
+scene.add(sun);
 
-  window.addEventListener('resize', () => {
-    camera.aspect = innerWidth / innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth, innerHeight);
-  });
+// ─── Shared geometry / material cache ────────────────────────
+const MAT = {
+  grass:    new THREE.MeshLambertMaterial({ color: 0x4a7c3f }),
+  dirt:     new THREE.MeshLambertMaterial({ color: 0x6b4f2a }),
+  mountain: new THREE.MeshLambertMaterial({ color: 0x7a7a8a }),
+  snow:     new THREE.MeshLambertMaterial({ color: 0xeeeeee }),
+  hq:       new THREE.MeshLambertMaterial({ color: 0xd4a017 }),
+  trunk:    new THREE.MeshLambertMaterial({ color: 0x5c3d1e }),
+  water:    new THREE.MeshLambertMaterial({ color: 0x1a6aa0, transparent: true, opacity: 0.6 }),
+  waterBed: new THREE.MeshLambertMaterial({ color: 0x0d3d5c }),
+};
 
-  function animate() {
-    requestAnimationFrame(animate);
-    renderer.render(scene, camera);
+// Leaf greens — slight variation so trees look different
+const LEAF_COLORS = [0x2d6a2d, 0x1e5c1e, 0x3a7a2a, 0x256325, 0x2e7a1e];
+function leafMat(idx) {
+  return new THREE.MeshLambertMaterial({ color: LEAF_COLORS[idx % LEAF_COLORS.length] });
+}
+
+// ─── Seeded pseudo-random (same map = same trees every load) ─
+function seededRand(seed) {
+  let s = seed;
+  return function () {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    return (s >>> 0) / 0xffffffff;
+  };
+}
+
+// ─── Tree builder ─────────────────────────────────────────────
+function makeTree(rand) {
+  const group = new THREE.Group();
+
+  const scale      = 0.75 + rand() * 0.5;      // 0.75 – 1.25
+  const trunkH     = 0.6 * scale;
+  const trunkR     = 0.12 * scale;
+  const leafColor  = leafMat(Math.floor(rand() * LEAF_COLORS.length));
+
+  // Trunk
+  const trunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(trunkR * 0.7, trunkR, trunkH, 7),
+    MAT.trunk
+  );
+  trunk.position.y = trunkH / 2;
+  trunk.castShadow  = true;
+  group.add(trunk);
+
+  // Lower cone (wider)
+  const cone1 = new THREE.Mesh(
+    new THREE.ConeGeometry(0.55 * scale, 0.9 * scale, 7),
+    leafColor
+  );
+  cone1.position.y = trunkH + 0.35 * scale;
+  cone1.castShadow  = true;
+  group.add(cone1);
+
+  // Upper cone (narrower, stacked)
+  const cone2 = new THREE.Mesh(
+    new THREE.ConeGeometry(0.35 * scale, 0.75 * scale, 7),
+    leafColor
+  );
+  cone2.position.y = trunkH + 0.9 * scale;
+  cone2.castShadow  = true;
+  group.add(cone2);
+
+  return group;
+}
+
+// ─── Build the full map ───────────────────────────────────────
+const envGroup = new THREE.Group();   // all terrain / decoration
+scene.add(envGroup);
+
+const BASE_GEO = new THREE.BoxGeometry(CS - 0.08, 0.4, CS - 0.08);
+
+for (let row = 0; row < ROWS; row++) {
+  for (let col = 0; col < COLS; col++) {
+    const type = tileAt(col, row);
+    const wx   = col * CS + CS / 2;
+    const wz   = row * CS + CS / 2;
+
+    const cellGroup = new THREE.Group();
+    cellGroup.position.set(wx, 0, wz);
+
+    // ── Grass base tile ───────────────────────────────────────
+    if (type !== T.WATER) {
+      const base = new THREE.Mesh(BASE_GEO, MAT.grass);
+      base.position.y   = 0.2;
+      base.receiveShadow = true;
+      cellGroup.add(base);
+    }
+
+    // ── WATER ─────────────────────────────────────────────────
+    if (type === T.WATER) {
+      // Lowered dirt bed
+      const bed = new THREE.Mesh(
+        new THREE.BoxGeometry(CS - 0.08, 0.4, CS - 0.08),
+        MAT.waterBed
+      );
+      bed.position.y    = -0.5;          // below ground level
+      bed.receiveShadow = true;
+      cellGroup.add(bed);
+
+      // Semi-transparent water surface
+      const surface = new THREE.Mesh(
+        new THREE.PlaneGeometry(CS - 0.08, CS - 0.08),
+        MAT.water
+      );
+      surface.rotation.x = -Math.PI / 2;
+      surface.position.y = -0.28;        // sit just above the bed
+      cellGroup.add(surface);
+    }
+
+    // ── FOREST ────────────────────────────────────────────────
+    if (type === T.FOREST) {
+      const rand = seededRand(col * 100 + row * 7 + 42);
+
+      // 2-4 trees per forest tile, offset from centre so units fit
+      const count = 2 + Math.floor(rand() * 3);
+      for (let i = 0; i < count; i++) {
+        const tree = makeTree(rand);
+
+        // Place in a ring around the tile centre (avoid dead centre)
+        const angle  = rand() * Math.PI * 2;
+        const radius = 0.45 + rand() * 0.45;   // 0.45 – 0.9 units from centre
+        tree.position.set(
+          Math.cos(angle) * radius,
+          0.4,                                  // sit on top of grass tile
+          Math.sin(angle) * radius
+        );
+        tree.rotation.y = rand() * Math.PI * 2;
+        tree.castShadow = true;
+        cellGroup.add(tree);
+      }
+    }
+
+    // ── MOUNTAIN ──────────────────────────────────────────────
+    if (type === T.MOUNTAIN) {
+      const rand  = seededRand(col * 13 + row * 97);
+      const scale = 0.9 + rand() * 0.4;
+
+      const peak = new THREE.Mesh(
+        new THREE.ConeGeometry(0.85 * scale, 2.0 * scale, 7),
+        MAT.mountain
+      );
+      peak.position.y = 0.4 + 1.0 * scale;
+      peak.castShadow = true;
+      cellGroup.add(peak);
+
+      // Snow cap
+      const snow = new THREE.Mesh(
+        new THREE.ConeGeometry(0.35 * scale, 0.7 * scale, 7),
+        MAT.snow
+      );
+      snow.position.y = 0.4 + 1.8 * scale;
+      snow.castShadow = true;
+      cellGroup.add(snow);
+    }
+
+    // ── HQ ────────────────────────────────────────────────────
+    if (type === T.HQ) {
+      const fort = new THREE.Mesh(
+        new THREE.BoxGeometry(CS * 0.6, 1.2, CS * 0.6),
+        MAT.hq
+      );
+      fort.position.y  = 0.4 + 0.6;
+      fort.castShadow  = true;
+      cellGroup.add(fort);
+    }
+
+    envGroup.add(cellGroup);
   }
-  animate();
+}
+
+// ─── Animate ─────────────────────────────────────────────────
+function animate() {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
+animate();
 </script>
 </body>
 </html>
