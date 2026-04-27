@@ -264,6 +264,77 @@ for(let row=0;row<ROWS;row++){
 });
 
 // ═══════════════════════════════════════════════════════════════
+// INFINITE CHUNK SYSTEM
+// ═══════════════════════════════════════════════════════════════
+const CHUNK_CELLS = 16, CHUNK_W = CHUNK_CELLS * CS; // 48 world units per chunk
+const chunks = new Map(); // "cx,cz" → THREE.Group
+let _lastCX = null, _lastCZ = null;
+
+function procType(col, row){
+  const n = generateHeight(col*CS+CS/2, row*CS+CS/2) / 2; // normalise 0..1
+  if(n > 0.75) return T.MOUNTAIN;
+  if(n > 0.50) return T.FOREST;
+  if(n < 0.20) return T.WATER;
+  return T.PLAIN;
+}
+
+function buildChunk(cx, cz){
+  const g = new THREE.Group();
+  const rand = seededRand(cx*73856093 ^ cz*19349663+1);
+  for(let dr=0; dr<CHUNK_CELLS; dr++){
+    for(let dc=0; dc<CHUNK_CELLS; dc++){
+      const col=cx*CHUNK_CELLS+dc, row=cz*CHUNK_CELLS+dr;
+      if(col>=0&&col<COLS&&row>=0&&row<ROWS) continue; // main map handles these
+      const wx=col*CS+CS/2, wz=row*CS+CS/2;
+      const type=procType(col,row);
+      const cellY = type===T.WATER ? -1 : generateHeight(wx,wz);
+      const cell=new THREE.Group(); cell.position.set(wx,cellY,wz);
+      if(type!==T.WATER){
+        const b=new THREE.Mesh(BASE_GEO,MAT.grass); b.position.y=0.2; b.receiveShadow=true; cell.add(b);
+      } else {
+        const bed=new THREE.Mesh(new THREE.BoxGeometry(CS-0.08,0.4,CS-0.08),MAT.waterBed);
+        bed.position.y=-0.5; bed.receiveShadow=true; cell.add(bed);
+        const surf=new THREE.Mesh(new THREE.PlaneGeometry(CS-0.08,CS-0.08),MAT.water);
+        surf.rotation.x=-Math.PI/2; surf.position.y=-0.28; cell.add(surf);
+      }
+      if(type===T.FOREST){
+        const cnt=2+Math.floor(rand()*3);
+        for(let i=0;i<cnt;i++){
+          const tree=makeTree(rand), a=rand()*Math.PI*2, r=0.4+rand()*0.45;
+          tree.position.set(Math.cos(a)*r,0.4,Math.sin(a)*r);
+          tree.rotation.y=rand()*Math.PI*2; cell.add(tree);
+        }
+      }
+      if(type===T.MOUNTAIN){
+        const sc=0.9+rand()*0.4;
+        const pk=new THREE.Mesh(new THREE.ConeGeometry(0.85*sc,2*sc,7),MAT.mountain);
+        pk.position.y=0.4+sc; pk.castShadow=true; cell.add(pk);
+        const sn=new THREE.Mesh(new THREE.ConeGeometry(0.35*sc,0.7*sc,7),MAT.snow);
+        sn.position.y=0.4+1.8*sc; sn.castShadow=true; cell.add(sn);
+      }
+      g.add(cell);
+    }
+  }
+  return g;
+}
+
+function updateChunks(){
+  const cx=Math.floor(camera.position.x/CHUNK_W);
+  const cz=Math.floor(camera.position.z/CHUNK_W);
+  if(cx===_lastCX && cz===_lastCZ) return; // only rebuild when crossing a chunk border
+  _lastCX=cx; _lastCZ=cz;
+  for(let dz=-2;dz<=2;dz++) for(let dx=-2;dx<=2;dx++){
+    const key=`${cx+dx},${cz+dz}`;
+    if(!chunks.has(key)){ const c=buildChunk(cx+dx,cz+dz); scene.add(c); chunks.set(key,c); }
+  }
+  for(const [key,c] of chunks){
+    const [kx,kz]=key.split(',').map(Number);
+    if(Math.abs(kx-cx)>3||Math.abs(kz-cz)>3){ scene.remove(c); chunks.delete(key); }
+  }
+}
+updateChunks(); // seed initial neighbours
+
+// ═══════════════════════════════════════════════════════════════
 // UNITS
 // ═══════════════════════════════════════════════════════════════
 
@@ -548,6 +619,7 @@ function animate(){
     selRing.material.opacity = 0.6 + Math.sin(t*4)*0.3;
   }
 
+  updateChunks();
   if(cameraMode==='strategy') tickOrbit();
   else if(cameraMode==='ghost')   tickGhost(dt);
   else if(cameraMode==='possess') tickPossess(dt);
