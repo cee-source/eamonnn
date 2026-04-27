@@ -393,7 +393,7 @@ const P2_SPAWNS = [[12,2],[11,3],[12,4],[10,5],[12,6]];
 P1_SPAWNS.forEach(([c,r]) => spawnUnit(1,c,r));
 P2_SPAWNS.forEach(([c,r]) => spawnUnit(2,c,r));
 
-// ─── Selection ring (glowing torus under possessed unit) ──────
+// ─── Possession ring (cyan) ───────────────────────────────────
 const selRing = new THREE.Mesh(
   new THREE.TorusGeometry(0.6, 0.06, 8, 40),
   new THREE.MeshBasicMaterial({ color: 0x00e8ff, transparent: true, opacity: 0.9 })
@@ -401,6 +401,19 @@ const selRing = new THREE.Mesh(
 selRing.rotation.x = Math.PI / 2;
 selRing.visible    = false;
 scene.add(selRing);
+
+// ─── Strategy selection ring (yellow) + ground plane ─────────
+let selectedUnit = null;
+const selStratRing = new THREE.Mesh(
+  new THREE.TorusGeometry(0.6, 0.06, 8, 40),
+  new THREE.MeshBasicMaterial({ color: 0xffdd00, transparent: true, opacity: 0.9 })
+);
+selStratRing.rotation.x = Math.PI / 2;
+selStratRing.visible    = false;
+scene.add(selStratRing);
+
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const _groundHit  = new THREE.Vector3();
 
 // ═══════════════════════════════════════════════════════════════
 // CAMERA MODES  'strategy' | 'ghost' | 'possess'
@@ -576,19 +589,51 @@ const screenCentre = new THREE.Vector2(0,0);   // pointer-locked = always screen
 renderer.domElement.addEventListener('click', e=>{
   if(cameraMode==='ghost' && ghostLocked){
     raycaster.setFromCamera(screenCentre, camera);
-    // Collect all unit child meshes
-    const targets = units.flatMap(u => {
-      const arr = [];
-      u.mesh.traverse(c => { if(c.isMesh) arr.push(c); });
-      return arr;
-    });
+    const targets = units.flatMap(u=>{const a=[];u.mesh.traverse(c=>{if(c.isMesh)a.push(c);});return a;});
     const hits = raycaster.intersectObjects(targets, false);
-    if(hits.length){
-      const unit = hits[0].object.userData.unitRef;
-      if(unit) possessUnit(unit);
+    if(hits.length){ const unit=hits[0].object.userData.unitRef; if(unit) possessUnit(unit); }
+  }
+
+  if(cameraMode==='strategy'){
+    const rect = renderer.domElement.getBoundingClientRect();
+    const mx = ((e.clientX-rect.left)/rect.width)*2-1;
+    const my = -((e.clientY-rect.top)/rect.height)*2+1;
+    raycaster.setFromCamera(new THREE.Vector2(mx,my), camera);
+
+    // First: check for unit hit → select it
+    const targets = units.flatMap(u=>{const a=[];u.mesh.traverse(c=>{if(c.isMesh)a.push(c);});return a;});
+    const unitHits = raycaster.intersectObjects(targets, false);
+    if(unitHits.length){
+      selectedUnit = unitHits[0].object.userData.unitRef;
+      selStratRing.visible = true;
+      selStratRing.position.set(selectedUnit.mesh.position.x, 0.42, selectedUnit.mesh.position.z);
+      return;
+    }
+
+    // Second: no unit hit + unit already selected → move to clicked ground
+    if(selectedUnit){
+      raycaster.ray.intersectPlane(groundPlane, _groundHit);
+      if(_groundHit) selectedUnit.dest = _groundHit.clone();
     }
   }
 });
+
+// ─── Unit walking (strategy mode click-to-move) ───────────────
+function tickUnitMovement(dt){
+  for(const unit of units){
+    if(!unit.dest || unit === possessedUnit) continue;
+    const dx = unit.dest.x - unit.mesh.position.x;
+    const dz = unit.dest.z - unit.mesh.position.z;
+    const dist = Math.sqrt(dx*dx + dz*dz);
+    if(dist < 0.08){ unit.dest = null; continue; }
+    const move = Math.min(UNIT_SPD * dt, dist);
+    unit.mesh.position.x += (dx/dist) * move;
+    unit.mesh.position.z += (dz/dist) * move;
+    unit.mesh.rotation.y  = Math.atan2(-dx, -dz);
+  }
+  if(selectedUnit && selStratRing.visible)
+    selStratRing.position.set(selectedUnit.mesh.position.x, 0.42, selectedUnit.mesh.position.z);
+}
 
 // ─── HUD helper ───────────────────────────────────────────────
 function setHUD(msg){ document.getElementById('hud').textContent = msg; }
@@ -604,13 +649,15 @@ function animate(){
   // Flag wave
   flagMeshes.forEach((f,i)=>{ f.rotation.y = Math.sin(t*1.8+i*1.3)*0.25; });
 
-  // Selection ring pulse
-  if(selRing.visible){
+  // Ring pulses
+  [selRing, selStratRing].forEach(r=>{
+    if(!r.visible) return;
     const p = 0.92 + Math.sin(t*4)*0.08;
-    selRing.scale.set(p,p,p);
-    selRing.material.opacity = 0.6 + Math.sin(t*4)*0.3;
-  }
+    r.scale.set(p,p,p);
+    r.material.opacity = 0.6 + Math.sin(t*4)*0.3;
+  });
 
+  tickUnitMovement(dt);
   updateChunks();
   if(cameraMode==='strategy') tickOrbit();
   else if(cameraMode==='ghost')   tickGhost(dt);
