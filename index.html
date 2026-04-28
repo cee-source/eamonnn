@@ -31,12 +31,35 @@
       border-radius: 10px; padding: 7px 18px; color: #7ef; font-size: 12px;
       pointer-events: none; letter-spacing: 1px;
     }
+
+    #chat-wrap {
+      position: fixed; bottom: 14px; left: 14px; width: 300px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    #chat-log {
+      background: rgba(0,0,0,0.55); border: 1px solid #333; border-radius: 8px;
+      padding: 6px 10px; color: #aaa; font-size: 11px; max-height: 90px;
+      overflow-y: auto; pointer-events: none;
+    }
+    #chat-log .cmd  { color: #7ef; }
+    #chat-log .sys  { color: #fa8; }
+    #chat-in {
+      background: rgba(0,0,0,0.7); border: 1px solid #555; border-radius: 6px;
+      color: #eee; font-size: 12px; font-family: monospace;
+      padding: 5px 10px; outline: none; width: 100%;
+    }
+    #chat-in:focus { border-color: #7ef; }
   </style>
 </head>
 <body>
 <div id="hud">⚔ GAME OF WAR &nbsp;|&nbsp; F = Ghost Mode &nbsp;|&nbsp; Right-drag = Orbit</div>
 <div id="crosshair"></div>
 <div id="possess-hint">WASD — Move Unit &nbsp;|&nbsp; Mouse — Look &nbsp;|&nbsp; F — Exit Possession</div>
+
+<div id="chat-wrap">
+  <div id="chat-log"></div>
+  <input id="chat-in" type="text" placeholder="/Aldric move north" autocomplete="off" spellcheck="false">
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -69,6 +92,39 @@ const CX = COLS*CS/2, CZ = ROWS*CS/2;
 const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 200);
 camera.position.set(CX, 28, CZ+22);
 camera.lookAt(CX, 0, CZ);
+
+// ─── 3D Audio System ──────────────────────────────────────────
+const audioListener = new THREE.AudioListener();
+camera.add(audioListener);
+const audioCtx = audioListener.context;
+['click','keydown'].forEach(ev=>document.addEventListener(ev,()=>{
+  if(audioCtx.state==='suspended') audioCtx.resume();
+},{once:true}));
+
+function _mkBuf(fn, dur){
+  const sr=audioCtx.sampleRate, len=Math.floor(sr*dur);
+  const buf=audioCtx.createBuffer(1,len,sr), d=buf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i]=fn(i/sr, i/len);
+  return buf;
+}
+// Command ack: bright double-chirp
+const SND_CMD = _mkBuf((t,p)=>(Math.sin(2*Math.PI*(p<0.5?660:880)*t))*Math.exp(-p*6)*0.55, 0.25);
+// Warning: urgent rising two-tone
+const SND_WARN = _mkBuf((t,p)=>Math.sin(2*Math.PI*(300+p*200)*t)*Math.sin(2*Math.PI*8*t)*Math.exp(-p*2)*0.5, 0.7);
+// Death: descending wail with harmonics
+const SND_DEATH = _mkBuf((t,p)=>(Math.sin(2*Math.PI*(440-p*300)*t)+Math.sin(2*Math.PI*(440-p*300)*1.5*t)*0.4)*Math.exp(-p*2.5)*0.65, 0.9);
+// Fireball: crackling whoosh
+const SND_FIRE = _mkBuf((t,p)=>(Math.sin(2*Math.PI*(200-p*120)*t)*0.4+(Math.random()-0.5)*0.3)*Math.exp(-p*3)*0.6, 0.35);
+
+function playAt(worldPos, buffer, refDist=CS, rolloff=2.5){
+  if(!buffer||audioCtx.state==='suspended') return;
+  const anchor=new THREE.Object3D(); anchor.position.copy(worldPos); scene.add(anchor);
+  const pa=new THREE.PositionalAudio(audioListener);
+  pa.setBuffer(buffer); pa.setRefDistance(refDist);
+  pa.setRolloffFactor(rolloff); pa.setMaxDistance(60);
+  anchor.add(pa); pa.play();
+  pa.source.onended=()=>{ anchor.remove(pa); scene.remove(anchor); };
+}
 
 const renderer = new THREE.WebGLRenderer({ antialias:true });
 renderer.setPixelRatio(devicePixelRatio);
@@ -231,6 +287,14 @@ function makeArcherFort(player, wx, wz){
   collidables.push({wx,wz,radius:1.3});
   return g;
 }
+
+// ─── Unit name pool ───────────────────────────────────────────
+const UNIT_NAMES=['Aldric','Bram','Cedric','Dorin','Elgar','Finn','Godwin','Harlan',
+  'Ivan','Jorin','Kell','Lorin','Mors','Navin','Oswin','Pell','Quinn','Roric',
+  'Sven','Thane','Uric','Varn','Wulf','Xan','Yoric','Zane','Alder','Brand','Croft','Drake',
+  'Edwyn','Falk','Gareth','Hadwin','Idris','Jarvik','Kern','Leofric','Merrick','Nolan'];
+let _nameIdx=0;
+function pickName(){ return UNIT_NAMES[_nameIdx++%UNIT_NAMES.length]; }
 
 // ─── Global game arrays (declared first to avoid temporal dead zone) ──
 const units        = [];
@@ -695,6 +759,88 @@ function setOpacity(mesh, op){
   mesh.traverse(c=>{ if(c.material){ c.material.transparent=(op<1); c.material.opacity=op; } });
 }
 
+// ─── Combat audio tick ────────────────────────────────────────
+// Each unit with an enemy nearby shouts a warning every 5s.
+// Volume attenuates via THREE.PositionalAudio's distance model;
+// extra "acoustic fog" applied if unit is behind a hill (mountain tile).
+function tickCombatAudio(dt){
+  for(const u of units){
+    u._warnTimer -= dt;
+    if(u._warnTimer > 0) continue;
+    u._warnTimer = 5 + Math.random();
+    // check for nearby enemy within 6 tiles
+    const WARN_R = 6*CS;
+    let seesEnemy = false;
+    for(const e of units){
+      if(e.player===u.player) continue;
+      const dx=e.mesh.position.x-u.mesh.position.x, dz=e.mesh.position.z-u.mesh.position.z;
+      if(dx*dx+dz*dz < WARN_R*WARN_R){ seesEnemy=true; break; }
+    }
+    if(!seesEnemy) continue;
+    // Acoustic fog: halve rolloff distance if a mountain tile is between unit and camera
+    const uPos = u.mesh.position.clone();
+    const camPos = camera.position.clone();
+    const mid = uPos.clone().lerp(camPos, 0.5);
+    const mc = Math.floor(mid.x/CS), mr = Math.floor(mid.z/CS);
+    const occluded = mc>=0&&mc<COLS&&mr>=0&&mr<ROWS&&tileAt(mc,mr)===T.MOUNTAIN;
+    playAt(uPos, SND_WARN, occluded ? CS*0.4 : CS, occluded ? 5 : 2.5);
+  }
+}
+
+// ─── Chat command system ──────────────────────────────────────
+const chatLog = document.getElementById('chat-log');
+const chatIn  = document.getElementById('chat-in');
+
+function chatPrint(msg, cls='sys'){
+  const el=document.createElement('div');
+  el.className=cls; el.textContent=msg; chatLog.appendChild(el);
+  chatLog.scrollTop=chatLog.scrollHeight;
+}
+
+const CMD_DIRS = {north:[0,-1],south:[0,1],east:[1,0],west:[-1,0],
+                  n:[0,-1],s:[0,1],e:[1,0],w:[-1,0]};
+
+chatIn.addEventListener('keydown', ev=>{
+  if(ev.code!=='Enter') return;
+  ev.preventDefault();
+  const raw=chatIn.value.trim(); chatIn.value='';
+  if(!raw) return;
+  chatPrint(raw,'cmd');
+  const m=raw.match(/^\/(\w+)\s+(.+)/);
+  if(!m){ chatPrint('Usage: /Name command','sys'); return; }
+  const [,nameArg,rest]=m;
+  const unit=units.find(u=>u.unitName?.toLowerCase()===nameArg.toLowerCase());
+  if(!unit){ chatPrint(`No unit named "${nameArg}"`,'sys'); return; }
+  const parts=rest.toLowerCase().split(/\s+/);
+  const verb=parts[0];
+  if(verb==='move'||verb==='go'){
+    const dv=CMD_DIRS[parts[1]];
+    if(!dv){ chatPrint(`Unknown direction "${parts[1]}"`,'sys'); return; }
+    unit.dest=new THREE.Vector3(
+      unit.mesh.position.x+dv[0]*CS*4, 0,
+      unit.mesh.position.z+dv[1]*CS*4);
+    playAt(unit.mesh.position.clone(), SND_CMD);
+  } else if(verb==='stop'){
+    unit.dest=null;
+    playAt(unit.mesh.position.clone(), SND_CMD);
+  } else if(verb==='attack'){
+    // target nearest enemy
+    let nearest=null, nd=Infinity;
+    for(const e of units){
+      if(e.player===unit.player) continue;
+      const dx=e.mesh.position.x-unit.mesh.position.x,dz=e.mesh.position.z-unit.mesh.position.z;
+      const d=dx*dx+dz*dz; if(d<nd){nd=d;nearest=e;}
+    }
+    if(nearest){ unit.dest=nearest.mesh.position.clone(); playAt(unit.mesh.position.clone(),SND_CMD); }
+    else chatPrint('No enemies in range','sys');
+  } else {
+    chatPrint(`Unknown command "${verb}" — try move/stop/attack`,'sys');
+  }
+});
+// Prevent chat input from triggering game keys
+chatIn.addEventListener('keyup',  ev=>ev.stopPropagation());
+chatIn.addEventListener('keydown',ev=>{ if(ev.code!=='Enter') ev.stopPropagation(); });
+
 // Spawn 5 units per player on open tiles
 const P1_SPAWNS = [[1,2],[2,3],[1,4],[3,5],[1,6]];
 const P2_SPAWNS = [[12,2],[11,3],[12,4],[10,5],[12,6]];
@@ -710,6 +856,8 @@ spawnSpy(1,3,1);      spawnSpy(2,10,1);
 spawnRanger(1,3,2);   spawnRanger(2,10,2);
 spawnAssassin(1,4,1); spawnAssassin(2,9,1);
 spawnFunnyMan(1,4,8); spawnFunnyMan(2,9,8);
+// Assign random names and init combat-audio timers
+units.forEach(u=>{ u.unitName=pickName(); u._warnTimer=Math.random()*5; });
 
 // ─── Possession ring (cyan) ───────────────────────────────────
 const selRing = new THREE.Mesh(
@@ -910,6 +1058,7 @@ document.addEventListener('keydown', e=>{
       const from=u.mesh.position.clone(); from.y+=1.0;
       const dir=new THREE.Vector3(); camera.getWorldDirection(dir);
       spawnFireball(from,dir,u.player);
+      playAt(from.clone(), SND_FIRE, CS*0.8, 2);
       u.fireballCooldown=3;
       setHUD('🔥 Fireball!');
     } else { setHUD(`🔥 Fireball cooldown: ${u.fireballCooldown.toFixed(1)}s`); }
@@ -1119,6 +1268,7 @@ function tickForts(dt){
 function killUnit(unit){
   if(possessedUnit===unit) exitPossession();
   if(selectedUnit===unit){ selectedUnit=null; selStratRing.visible=false; }
+  playAt(unit.mesh.position.clone(), SND_DEATH, CS*1.5, 3); // death yell at last position
   scene.remove(unit.mesh);
   const i=units.indexOf(unit); if(i!==-1) units.splice(i,1);
 }
@@ -1213,7 +1363,7 @@ function animate(){
   tickArrows(dt);
   tickFireballs(dt);
   tickSpecialUnits(dt);
-  // Wizard cooldown timers
+  tickCombatAudio(dt);
   for(const u of units){ if(u.isWizard){ if(u.fireballCooldown>0) u.fireballCooldown-=dt; if(u.teleportCooldown>0) u.teleportCooldown-=dt; } }
   updateChunks();
   if(cameraMode==='strategy') tickOrbit();
