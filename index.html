@@ -52,7 +52,7 @@
   </style>
 </head>
 <body>
-<div id="hud">⚔ GAME OF WAR &nbsp;|&nbsp; F = Ghost Mode &nbsp;|&nbsp; Right-drag = Orbit</div>
+<div id="hud">⚔ GAME OF WAR — Click or press F to enter | WASD move | Mouse look</div>
 <div id="crosshair"></div>
 <div id="possess-hint">WASD — Move Unit &nbsp;|&nbsp; Mouse — Look &nbsp;|&nbsp; F — Exit Possession</div>
 
@@ -96,9 +96,9 @@ scene.background = new THREE.Color(0x1a1a2e);
 scene.fog        = new THREE.FogExp2(0x1a1a2e, 0.05);
 
 const CX = COLS*CS/2, CZ = ROWS*CS/2;
-const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 200);
-camera.position.set(CX, 28, CZ+22);
-camera.lookAt(CX, 0, CZ);
+const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 200);
+camera.position.set(CX, 1.6, CZ + 14);
+camera.lookAt(CX, 1.6, CZ);
 
 // ─── 3D Audio System ──────────────────────────────────────────
 const audioListener = new THREE.AudioListener();
@@ -887,63 +887,57 @@ const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const _groundHit  = new THREE.Vector3();
 
 // ═══════════════════════════════════════════════════════════════
-// CAMERA MODES  'strategy' | 'ghost' | 'possess'
+// CAMERA MODES  'ghost' (ground walk) | 'possess' | 'fort'
 // ═══════════════════════════════════════════════════════════════
-let cameraMode    = 'strategy';
+let cameraMode    = 'ghost';
 let ghostLocked   = false;
 let possessedUnit = null;
 let isPossessing  = false;
 let possessPitch  = 0;
 let possessedFort = null;
 
-// ─── Strategy orbit (manual, right-drag) ─────────────────────
-let orbitTheta=0, orbitPhi=0.72, orbitDist=38;
-let tTheta=0,     tPhi=0.72,     tDist=38;
-const orbitTarget = new THREE.Vector3(CX, 0, CZ);
-let rightDrag=false, lastRX=0, lastRY=0;
-
-renderer.domElement.addEventListener('mousedown', e=>{
-  if(e.button===2){ rightDrag=true; lastRX=e.clientX; lastRY=e.clientY; }
-});
-document.addEventListener('mouseup', e=>{ if(e.button===2) rightDrag=false; });
-renderer.domElement.addEventListener('wheel', e=>{
-  if(cameraMode!=='strategy') return;
-  tDist = Math.max(8, Math.min(80, tDist + e.deltaY*0.05));
-});
 renderer.domElement.addEventListener('contextmenu', e=>e.preventDefault());
 
-function tickOrbit(){
-  orbitTheta += (tTheta-orbitTheta)*0.1;
-  orbitPhi   += (tPhi-orbitPhi)*0.1;
-  orbitDist  += (tDist-orbitDist)*0.1;
-  camera.position.set(
-    orbitTarget.x + orbitDist*Math.sin(orbitPhi)*Math.sin(orbitTheta),
-    orbitTarget.y + orbitDist*Math.cos(orbitPhi),
-    orbitTarget.z + orbitDist*Math.sin(orbitPhi)*Math.cos(orbitTheta)
-  );
-  camera.lookAt(orbitTarget);
-}
+// ─── Ground Ghost camera ──────────────────────────────────────
+const ghostKeys  = {};
+const GHOST_SPD  = 8;
+const _fwd       = new THREE.Vector3();
+const _right     = new THREE.Vector3();
+const _up        = new THREE.Vector3(0,1,0);
+const _euler     = new THREE.Euler(0,0,0,'YXZ');
+const _flatFwd   = new THREE.Vector3();
 
-// ─── Ghost camera ─────────────────────────────────────────────
-const ghostKeys = {};
-const GHOST_SPD  = 14;
-const _fwd   = new THREE.Vector3();
-const _right = new THREE.Vector3();
-const _up    = new THREE.Vector3(0,1,0);
-const _euler = new THREE.Euler(0,0,0,'YXZ');
+// Terrain height raycaster — shoots straight down from y=100
+const _terrainRay = new THREE.Raycaster();
+const _downDir    = new THREE.Vector3(0,-1,0);
+
+function getGroundY(x, z){
+  _terrainRay.set(new THREE.Vector3(x, 100, z), _downDir);
+  // Only check the static terrain groups, not units/rings/audio anchors
+  const targets = [envGroup, ...chunks.values()];
+  const hits = _terrainRay.intersectObjects(targets, true);
+  for(const h of hits){
+    if(!h.object.isMesh) continue;
+    return h.point.y;
+  }
+  return 0;
+}
 
 function tickGhost(dt){
   if(!ghostLocked) return;
-  camera.getWorldDirection(_fwd);
-  _right.crossVectors(_fwd,_up).normalize();
+  // Project camera direction onto XZ plane for flat walking
+  camera.getWorldDirection(_flatFwd);
+  _flatFwd.y = 0;
+  if(_flatFwd.lengthSq() < 0.0001) _flatFwd.set(0,0,-1);
+  _flatFwd.normalize();
+  _right.crossVectors(_flatFwd, _up).normalize();
   const spd = GHOST_SPD * dt;
-  if(ghostKeys['KeyW']) camera.position.addScaledVector(_fwd,  spd);
-  if(ghostKeys['KeyS']) camera.position.addScaledVector(_fwd, -spd);
-  if(ghostKeys['KeyA']) camera.position.addScaledVector(_right,-spd);
-  if(ghostKeys['KeyD']) camera.position.addScaledVector(_right, spd);
-  if(ghostKeys['Space'])    camera.position.y += spd;
-  if(ghostKeys['ShiftLeft'] || ghostKeys['ShiftRight']) camera.position.y -= spd;
-  camera.position.y = Math.max(0.6, camera.position.y);
+  if(ghostKeys['KeyW']) camera.position.addScaledVector(_flatFwd,  spd);
+  if(ghostKeys['KeyS']) camera.position.addScaledVector(_flatFwd, -spd);
+  if(ghostKeys['KeyA']) camera.position.addScaledVector(_right,   -spd);
+  if(ghostKeys['KeyD']) camera.position.addScaledVector(_right,    spd);
+  // Lock Y to terrain height + eye level — no flying
+  camera.position.y = getGroundY(camera.position.x, camera.position.z) + 1.6;
 }
 
 // ─── Possession ───────────────────────────────────────────────
@@ -965,17 +959,15 @@ function possessUnit(unit){
 
 function exitPossession(){
   scene.attach(camera);   // unparent, preserve world transform
-  camera.position.set(
-    possessedUnit.mesh.position.x,
-    possessedUnit.mesh.position.y + 4,
-    possessedUnit.mesh.position.z + 3
-  );
+  const ux = possessedUnit.mesh.position.x;
+  const uz = possessedUnit.mesh.position.z;
+  camera.position.set(ux, getGroundY(ux, uz) + 1.6, uz + 2);
   possessedUnit = null;
   isPossessing  = false;
   cameraMode    = 'ghost';
   selRing.visible = false;
   document.getElementById('possess-hint').style.display = 'none';
-  setHUD('👻 Ghost Mode — click unit to possess | F to exit');
+  setHUD('WASD move | Mouse look | Click unit/fort to possess | F = unlock');
 }
 
 function tickPossess(dt){
@@ -1023,21 +1015,13 @@ function tickPossess(dt){
 document.addEventListener('pointerlockchange', ()=>{
   ghostLocked = !!document.pointerLockElement;
   document.getElementById('crosshair').style.display = ghostLocked ? 'block' : 'none';
-  if(ghostLocked && cameraMode==='strategy'){
-    cameraMode='ghost';
-    setHUD('👻 Ghost Mode — click a unit to possess | F to exit');
-  }
-  if(!ghostLocked && cameraMode==='ghost'){
-    cameraMode='strategy';
-    setHUD('⚔ GAME OF WAR | F = Ghost Mode | Right-drag = Orbit');
-  }
-  if(!ghostLocked && cameraMode==='possess'){
-    exitPossession(); cameraMode='strategy';
-    setHUD('⚔ GAME OF WAR | F = Ghost Mode | Right-drag = Orbit');
-  }
-  if(!ghostLocked && cameraMode==='fort'){
-    exitFortPossession(); cameraMode='strategy';
-    setHUD('⚔ GAME OF WAR | F = Ghost Mode | Right-drag = Orbit');
+  if(ghostLocked){
+    setHUD('WASD move | Mouse look | Click unit/fort to possess | F = unlock');
+  } else {
+    if(cameraMode==='possess') exitPossession();
+    if(cameraMode==='fort')    exitFortPossession();
+    cameraMode = 'ghost';
+    setHUD('⚔ GAME OF WAR — Click or press F to play');
   }
 });
 
@@ -1047,7 +1031,7 @@ document.addEventListener('keydown', e=>{
   if(e.code==='Space') e.preventDefault();
 
   if(e.code==='KeyF'){
-    if(cameraMode==='strategy') document.body.requestPointerLock();
+    if(!ghostLocked) document.body.requestPointerLock();
     else if(cameraMode==='ghost')   document.exitPointerLock();
     else if(cameraMode==='possess') exitPossession();
     else if(cameraMode==='fort')    exitFortPossession();
@@ -1105,15 +1089,7 @@ document.addEventListener('keyup', e=>{ ghostKeys[e.code]=false; });
 
 // ─── Mouse look ───────────────────────────────────────────────
 document.addEventListener('mousemove', e=>{
-  if(!ghostLocked) {
-    // Strategy orbit drag
-    if(rightDrag){
-      tTheta -= (e.clientX-lastRX)*0.008;
-      tPhi = Math.max(0.1, Math.min(Math.PI/2-0.04, tPhi-(e.clientY-lastRY)*0.008));
-      lastRX=e.clientX; lastRY=e.clientY;
-    }
-    return;
-  }
+  if(!ghostLocked) return;
   if(cameraMode==='ghost' || cameraMode==='fort'){
     _euler.setFromQuaternion(camera.quaternion);
     _euler.y -= e.movementX*0.002;
@@ -1134,7 +1110,10 @@ const raycaster = new THREE.Raycaster();
 const screenCentre = new THREE.Vector2(0,0);   // pointer-locked = always screen centre
 
 renderer.domElement.addEventListener('click', e=>{
-  if(cameraMode==='ghost' && ghostLocked){
+  // If not locked yet, clicking the canvas enters the game
+  if(!ghostLocked){ document.body.requestPointerLock(); return; }
+
+  if(cameraMode==='ghost'){
     raycaster.setFromCamera(screenCentre, camera);
     // Check units first
     const uTargets=units.flatMap(u=>{const a=[];u.mesh.traverse(c=>{if(c.isMesh)a.push(c);});return a;});
@@ -1145,33 +1124,10 @@ renderer.domElement.addEventListener('click', e=>{
     const fHits=raycaster.intersectObjects(fTargets,false);
     if(fHits.length){ const fort=fHits[0].object.userData.fortRef; if(fort) possessFort(fort); }
   }
-  if(cameraMode==='fort' && ghostLocked && possessedFort){
+  if(cameraMode==='fort' && possessedFort){
     const dir=new THREE.Vector3(); camera.getWorldDirection(dir);
     const from=possessedFort.mesh.position.clone(); from.y+=3.9;
     spawnArrow(from, dir, possessedFort.player);
-  }
-
-  if(cameraMode==='strategy'){
-    const rect = renderer.domElement.getBoundingClientRect();
-    const mx = ((e.clientX-rect.left)/rect.width)*2-1;
-    const my = -((e.clientY-rect.top)/rect.height)*2+1;
-    raycaster.setFromCamera(new THREE.Vector2(mx,my), camera);
-
-    // First: check for unit hit → select it
-    const targets = units.flatMap(u=>{const a=[];u.mesh.traverse(c=>{if(c.isMesh)a.push(c);});return a;});
-    const unitHits = raycaster.intersectObjects(targets, false);
-    if(unitHits.length){
-      selectedUnit = unitHits[0].object.userData.unitRef;
-      selStratRing.visible = true;
-      selStratRing.position.set(selectedUnit.mesh.position.x, 0.42, selectedUnit.mesh.position.z);
-      return;
-    }
-
-    // Second: no unit hit + unit already selected → move to clicked ground
-    if(selectedUnit){
-      raycaster.ray.intersectPlane(groundPlane, _groundHit);
-      if(_groundHit) selectedUnit.dest = _groundHit.clone();
-    }
   }
 });
 
@@ -1353,13 +1309,12 @@ function animate(){
   // Flag wave
   flagMeshes.forEach((f,i)=>{ f.rotation.y = Math.sin(t*1.8+i*1.3)*0.25; });
 
-  // Ring pulses
-  [selRing, selStratRing].forEach(r=>{
-    if(!r.visible) return;
+  // Ring pulse
+  if(selRing.visible){
     const p = 0.92 + Math.sin(t*4)*0.08;
-    r.scale.set(p,p,p);
-    r.material.opacity = 0.6 + Math.sin(t*4)*0.3;
-  });
+    selRing.scale.set(p,p,p);
+    selRing.material.opacity = 0.6 + Math.sin(t*4)*0.3;
+  }
 
   tickUnitMovement(dt);
   tickTNT(dt, t);
@@ -1371,10 +1326,9 @@ function animate(){
   tickCombatAudio(dt);
   for(const u of units){ if(u.isWizard){ if(u.fireballCooldown>0) u.fireballCooldown-=dt; if(u.teleportCooldown>0) u.teleportCooldown-=dt; } }
   updateChunks();
-  if(cameraMode==='strategy') tickOrbit();
-  else if(cameraMode==='ghost')   tickGhost(dt);
+  if(cameraMode==='ghost')        tickGhost(dt);
   else if(cameraMode==='possess') tickPossess(dt);
-  // 'fort' mode: camera is parented + rotated in mousemove — no tick needed
+  // 'fort' mode: camera parented to fort mesh, mousemove handles rotation
 
   renderer.render(scene, camera);
 }
