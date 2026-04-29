@@ -65,6 +65,13 @@
 <script>
 'use strict';
 
+// ══════════════════════════════════════════════════════════════
+// GLOBAL ARRAYS — absolute top, no temporal dead zone possible
+// ══════════════════════════════════════════════════════════════
+const units         = [];
+const destructibles = [];
+const enemyLastSeen = [];
+
 // ─── Grid constants ───────────────────────────────────────────
 const COLS = 14, ROWS = 10, CS = 3;
 const T = { PLAIN:0, FOREST:1, WATER:2, MOUNTAIN:3, HQ:4 };
@@ -86,7 +93,7 @@ function tileAt(c,r){ return RAW_MAP[r][c]; }
 // ─── Scene / Camera / Renderer ───────────────────────────────
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1a1a2e);
-scene.fog        = new THREE.FogExp2(0x1a1a2e, 0.02);
+scene.fog        = new THREE.FogExp2(0x1a1a2e, 0.05);
 
 const CX = COLS*CS/2, CZ = ROWS*CS/2;
 const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 200);
@@ -296,12 +303,10 @@ const UNIT_NAMES=['Aldric','Bram','Cedric','Dorin','Elgar','Finn','Godwin','Harl
 let _nameIdx=0;
 function pickName(){ return UNIT_NAMES[_nameIdx++%UNIT_NAMES.length]; }
 
-// ─── Global game arrays (declared first to avoid temporal dead zone) ──
-const units        = [];
+// ─── Remaining game arrays (units/destructibles/enemyLastSeen are at script top) ──
 const forts        = [];
 const arrows       = [];
 const shockwaves   = [];
-const destructibles = [];
 const chunks       = new Map();
 let   _lastCX = null, _lastCZ = null;
 const ARROW_GEO = new THREE.CylinderGeometry(0.04,0.04,0.5,5);
