@@ -133,8 +133,8 @@ function tileAt(c,r){ return RAW_MAP[r][c]; }
 
 // ─── Scene / Camera / Renderer ───────────────────────────────
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1a1a2e);
-scene.fog        = new THREE.FogExp2(0x1a1a2e, 0.05);
+scene.background = new THREE.Color(0x1a2840);
+scene.fog        = new THREE.FogExp2(0x1a2840, 0.045);
 
 const CX = COLS*CS/2, CZ = ROWS*CS/2;
 const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 200);
@@ -196,34 +196,158 @@ window.addEventListener('resize', ()=>{
 });
 
 // ─── Lighting ─────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0x8899bb, 0.7));
-const sun = new THREE.DirectionalLight(0xffeedd, 1.5);
+scene.add(new THREE.AmbientLight(0x6688bb, 0.55));
+const sun = new THREE.DirectionalLight(0xffe0b0, 2.0);
 sun.position.set(30, 60, 20);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.bias = -0.0003;
 Object.assign(sun.shadow.camera, {left:-80,right:80,top:80,bottom:-80,far:200});
 scene.add(sun);
+// Fill light from opposite side — softens harsh shadow sides
+const fill = new THREE.DirectionalLight(0x4466aa, 0.4);
+fill.position.set(-20, 30, -15);
+scene.add(fill);
 
-// ─── Terrain materials ────────────────────────────────────────
+// ─── Sky dome ─────────────────────────────────────────────────
+const _skyCanvas = document.createElement('canvas');
+_skyCanvas.width = 2; _skyCanvas.height = 512;
+(function(){
+  const ctx = _skyCanvas.getContext('2d');
+  const g = ctx.createLinearGradient(0,0,0,512);
+  g.addColorStop(0.00, '#060e1c'); // zenith — deep navy
+  g.addColorStop(0.25, '#0d2040'); // upper sky
+  g.addColorStop(0.55, '#1a3a6e'); // mid sky
+  g.addColorStop(0.75, '#2a5a8a'); // lower sky
+  g.addColorStop(0.88, '#3d7a9a'); // near horizon
+  g.addColorStop(0.95, '#5a8a90'); // horizon haze
+  g.addColorStop(1.00, '#4a5a50'); // ground horizon
+  ctx.fillStyle = g; ctx.fillRect(0,0,2,512);
+})();
+const _skyTex = new THREE.CanvasTexture(_skyCanvas);
+const _skyDome = new THREE.Mesh(
+  new THREE.SphereGeometry(185, 32, 16),
+  new THREE.MeshBasicMaterial({map:_skyTex, side:THREE.BackSide, fog:false, depthWrite:false})
+);
+scene.add(_skyDome);
+
+// Generate envMap from sky for PBR reflections (water, metallic surfaces)
+const _pmrem = new THREE.PMREMGenerator(renderer);
+_pmrem.compileEquirectangularShader();
+const _envMap = _pmrem.fromEquirectangular(_skyTex).texture;
+scene.environment = _envMap;
+_pmrem.dispose();
+
+// ─── Procedural texture helpers ───────────────────────────────
+function _mkTex(size, fn){
+  const c=document.createElement('canvas'); c.width=c.height=size;
+  fn(c.getContext('2d'), size);
+  const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; return t;
+}
+function _rpt(tex, rx, ry){
+  const t=tex.clone(); t.repeat.set(rx,ry); t.needsUpdate=true; return t;
+}
+
+// Grass albedo — layered green stippling + fine blade strokes
+const _TEX_GRASS = _mkTex(256, (ctx,s)=>{
+  ctx.fillStyle='#3a6030'; ctx.fillRect(0,0,s,s);
+  for(let i=0;i<4000;i++){
+    const x=Math.random()*s, y=Math.random()*s, r=0.6+Math.random()*2.2;
+    const g=Math.floor(78+Math.random()*55), v=Math.floor(38+Math.random()*28);
+    ctx.fillStyle=`rgb(${v},${g},${Math.floor(v*0.6)})`; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+  }
+  for(let i=0;i<1200;i++){
+    const x=Math.random()*s, y=Math.random()*s;
+    ctx.strokeStyle=`rgba(20,${Math.floor(70+Math.random()*45)},15,0.35)`;
+    ctx.lineWidth=0.4; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+(Math.random()-0.5)*3,y-2-Math.random()*5); ctx.stroke();
+  }
+});
+
+// Stone albedo — gray rocky patches + crack lines
+const _TEX_STONE = _mkTex(256, (ctx,s)=>{
+  ctx.fillStyle='#626270'; ctx.fillRect(0,0,s,s);
+  for(let i=0;i<700;i++){
+    const x=Math.random()*s, y=Math.random()*s, r=1.5+Math.random()*10;
+    const v=Math.floor(75+Math.random()*60); ctx.fillStyle=`rgb(${v},${v},${v+5})`;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+  }
+  ctx.strokeStyle='rgba(35,35,45,0.3)'; ctx.lineWidth=0.6;
+  for(let i=0;i<90;i++){
+    ctx.beginPath(); ctx.moveTo(Math.random()*s,Math.random()*s);
+    ctx.lineTo(Math.random()*s,Math.random()*s); ctx.stroke();
+  }
+});
+
+// Wood/dirt albedo — brown organic grain
+const _TEX_WOOD = _mkTex(128, (ctx,s)=>{
+  ctx.fillStyle='#4a3218'; ctx.fillRect(0,0,s,s);
+  for(let i=0;i<2000;i++){
+    const x=Math.random()*s, y=Math.random()*s, r=0.5+Math.random()*1.8;
+    const v=Math.floor(50+Math.random()*40); ctx.fillStyle=`rgb(${v},${Math.floor(v*0.62)},${Math.floor(v*0.3)})`;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+  }
+  ctx.strokeStyle='rgba(25,12,5,0.3)'; ctx.lineWidth=0.4;
+  for(let i=0;i<60;i++){
+    ctx.beginPath(); ctx.moveTo(0,Math.random()*s); ctx.bezierCurveTo(s/3,Math.random()*s,s*2/3,Math.random()*s,s,Math.random()*s); ctx.stroke();
+  }
+});
+
+// Normal map — grass: gentle bumpy sod
+const _NRM_GRASS = _mkTex(256, (ctx,s)=>{
+  ctx.fillStyle='#8080ff'; ctx.fillRect(0,0,s,s);
+  for(let i=0;i<2500;i++){
+    const x=Math.random()*s, y=Math.random()*s, r=1.5+Math.random()*7;
+    const nx=Math.floor(105+Math.random()*46), ny=Math.floor(105+Math.random()*46);
+    ctx.fillStyle=`rgb(${nx},${ny},210)`; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+  }
+});
+
+// Normal map — stone: sharp rocky facets + cracks
+const _NRM_STONE = _mkTex(256, (ctx,s)=>{
+  ctx.fillStyle='#8080ff'; ctx.fillRect(0,0,s,s);
+  for(let i=0;i<1200;i++){
+    const x=Math.random()*s, y=Math.random()*s, r=3+Math.random()*14;
+    const nx=Math.floor(88+Math.random()*80), ny=Math.floor(88+Math.random()*80);
+    ctx.fillStyle=`rgb(${nx},${ny},200)`; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+  }
+  ctx.strokeStyle='rgba(50,50,210,0.55)'; ctx.lineWidth=1.2;
+  for(let i=0;i<70;i++){
+    ctx.beginPath(); ctx.moveTo(Math.random()*s,Math.random()*s);
+    ctx.lineTo(Math.random()*s,Math.random()*s); ctx.stroke();
+  }
+});
+
+// ─── Terrain materials (full PBR) ────────────────────────────
 const MAT = {
-  grass:    new THREE.MeshStandardMaterial({color:0x4a7c3f, roughness:0.8, metalness:0.2}),
-  trunk:    new THREE.MeshLambertMaterial({color:0x5c3d1e}),
-  mountain: new THREE.MeshLambertMaterial({color:0x7a7a8a}),
-  snow:     new THREE.MeshLambertMaterial({color:0xeeeeee}),
-  water:    new THREE.MeshLambertMaterial({color:0x1a6aa0,transparent:true,opacity:0.6}),
-  waterBed: new THREE.MeshLambertMaterial({color:0x0d3d5c}),
+  grass: new THREE.MeshStandardMaterial({
+    map: _rpt(_TEX_GRASS,3,3), normalMap: _rpt(_NRM_GRASS,3,3),
+    normalScale: new THREE.Vector2(0.7,0.7), roughness: 0.85, metalness: 0.0,
+  }),
+  trunk: new THREE.MeshStandardMaterial({
+    map: _rpt(_TEX_WOOD,2,2), roughness: 0.92, metalness: 0.0,
+  }),
+  mountain: new THREE.MeshStandardMaterial({
+    map: _rpt(_TEX_STONE,2,2), normalMap: _rpt(_NRM_STONE,2,2),
+    normalScale: new THREE.Vector2(1.4,1.4), roughness: 0.88, metalness: 0.06, color: 0xddddee,
+  }),
+  snow: new THREE.MeshStandardMaterial({color:0xeef0f5, roughness:0.55, metalness:0.0}),
+  water: new THREE.MeshStandardMaterial({
+    color:0x2a7ab0, roughness:0.08, metalness:0.55,
+    transparent:true, opacity:0.78, envMapIntensity:1.4,
+  }),
+  waterBed: new THREE.MeshStandardMaterial({color:0x0d3d5c, roughness:0.9, metalness:0.0}),
 };
 const LEAF_COLS=[0x2d6a2d,0x1e5c1e,0x3a7a2a,0x256325,0x2e7a1e];
-function leafMat(i){ return new THREE.MeshLambertMaterial({color:LEAF_COLS[i%5]}); }
+function leafMat(i){ return new THREE.MeshStandardMaterial({color:LEAF_COLS[i%5], roughness:0.88, metalness:0.0}); }
 
-// ─── Building materials (Standard PBR) ────────────────────────
+// ─── Building materials (PBR with textures) ───────────────────
 const BMAT = {
-  stone:  new THREE.MeshStandardMaterial({color:0x70707f,roughness:0.85,metalness:0.05}),
-  dark:   new THREE.MeshStandardMaterial({color:0x4a4a58,roughness:0.90,metalness:0.05}),
-  wood:   new THREE.MeshStandardMaterial({color:0x7a5520,roughness:0.80}),
-  flagP1: new THREE.MeshStandardMaterial({color:0xcc2020,side:THREE.DoubleSide,roughness:0.9}),
-  flagP2: new THREE.MeshStandardMaterial({color:0x2040cc,side:THREE.DoubleSide,roughness:0.9}),
-  flagN:  new THREE.MeshStandardMaterial({color:0xdddddd,side:THREE.DoubleSide,roughness:0.9}),
+  stone:  new THREE.MeshStandardMaterial({map:_rpt(_TEX_STONE,2,2), normalMap:_rpt(_NRM_STONE,2,2), normalScale:new THREE.Vector2(0.5,0.5), color:0xddddee, roughness:0.85, metalness:0.05}),
+  dark:   new THREE.MeshStandardMaterial({color:0x3a3a48, roughness:0.92, metalness:0.08}),
+  wood:   new THREE.MeshStandardMaterial({map:_rpt(_TEX_WOOD,3,3), roughness:0.88, metalness:0.0}),
+  flagP1: new THREE.MeshStandardMaterial({color:0xcc2020, side:THREE.DoubleSide, roughness:0.85}),
+  flagP2: new THREE.MeshStandardMaterial({color:0x2040cc, side:THREE.DoubleSide, roughness:0.85}),
+  flagN:  new THREE.MeshStandardMaterial({color:0xdddddd, side:THREE.DoubleSide, roughness:0.85}),
 };
 
 // ─── Collision + flag animation registers ─────────────────────
