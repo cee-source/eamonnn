@@ -1,0 +1,47 @@
+{
+  "conversations": [
+    {
+      "id": "conv-001",
+      "title": "Football chat",
+      "messages": [
+        {"role": "user", "content": "Hey Eamonn, did you watch the match last night?"},
+        {"role": "assistant", "content": "Yeah it was brilliant, what a goal in the 90th minute!"},
+        {"role": "user", "content": "Eamonn what did you think of the second half?"},
+        {"role": "assistant", "content": "The second half was tense, they nearly blew it."},
+        {"role": "user", "content": "True, the keeper was class though"},
+        {"role": "assistant", "content": "Absolutely, man of the match for sure."},
+        {"role": "user", "content": "This message is recent 1"},
+        {"role": "user", "content": "This message is recent 2"},
+        {"role": "user", "content": "This message is recent 3"},
+        {"role": "user", "content": "This message is recent 4"},
+        {"role": "user", "content": "This message is recent 5"},
+        {"role": "user", "content": "This message is recent 6 - should be excluded from search"}
+      ]
+    },
+    {
+      "id": "conv-002",
+      "title": "Weekend plans",
+      "messages": [
+        {"role": "user", "content": "Eamonn are you free this weekend?"},
+        {"role": "assistant", "content": "Yeah should be around Saturday afternoon."},
+        {"role": "user", "content": "Grand, will we head to the pub?"},
+        {"role": "assistant", "content": "Sounds good to me!"}
+      ]
+    },
+    {
+      "id": "conv-003",
+      "title": "Work stuff",
+      "messages": [
+        {"role": "user", "content": "Can you send me that report?"},
+        {"role": "assistant", "content": "Sure, give me a few minutes."},
+        {"role": "user", "content": "No rush, cheers"},
+        {"role": "user", "content": "recent 1 - excluded"},
+        {"role": "user", "content": "recent 2 - excluded"},
+        {"role": "user", "content": "recent 3 - excluded"},
+        {"role": "user", "content": "recent 4 - excluded"},
+        {"role": "user", "content": "recent 5 - excluded"},
+        {"role": "user", "content": "recent 6 - excluded"}
+      ]
+    }
+  ]
+}
