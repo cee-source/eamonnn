@@ -76,9 +76,33 @@
       font-family: monospace; letter-spacing: 1px; margin-bottom: 3px;
     }
     #minimap { display: block; border-radius: 3px; }
+
+    /* ── Cinematic overlays ─────────────────────────────────────── */
+    #vignette {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 5;
+      background: radial-gradient(ellipse 90% 80% at center,
+        transparent 42%,
+        rgba(0,0,0,0.45) 68%,
+        rgba(0,0,0,0.82) 100%);
+    }
+    #grain-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 4;
+      opacity: 0.055; mix-blend-mode: overlay;
+      image-rendering: pixelated;
+    }
+
+    /* Keep all HUD elements above vignette/grain */
+    #hud, #crosshair, #possess-hint,
+    #chat-wrap, #ammo-wrap, #minimap-wrap { position: fixed; z-index: 10; }
   </style>
 </head>
 <body>
+<!-- Cinematic overlays (below HUD, above WebGL canvas) -->
+<div id="vignette"></div>
+<canvas id="grain-overlay" width="256" height="256"></canvas>
+
 <div id="hud">⚔ GAME OF WAR — Click or press F to enter | WASD move | Mouse look</div>
 <div id="crosshair"></div>
 <div id="possess-hint">WASD — Move Unit &nbsp;|&nbsp; Mouse — Look &nbsp;|&nbsp; F — Exit Possession</div>
@@ -100,6 +124,12 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script>
 'use strict';
 
@@ -185,15 +215,62 @@ function playAt(worldPos, buffer, refDist=CS, rolloff=2.5){
 const renderer = new THREE.WebGLRenderer({ antialias:true });
 renderer.setPixelRatio(devicePixelRatio);
 renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled   = true;
+renderer.shadowMap.type      = THREE.PCFSoftShadowMap;
+renderer.toneMapping         = THREE.ReinhardToneMapping;
+renderer.toneMappingExposure = 1.18;
 document.body.appendChild(renderer.domElement);
 
 window.addEventListener('resize', ()=>{
   camera.aspect = innerWidth/innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
 });
+
+// ─── EffectComposer — cinematic post-processing ───────────────
+const composer = new THREE.EffectComposer(renderer);
+composer.addPass(new THREE.RenderPass(scene, camera));
+
+// Bloom: glows on fireballs, shots, wizard eyes — subtle war-light halo
+const _bloomPass = new THREE.UnrealBloomPass(
+  new THREE.Vector2(innerWidth, innerHeight),
+  0.38,   // strength  — subtle halo, not sci-fi
+  0.55,   // radius    — soft spread
+  0.50    // threshold — Reinhard-mapped emissives at intensity ≥3 clear this
+);
+composer.addPass(_bloomPass);
+
+// Color correction: desaturate 28% + cool slate-blue war tint + mild contrast
+const _colorCorrectionShader = {
+  uniforms: {
+    tDiffuse:   { value: null },
+    saturation: { value: 0.72 },
+    tint:       { value: new THREE.Vector3(0.91, 0.94, 1.05) },
+    contrast:   { value: 1.07 }
+  },
+  vertexShader: [
+    'varying vec2 vUv;',
+    'void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }'
+  ].join('\n'),
+  fragmentShader: [
+    'uniform sampler2D tDiffuse;',
+    'uniform float saturation;',
+    'uniform vec3 tint;',
+    'uniform float contrast;',
+    'varying vec2 vUv;',
+    'void main(){',
+    '  vec4 c = texture2D(tDiffuse, vUv);',
+    '  float lum = dot(c.rgb, vec3(0.299,0.587,0.114));',
+    '  vec3 d = mix(vec3(lum), c.rgb, saturation) * tint;',
+    '  d = (d - 0.5) * contrast + 0.5;',
+    '  gl_FragColor = vec4(clamp(d, 0.0, 1.0), c.a);',
+    '}'
+  ].join('\n')
+};
+const _colorPass = new THREE.ShaderPass(_colorCorrectionShader);
+_colorPass.renderToScreen = true;
+composer.addPass(_colorPass);
 
 // ─── Lighting ─────────────────────────────────────────────────
 scene.add(new THREE.AmbientLight(0x6688bb, 0.55));
@@ -781,7 +858,7 @@ function spawnSpy(player,col,row){
 const fireballs = [];
 const FB_GEO = new THREE.SphereGeometry(0.28,8,6);
 function spawnFireball(from, dir, ownerPlayer){
-  const mat=new THREE.MeshLambertMaterial({color:0xff6600,emissive:0xff3300,emissiveIntensity:1});
+  const mat=new THREE.MeshLambertMaterial({color:0xff6600,emissive:0xff3300,emissiveIntensity:3.5});
   const mesh=new THREE.Mesh(FB_GEO,mat);
   mesh.position.copy(from); scene.add(mesh);
   fireballs.push({mesh,mat,dir:dir.clone().normalize(),speed:18,ownerPlayer,traveled:0,maxDist:10*CS});
@@ -1502,7 +1579,7 @@ const MANA_REGEN = 12;   // per second when not firing
 const SHOT_COST  = 10;
 const SHOT_SPEED = 36;
 const SHOT_GEO   = new THREE.SphereGeometry(0.12, 6, 4);
-const SHOT_MAT   = new THREE.MeshLambertMaterial({color:0xffee00, emissive:0xffaa00, emissiveIntensity:0.9});
+const SHOT_MAT   = new THREE.MeshLambertMaterial({color:0xffee00, emissive:0xffaa00, emissiveIntensity:2.5});
 const _shotRay   = new THREE.Raycaster();
 
 function updateAmmoBar(){
@@ -1617,7 +1694,7 @@ function spawnUnitShot(fromPos, toPos, ownerPlayer){
   const origin = fromPos.clone(); origin.y += 0.8;
   const dir = toPos.clone(); dir.y += 0.8; dir.sub(origin).normalize();
   const col = ownerPlayer === 1 ? 0x4488ff : 0xff4444;
-  const mat = new THREE.MeshLambertMaterial({color:col, emissive:col, emissiveIntensity:0.7});
+  const mat = new THREE.MeshLambertMaterial({color:col, emissive:col, emissiveIntensity:2.0});
   const mesh = new THREE.Mesh(UNIT_SHOT_GEO, mat);
   mesh.position.copy(origin);
   scene.add(mesh);
@@ -1723,6 +1800,20 @@ function drawMiniMap(){
 // ─── HUD helper ───────────────────────────────────────────────
 function setHUD(msg){ document.getElementById('hud').textContent = msg; }
 
+// ─── Grain overlay animation ──────────────────────────────────
+const _grainCtx = document.getElementById('grain-overlay').getContext('2d');
+let _grainFrame = 0;
+function _updateGrain(){
+  if(++_grainFrame % 5 !== 0) return;  // ~12fps refresh keeps it subtle
+  const id = _grainCtx.createImageData(256, 256);
+  const d  = id.data;
+  for(let i = 0; i < d.length; i += 4){
+    const v = Math.random() * 255 | 0;
+    d[i] = v; d[i+1] = v; d[i+2] = v; d[i+3] = 255;
+  }
+  _grainCtx.putImageData(id, 0, 0);
+}
+
 // ─── Animate ──────────────────────────────────────────────────
 const clock = new THREE.Clock();
 
@@ -1765,7 +1856,8 @@ function animate(){
   else if(cameraMode==='possess') tickPossess(dt);
   // 'fort' mode: camera parented to fort mesh, mousemove handles rotation
 
-  renderer.render(scene, camera);
+  _updateGrain();
+  composer.render();
 }
 animate();
 </script>
