@@ -80,6 +80,24 @@
     /* Color grade the WebGL canvas: desaturate 28%, cool tint, slight contrast */
     #game-canvas { filter: saturate(0.72) contrast(1.07) hue-rotate(-8deg); display: block; }
 
+    /* ── Voice recording indicator ──────────────────────────────── */
+    #rec-indicator {
+      display: none; position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -42px);
+      background: rgba(210,0,0,0.92); color: #fff;
+      font-size: 11px; font-family: monospace; letter-spacing: 2px;
+      padding: 3px 11px; border-radius: 6px;
+      pointer-events: none; z-index: 20;
+    }
+    #rec-indicator.active {
+      display: block;
+      animation: recPulse 0.65s ease-in-out infinite;
+    }
+    @keyframes recPulse {
+      0%,100% { opacity: 1;   box-shadow: 0 0 10px rgba(255,60,60,0.9); }
+      50%      { opacity: 0.5; box-shadow: 0 0 2px  rgba(255,60,60,0.3); }
+    }
+
     /* ── Cinematic overlays ─────────────────────────────────────── */
     #vignette {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -108,6 +126,7 @@
 
 <div id="hud">⚔ GAME OF WAR — Click or press F to enter | WASD move | Mouse look</div>
 <div id="crosshair"></div>
+<div id="rec-indicator">⏺ REC</div>
 <div id="possess-hint">WASD — Move Unit &nbsp;|&nbsp; Mouse — Look &nbsp;|&nbsp; F — Exit Possession</div>
 
 <div id="chat-wrap">
@@ -139,6 +158,9 @@ const enemyLastSeen = [];
 const playerShots   = [];
 const sparks        = [];
 const unitShots     = [];
+
+// ─── Voice command API key ────────────────────────────────────
+const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY'; // ← paste your key here
 
 // ─── Grid constants ───────────────────────────────────────────
 const COLS = 14, ROWS = 10, CS = 3;
@@ -1007,17 +1029,13 @@ function chatPrint(msg, cls='sys'){
 const CMD_DIRS = {north:[0,-1],south:[0,1],east:[1,0],west:[-1,0],
                   n:[0,-1],s:[0,1],e:[1,0],w:[-1,0]};
 
-chatIn.addEventListener('keydown', ev=>{
-  if(ev.code!=='Enter') return;
-  ev.preventDefault();
-  const raw=chatIn.value.trim(); chatIn.value='';
+// ─── Shared command parser (called by chat Enter AND voice transcript) ───
+function parseCommand(raw){
   if(!raw) return;
-  chatPrint(raw,'cmd');
 
-  // Global commands
   if(/^\/all\s+retreat\b/i.test(raw)){
-    const p1HQ = new THREE.Vector3(CS*0+CS/2, 0, CS*0+CS/2);   // col=0, row=0
-    const p2HQ = new THREE.Vector3(CS*12+CS/2, 0, CS*9+CS/2);  // col=12, row=9
+    const p1HQ = new THREE.Vector3(CS*0+CS/2, 0, CS*0+CS/2);
+    const p2HQ = new THREE.Vector3(CS*12+CS/2, 0, CS*9+CS/2);
     let count = 0;
     for(const u of units){
       u.combatTarget = null;
@@ -1046,7 +1064,6 @@ chatIn.addEventListener('keydown', ev=>{
     unit.dest=null;
     playAt(unit.mesh.position.clone(), SND_CMD);
   } else if(verb==='attack'){
-    // target nearest enemy
     let nearest=null, nd=Infinity;
     for(const e of units){
       if(e.player===unit.player) continue;
@@ -1058,6 +1075,15 @@ chatIn.addEventListener('keydown', ev=>{
   } else {
     chatPrint(`Unknown command "${verb}" — try move/stop/attack`,'sys');
   }
+}
+
+chatIn.addEventListener('keydown', ev=>{
+  if(ev.code!=='Enter') return;
+  ev.preventDefault();
+  const raw=chatIn.value.trim(); chatIn.value='';
+  if(!raw) return;
+  chatPrint(raw,'cmd');
+  parseCommand(raw);
 });
 // Prevent chat input from triggering game keys
 chatIn.addEventListener('keyup',  ev=>ev.stopPropagation());
@@ -1252,7 +1278,13 @@ document.addEventListener('pointerlockchange', ()=>{
 // ─── Key events ───────────────────────────────────────────────
 document.addEventListener('keydown', e=>{
   ghostKeys[e.code]=true;
-  if(e.code==='Space') e.preventDefault();
+  if(e.code==='Space'){
+    e.preventDefault();
+    // Hold Space in ghost mode (not while typing) → voice command
+    if(ghostLocked && cameraMode==='ghost' && document.activeElement!==chatIn){
+      _voiceStart();
+    }
+  }
 
   if(e.code==='KeyF'){
     if(!ghostLocked) document.body.requestPointerLock();
@@ -1319,7 +1351,10 @@ document.addEventListener('keydown', e=>{
     } else { setHUD(`🤡 Confusion cooldown: ${u.confusionCooldown.toFixed(1)}s`); }
   }
 });
-document.addEventListener('keyup', e=>{ ghostKeys[e.code]=false; });
+document.addEventListener('keyup', e=>{
+  ghostKeys[e.code]=false;
+  if(e.code==='Space') _voiceStop();
+});
 
 // ─── Mouse look ───────────────────────────────────────────────
 document.addEventListener('mousemove', e=>{
@@ -1751,6 +1786,74 @@ function drawMiniMap(){
 
 // ─── HUD helper ───────────────────────────────────────────────
 function setHUD(msg){ document.getElementById('hud').textContent = msg; }
+
+// ─── Voice command system (Space to record → Whisper → parseCommand) ────
+const _recEl = document.getElementById('rec-indicator');
+let _mediaRecorder = null;
+let _audioChunks   = [];
+let _voiceActive   = false;
+
+async function _voiceInit(){
+  if(_mediaRecorder) return true;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true, video:false});
+    _mediaRecorder = new MediaRecorder(stream);
+    _mediaRecorder.ondataavailable = ev => { if(ev.data.size > 0) _audioChunks.push(ev.data); };
+    _mediaRecorder.onstop = _voiceTranscribe;
+    return true;
+  } catch(err){
+    chatPrint('🎙 Mic denied — check browser permissions', 'sys');
+    return false;
+  }
+}
+
+async function _voiceStart(){
+  if(_voiceActive) return;
+  if(!await _voiceInit()) return;
+  _voiceActive  = true;
+  _audioChunks  = [];
+  _mediaRecorder.start();
+  _recEl.classList.add('active');
+  setHUD('🎙 Recording… release Space to send');
+}
+
+function _voiceStop(){
+  if(!_voiceActive || !_mediaRecorder || _mediaRecorder.state==='inactive') return;
+  _voiceActive = false;
+  _mediaRecorder.stop();
+  _recEl.classList.remove('active');
+  setHUD('🎙 Processing…');
+}
+
+async function _voiceTranscribe(){
+  const blob = new Blob(_audioChunks, {type: _mediaRecorder.mimeType || 'audio/webm'});
+  _audioChunks = [];
+
+  const form = new FormData();
+  form.append('file', blob, 'voice.webm');
+  form.append('model', 'whisper-1');
+
+  try {
+    const res  = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method:  'POST',
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+      body:    form,
+    });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const text = (data.text || '').trim();
+    if(text){
+      chatPrint(text, 'cmd');
+      parseCommand(text);
+    } else {
+      chatPrint('🎙 No speech detected', 'sys');
+    }
+  } catch(err){
+    chatPrint(`🎙 Whisper error: ${err.message}`, 'sys');
+  } finally {
+    setHUD('WASD move | Mouse look | Click unit/fort to possess | F = unlock');
+  }
+}
 
 // ─── Grain overlay animation ──────────────────────────────────
 const _grainCtx = document.getElementById('grain-overlay').getContext('2d');
