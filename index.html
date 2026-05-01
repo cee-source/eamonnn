@@ -519,23 +519,23 @@ const BLAST_R   = 5 * CS;
 // ─── Build terrain ────────────────────────────────────────────
 const envGroup = new THREE.Group();
 scene.add(envGroup);
-const BASE_GEO = new THREE.BoxGeometry(CS-0.08,0.4,CS-0.08);
+const BASE_GEO = new THREE.BoxGeometry(CS,0.4,CS); // full-width, no seams
 
 for(let row=0;row<ROWS;row++){
   for(let col=0;col<COLS;col++){
     const type=tileAt(col,row), wx=col*CS+CS/2, wz=row*CS+CS/2;
-    const cellY = type===T.WATER ? -1 : generateHeight(wx,wz);
-    const cell=new THREE.Group(); cell.position.set(wx,cellY,wz);
+    const cell=new THREE.Group(); cell.position.set(wx,0,wz); // all tiles at y=0
 
     if(type!==T.WATER){
       const base=new THREE.Mesh(BASE_GEO,MAT.grass);
       base.position.y=0.2; base.receiveShadow=true; cell.add(base);
     }
     if(type===T.WATER){
-      const bed=new THREE.Mesh(new THREE.BoxGeometry(CS-0.08,0.4,CS-0.08),MAT.waterBed);
-      bed.position.y=-0.5; bed.receiveShadow=true; cell.add(bed);
-      const surf=new THREE.Mesh(new THREE.PlaneGeometry(CS-0.08,CS-0.08),MAT.water);
-      surf.rotation.x=-Math.PI/2; surf.position.y=-0.28; cell.add(surf);
+      // Bed fills below water; surface sits 8cm below surrounding ground tops (0.4)
+      const bed=new THREE.Mesh(new THREE.BoxGeometry(CS,0.55,CS),MAT.waterBed);
+      bed.position.y=0.0; bed.receiveShadow=true; cell.add(bed);
+      const surf=new THREE.Mesh(new THREE.PlaneGeometry(CS,CS),MAT.water);
+      surf.rotation.x=-Math.PI/2; surf.position.y=0.32; cell.add(surf);
     }
     if(type===T.FOREST){
       const rand=seededRand(col*100+row*7+42), count=2+Math.floor(rand()*3);
@@ -573,7 +573,7 @@ for(let row=0;row<ROWS;row++){
  {player:2,col:11,row:2},{player:2,col:11,row:8}].forEach(({player,col,row})=>{
   const wx=col*CS+CS/2, wz=row*CS+CS/2;
   const mesh=makeArcherFort(player,wx,wz);
-  mesh.position.set(wx, generateHeight(wx,wz)+0.4, wz);
+  mesh.position.set(wx, 0.4, wz);
   scene.add(mesh);
   const fort={player,mesh,wx,wz,lastShot:Math.random()*2};
   mesh.traverse(c=>{ c.userData.fortRef=fort; });
@@ -603,15 +603,14 @@ function buildChunk(cx, cz){
       if(col>=0&&col<COLS&&row>=0&&row<ROWS) continue; // main map handles these
       const wx=col*CS+CS/2, wz=row*CS+CS/2;
       const type=procType(col,row);
-      const cellY = type===T.WATER ? -1 : generateHeight(wx,wz);
-      const cell=new THREE.Group(); cell.position.set(wx,cellY,wz);
+      const cell=new THREE.Group(); cell.position.set(wx,0,wz); // flat, matches main map
       if(type!==T.WATER){
         const b=new THREE.Mesh(BASE_GEO,MAT.grass); b.position.y=0.2; b.receiveShadow=true; cell.add(b);
       } else {
-        const bed=new THREE.Mesh(new THREE.BoxGeometry(CS-0.08,0.4,CS-0.08),MAT.waterBed);
-        bed.position.y=-0.5; bed.receiveShadow=true; cell.add(bed);
-        const surf=new THREE.Mesh(new THREE.PlaneGeometry(CS-0.08,CS-0.08),MAT.water);
-        surf.rotation.x=-Math.PI/2; surf.position.y=-0.28; cell.add(surf);
+        const bed=new THREE.Mesh(new THREE.BoxGeometry(CS,0.55,CS),MAT.waterBed);
+        bed.position.y=0.0; bed.receiveShadow=true; cell.add(bed);
+        const surf=new THREE.Mesh(new THREE.PlaneGeometry(CS,CS),MAT.water);
+        surf.rotation.x=-Math.PI/2; surf.position.y=0.32; cell.add(surf);
       }
       if(type===T.FOREST){
         const cnt=2+Math.floor(rand()*3);
