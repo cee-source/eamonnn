@@ -77,6 +77,9 @@
     }
     #minimap { display: block; border-radius: 3px; }
 
+    /* Color grade the WebGL canvas: desaturate 28%, cool tint, slight contrast */
+    #game-canvas { filter: saturate(0.72) contrast(1.07) hue-rotate(-8deg); display: block; }
+
     /* ── Cinematic overlays ─────────────────────────────────────── */
     #vignette {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -124,12 +127,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script>
 'use strict';
 
@@ -219,58 +216,14 @@ renderer.shadowMap.enabled   = true;
 renderer.shadowMap.type      = THREE.PCFSoftShadowMap;
 renderer.toneMapping         = THREE.ReinhardToneMapping;
 renderer.toneMappingExposure = 1.18;
+renderer.domElement.id = 'game-canvas';
 document.body.appendChild(renderer.domElement);
 
 window.addEventListener('resize', ()=>{
   camera.aspect = innerWidth/innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
-  composer.setSize(innerWidth, innerHeight);
 });
-
-// ─── EffectComposer — cinematic post-processing ───────────────
-const composer = new THREE.EffectComposer(renderer);
-composer.addPass(new THREE.RenderPass(scene, camera));
-
-// Bloom: glows on fireballs, shots, wizard eyes — subtle war-light halo
-const _bloomPass = new THREE.UnrealBloomPass(
-  new THREE.Vector2(innerWidth, innerHeight),
-  0.38,   // strength  — subtle halo, not sci-fi
-  0.55,   // radius    — soft spread
-  0.50    // threshold — Reinhard-mapped emissives at intensity ≥3 clear this
-);
-composer.addPass(_bloomPass);
-
-// Color correction: desaturate 28% + cool slate-blue war tint + mild contrast
-const _colorCorrectionShader = {
-  uniforms: {
-    tDiffuse:   { value: null },
-    saturation: { value: 0.72 },
-    tint:       { value: new THREE.Vector3(0.91, 0.94, 1.05) },
-    contrast:   { value: 1.07 }
-  },
-  vertexShader: [
-    'varying vec2 vUv;',
-    'void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }'
-  ].join('\n'),
-  fragmentShader: [
-    'uniform sampler2D tDiffuse;',
-    'uniform float saturation;',
-    'uniform vec3 tint;',
-    'uniform float contrast;',
-    'varying vec2 vUv;',
-    'void main(){',
-    '  vec4 c = texture2D(tDiffuse, vUv);',
-    '  float lum = dot(c.rgb, vec3(0.299,0.587,0.114));',
-    '  vec3 d = mix(vec3(lum), c.rgb, saturation) * tint;',
-    '  d = (d - 0.5) * contrast + 0.5;',
-    '  gl_FragColor = vec4(clamp(d, 0.0, 1.0), c.a);',
-    '}'
-  ].join('\n')
-};
-const _colorPass = new THREE.ShaderPass(_colorCorrectionShader);
-_colorPass.renderToScreen = true;
-composer.addPass(_colorPass);
 
 // ─── Lighting ─────────────────────────────────────────────────
 scene.add(new THREE.AmbientLight(0x6688bb, 0.55));
@@ -1857,7 +1810,7 @@ function animate(){
   // 'fort' mode: camera parented to fort mesh, mousemove handles rotation
 
   _updateGrain();
-  composer.render();
+  renderer.render(scene, camera);
 }
 animate();
 </script>
