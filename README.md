@@ -9,8 +9,26 @@ When the PIR sensor detects movement, a Bluetooth speaker plays a cat meow sound
 - Raspberry Pi 5
 - PIR motion sensor (HC-SR501 or similar)
 - Bluetooth speaker
-- 3 female-to-female jumper wires
+- Jumper wires — see note below about wire types
 - A meow sound file (`meow.wav`)
+
+---
+
+## Jumper Wire Types
+
+Both the Pi GPIO header and the PIR sensor have **male pins**, so ideally you use **female-to-female** wires.
+If you only have male-to-female and male-to-male wires, you have two options:
+
+**Option A — Daisy-chain two male-to-female wires (no extra parts)**
+Push the female end of one wire into the female end of another to make a female-to-female connection.
+Wrap the join in a bit of tape so it stays together.
+```
+Pi pin [male] ←female——wire——male→←female——wire——male→ PIR pin [male]
+```
+
+**Option B — Use a breadboard**
+Plug the PIR's male pins into the breadboard, then use male-to-female wires
+(female end on Pi, male end into the breadboard row beside each PIR pin).
 
 ---
 
