@@ -1,0 +1,16 @@
+[Unit]
+Description=PIR Motion Cat Meow Alert
+After=bluetooth.target sound.target pulseaudio.service
+Wants=pulseaudio.service
+
+[Service]
+# Change 'pi' to your username if different
+User=pi
+WorkingDirectory=/home/pi/eamonnn
+ExecStart=/usr/bin/python3 /home/pi/eamonnn/pir_meow.py
+Restart=on-failure
+RestartSec=5
+Environment=PULSE_RUNTIME_PATH=/run/user/1000/pulse
+
+[Install]
+WantedBy=multi-user.target
