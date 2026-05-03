@@ -1262,10 +1262,12 @@ function tickPossess(dt){
 }
 
 // ─── Pointer lock ─────────────────────────────────────────────
+let _skipMouseEvents = 0;
 document.addEventListener('pointerlockchange', ()=>{
   ghostLocked = !!document.pointerLockElement;
   document.getElementById('crosshair').style.display = ghostLocked ? 'block' : 'none';
   if(ghostLocked){
+    _skipMouseEvents = 5; // discard first events — browser fires huge accumulated delta on lock-acquire
     setHUD('WASD move | Mouse look | Click unit/fort to possess | F = unlock');
   } else {
     if(cameraMode==='possess') exitPossession();
@@ -1359,6 +1361,7 @@ document.addEventListener('keyup', e=>{
 // ─── Mouse look ───────────────────────────────────────────────
 document.addEventListener('mousemove', e=>{
   if(!ghostLocked) return;
+  if(_skipMouseEvents > 0){ _skipMouseEvents--; return; }
   if(cameraMode==='ghost' || cameraMode==='fort'){
     _euler.setFromQuaternion(camera.quaternion);
     _euler.y -= e.movementX*0.002;
