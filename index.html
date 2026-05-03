@@ -68,14 +68,13 @@
 
     #minimap-wrap {
       position: fixed; top: 14px; right: 14px;
-      background: rgba(0,0,0,0.75); border: 1px solid #444; border-radius: 8px;
-      padding: 5px; pointer-events: none;
+      pointer-events: none;
     }
     #minimap-label {
-      display: block; text-align: center; color: #888; font-size: 9px;
-      font-family: monospace; letter-spacing: 1px; margin-bottom: 3px;
+      display: block; text-align: center; color: #778899; font-size: 9px;
+      font-family: monospace; letter-spacing: 2px; margin-bottom: 3px;
     }
-    #minimap { display: block; border-radius: 3px; }
+    #minimap { display: block; }
 
     /* Color grade the WebGL canvas: desaturate 28%, cool tint, slight contrast */
     #game-canvas { filter: saturate(0.72) contrast(1.07) hue-rotate(-8deg); display: block; }
@@ -151,7 +150,7 @@
 
 <div id="minimap-wrap">
   <span id="minimap-label">INTEL MAP</span>
-  <canvas id="minimap" width="140" height="100"></canvas>
+  <canvas id="minimap" width="120" height="120"></canvas>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -167,12 +166,17 @@ const enemyLastSeen = [];
 const playerShots   = [];
 const sparks        = [];
 const unitShots     = [];
+// Intel / Fog-of-War state (populated after ROWS/COLS are defined below)
+let _intelMap = null;   // Map<unit → {x,z,lastSeen,spotted}>
+let _revealed = null;   // Uint8Array[ROWS][COLS] — terrain seen by P1
 
 // ─── Voice command API key ────────────────────────────────────
 const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY'; // ← paste your key here
 
 // ─── Grid constants ───────────────────────────────────────────
 const COLS = 14, ROWS = 10, CS = 3;
+_intelMap = new Map();
+_revealed = Array.from({length:ROWS}, ()=>new Uint8Array(COLS));
 const T = { PLAIN:0, FOREST:1, WATER:2, MOUNTAIN:3, HQ:4 };
 
 const RAW_MAP = [
@@ -229,6 +233,13 @@ const SND_DEATH_LONG = _mkBuf((t,p)=>(
   Math.sin(2*Math.PI*165*t)*0.25 +
   Math.sin(2*Math.PI*55*t)*0.2
 )*Math.exp(-p*1.8)*0.7, 2.0);
+
+// Scout ping: sharp high-pitched flare (enemy spotted)
+const SND_SCOUT_PING = _mkBuf((t,p)=>
+  (Math.sin(2*Math.PI*2400*t)+Math.sin(2*Math.PI*3200*t)*0.3) * Math.exp(-p*13) * 0.5, 0.14);
+// Unit acknowledgment: radio-style boop confirming received order
+const SND_UNIT_ACK = _mkBuf((t,p)=>
+  (Math.sin(2*Math.PI*520*t)+Math.sin(2*Math.PI*660*t)*0.35) * Math.exp(-p*9) * 0.38, 0.18);
 
 // Radio mic-open: 180ms white-noise burst with fast attack/decay (static hiss)
 const SND_RADIO_KEY = _mkBuf((t,p)=>{
@@ -1156,7 +1167,18 @@ function parseCommand(raw){
     return unit;
   }
 
-  chatPrint(`Unknown command "${verb}" — try move/stop/attack/follow/retreat`,'sys');
+  if(verb==='scout'||verb==='explore'||verb==='recon'){
+    unit.scouting=true; unit.scoutTimer=30;
+    const angle=Math.random()*Math.PI*2;
+    unit.dest=new THREE.Vector3(
+      unit.mesh.position.x+Math.cos(angle)*CS*6, 0,
+      unit.mesh.position.z+Math.sin(angle)*CS*6);
+    playAt(unit.mesh.position.clone(), SND_CMD);
+    chatPrint(`${unit.unitName} → scouting (30s)`,'sys');
+    return unit;
+  }
+
+  chatPrint(`Unknown command "${verb}" — try move/stop/attack/follow/retreat/scout`,'sys');
   return null;
 }
 
@@ -1192,9 +1214,16 @@ units.forEach(u=>{
   u.unitName     = pickName();
   u._warnTimer   = Math.random()*5;
   u.maxHp        = u.hp;
-  u.attackTimer  = Math.random()*2; // stagger so units don't all fire at once
+  u.attackTimer  = Math.random()*2;
   u.combatTarget = null;
+  u.stamina      = 100;
+  u.maxStamina   = 100;
+  u.scouting     = false;
+  u.scoutTimer   = 0;
+  // Fog of War — enemy units start hidden
+  if(u.player===2) u.mesh.visible = false;
   addHPBar(u);
+  addStaminaBar(u);
 });
 
 // ─── Possession ring (cyan) ───────────────────────────────────
@@ -1306,7 +1335,11 @@ function exitPossession(){
 function tickPossess(dt){
   if(!isPossessing || !possessedUnit || !ghostLocked) return;
   const u = possessedUnit, mesh = u.mesh;
-  const spd = UNIT_SPD * dt * (u.isAssassin ? 2 : 1);
+  const moving = ghostKeys['KeyW']||ghostKeys['KeyS']||ghostKeys['KeyA']||ghostKeys['KeyD'];
+  if(moving) u.stamina = Math.max(0, u.stamina - 12*dt);
+  else u.stamina = Math.min(u.maxStamina, u.stamina + 20*dt);
+  const speedMod = u.stamina > 0 ? 1 : 0.25;
+  const spd = UNIT_SPD * dt * (u.isAssassin ? 2 : 1) * speedMod;
 
   if(ghostKeys['KeyW']) mesh.translateZ(-spd);
   if(ghostKeys['KeyS']) mesh.translateZ( spd);
@@ -1484,15 +1517,40 @@ renderer.domElement.addEventListener('click', e=>{
 // ─── Unit walking (strategy mode click-to-move) ───────────────
 function tickUnitMovement(dt){
   for(const unit of units){
-    if(!unit.dest || unit === possessedUnit) continue;
+    if(!unit.dest || unit === possessedUnit){
+      // Regen stamina when idle
+      if(unit.stamina < unit.maxStamina)
+        unit.stamina = Math.min(unit.maxStamina, unit.stamina + 20*dt);
+      continue;
+    }
     const dx = unit.dest.x - unit.mesh.position.x;
     const dz = unit.dest.z - unit.mesh.position.z;
     const dist = Math.sqrt(dx*dx + dz*dz);
-    if(dist < 0.08){ unit.dest = null; continue; }
-    const move = Math.min(UNIT_SPD * dt, dist);
+    if(dist < 0.15){
+      unit.dest = null;
+      // Scout: immediately pick a new random direction
+      if(unit.scouting){
+        const a=Math.random()*Math.PI*2;
+        unit.dest=new THREE.Vector3(unit.mesh.position.x+Math.cos(a)*CS*5,0,unit.mesh.position.z+Math.sin(a)*CS*5);
+      }
+      continue;
+    }
+    // Drain stamina while moving; 25% speed when exhausted
+    unit.stamina = Math.max(0, unit.stamina - 12*dt);
+    const speedMod = unit.stamina > 0 ? 1 : 0.25;
+    const move = Math.min(UNIT_SPD * speedMod * dt, dist);
     unit.mesh.position.x += (dx/dist) * move;
     unit.mesh.position.z += (dz/dist) * move;
     unit.mesh.rotation.y  = Math.atan2(-dx, -dz);
+  }
+}
+
+// ─── Scout timer countdown ────────────────────────────────────
+function tickScout(dt){
+  for(const u of units){
+    if(!u.scouting) continue;
+    u.scoutTimer -= dt;
+    if(u.scoutTimer <= 0){ u.scouting=false; u.dest=null; }
   }
 }
 
@@ -1576,7 +1634,9 @@ function tickForts(dt){
 // ─── Kill unit ────────────────────────────────────────────────
 function killUnit(unit){
   if(possessedUnit===unit) exitPossession();
-  if(unit._hpBar){ scene.remove(unit._hpBar.pivot); unit._hpBar=null; }
+  if(unit._hpBar)     { scene.remove(unit._hpBar.pivot);     unit._hpBar=null; }
+  if(unit._staminaBar){ scene.remove(unit._staminaBar.pivot); unit._staminaBar=null; }
+  if(_intelMap) _intelMap.delete(unit);
   const name = unit.unitName || 'Unknown';
   chatPrint(`⚰ ${name} has fallen in battle.`, 'sys');
   playAt(unit.mesh.position.clone(), SND_DEATH_LONG, CS*2, 2);
@@ -1834,40 +1894,158 @@ function tickUnitShots(dt){
   }
 }
 
-// ─── Intel Mini-Map ───────────────────────────────────────────
-const _miniCtx  = document.getElementById('minimap').getContext('2d');
-const _MINI_W   = 140, _MINI_H = 100;
-const _TILE_W   = _MINI_W / COLS, _TILE_H = _MINI_H / ROWS;
-const _TILE_COLS = ['#1b3a1b','#0d4a0d','#1a2e5c','#3a3030','#7a6000']; // PLAIN FOREST WATER MOUNTAIN HQ
+// ═══════════════════════════════════════════════════════════════
+// FOG OF WAR
+// ═══════════════════════════════════════════════════════════════
+const FOG_RANGE = 25; // world units — sight radius for P1 units + camera
+function tickFogOfWar(){
+  for(const u of units){
+    if(u.player===1) continue;
+    let vis = false;
+    const cdx=camera.position.x-u.mesh.position.x, cdz=camera.position.z-u.mesh.position.z;
+    if(cdx*cdx+cdz*cdz < FOG_RANGE*FOG_RANGE) vis=true;
+    if(!vis) for(const f of units){
+      if(f.player!==1) continue;
+      const dx=f.mesh.position.x-u.mesh.position.x, dz=f.mesh.position.z-u.mesh.position.z;
+      if(dx*dx+dz*dz < FOG_RANGE*FOG_RANGE){ vis=true; break; }
+    }
+    u.mesh.visible = vis;
+  }
+}
 
-function drawMiniMap(){
-  const ctx = _miniCtx;
-  // Draw terrain tiles
-  for(let r=0; r<ROWS; r++){
-    for(let c=0; c<COLS; c++){
-      ctx.fillStyle = _TILE_COLS[RAW_MAP[r][c]];
-      ctx.fillRect(c*_TILE_W, r*_TILE_H, _TILE_W+0.5, _TILE_H+0.5);
+// ═══════════════════════════════════════════════════════════════
+// INTEL — LINE OF SIGHT tracking, 45s last-known-position memory
+// ═══════════════════════════════════════════════════════════════
+const INTEL_MEMORY = 45;
+function tickIntel(){
+  const now = performance.now()/1000;
+  // Remove dead units from intel
+  for(const [u] of _intelMap){ if(!units.includes(u)) _intelMap.delete(u); }
+  for(const enemy of units){
+    if(enemy.player===1) continue;
+    let spotted=false, spotterPos=null;
+    const cdx=camera.position.x-enemy.mesh.position.x, cdz=camera.position.z-enemy.mesh.position.z;
+    if(cdx*cdx+cdz*cdz < FOG_RANGE*FOG_RANGE){ spotted=true; spotterPos=camera.position.clone(); }
+    if(!spotted) for(const f of units){
+      if(f.player!==1) continue;
+      const dx=f.mesh.position.x-enemy.mesh.position.x, dz=f.mesh.position.z-enemy.mesh.position.z;
+      if(dx*dx+dz*dz < FOG_RANGE*FOG_RANGE){ spotted=true; spotterPos=f.mesh.position.clone(); break; }
+    }
+    const prev = _intelMap.get(enemy);
+    if(spotted){
+      // First detection this cycle → play scout ping from spotter
+      if(!prev || !prev.spotted){
+        playAt((spotterPos||enemy.mesh.position).clone(), SND_SCOUT_PING, CS*1.5, 2);
+      }
+      _intelMap.set(enemy, {x:enemy.mesh.position.x, z:enemy.mesh.position.z, lastSeen:now, spotted:true});
+    } else if(prev){
+      prev.spotted=false; _intelMap.set(enemy, prev);
     }
   }
-  // Draw units — combat units flash bright red at 2 Hz
-  const flash = (Date.now() % 500) < 250;
-  for(const u of units){
-    const px = (u.mesh.position.x / (COLS*CS)) * _MINI_W;
-    const pz = (u.mesh.position.z / (ROWS*CS)) * _MINI_H;
-    const inCombat = !!u.combatTarget;
-    if(inCombat && !flash) continue; // blink by skipping every other half-second
-    ctx.fillStyle = inCombat ? '#ff2200' : (u.player===1 ? '#4499ff' : '#ff4444');
-    ctx.beginPath();
-    ctx.arc(px, pz, inCombat ? 3.5 : 2.5, 0, Math.PI*2);
-    ctx.fill();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TERRAIN REVEAL — P1 units + camera uncover tiles on mini-map
+// ═══════════════════════════════════════════════════════════════
+const REVEAL_R = 2;
+function tickTerrainReveal(){
+  function reveal(wx,wz){
+    const col=Math.floor(wx/CS), row=Math.floor(wz/CS);
+    for(let dr=-REVEAL_R;dr<=REVEAL_R;dr++) for(let dc=-REVEAL_R;dc<=REVEAL_R;dc++){
+      const r=row+dr, c=col+dc;
+      if(r>=0&&r<ROWS&&c>=0&&c<COLS) _revealed[r][c]=1;
+    }
   }
-  // Draw camera position as white dot
-  const cpx = (camera.position.x / (COLS*CS)) * _MINI_W;
-  const cpz = (camera.position.z / (ROWS*CS)) * _MINI_H;
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.arc(Math.max(2,Math.min(_MINI_W-2,cpx)), Math.max(2,Math.min(_MINI_H-2,cpz)), 2, 0, Math.PI*2);
-  ctx.fill();
+  reveal(camera.position.x, camera.position.z);
+  for(const u of units){ if(u.player===1) reveal(u.mesh.position.x, u.mesh.position.z); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STAMINA BARS — blue billboard below HP bar
+// ═══════════════════════════════════════════════════════════════
+function addStaminaBar(unit){
+  const pivot=new THREE.Object3D(); scene.add(pivot);
+  const bgMat=new THREE.MeshBasicMaterial({color:0x111133,side:THREE.DoubleSide,depthTest:false});
+  const bg=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.055),bgMat);
+  bg.renderOrder=999; pivot.add(bg);
+  const fillMat=new THREE.MeshBasicMaterial({color:0x2266ff,side:THREE.DoubleSide,depthTest:false});
+  const fill=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.055),fillMat);
+  fill.renderOrder=1000; fill.position.z=0.002; pivot.add(fill);
+  unit._staminaBar={pivot,fill,fillMat};
+}
+function tickStaminaBars(){
+  for(const unit of units){
+    const bar=unit._staminaBar; if(!bar) continue;
+    bar.pivot.position.copy(unit.mesh.position);
+    bar.pivot.position.y+=1.28;
+    bar.pivot.lookAt(camera.position);
+    const ratio=Math.max(0, unit.stamina/(unit.maxStamina||100));
+    bar.fill.scale.x=Math.max(0.001,ratio);
+    bar.fill.position.x=-0.35*(1-ratio);
+    bar.fillMat.color.setRGB(0.05+0.9*(1-ratio), 0.25+0.45*ratio, ratio*0.95+0.05);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INTEL MINI-MAP (circular, terrain reveal, last-known '?')
+// ═══════════════════════════════════════════════════════════════
+const _miniCtx  = document.getElementById('minimap').getContext('2d');
+const _MINI_W   = 120, _MINI_H = 120;
+const _TILE_W   = _MINI_W / COLS, _TILE_H = _MINI_H / ROWS;
+const _TILE_COLS = ['#1b3a1b','#0d4a0d','#1a2e5c','#3a3030','#7a6000'];
+
+function drawMiniMap(){
+  const ctx=_miniCtx, W=_MINI_W, H=_MINI_H;
+  ctx.clearRect(0,0,W,H);
+
+  // Circular clip
+  ctx.save();
+  ctx.beginPath(); ctx.arc(W/2,H/2,W/2,0,Math.PI*2); ctx.clip();
+
+  // Black base (unexplored)
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+
+  // Revealed terrain
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    if(!_revealed[r][c]) continue;
+    ctx.fillStyle=_TILE_COLS[RAW_MAP[r][c]];
+    ctx.fillRect(c*_TILE_W, r*_TILE_H, _TILE_W+0.5, _TILE_H+0.5);
+  }
+
+  // Intel: red '?' at last-known enemy positions (45s memory)
+  const now=performance.now()/1000;
+  ctx.fillStyle='#ff3300'; ctx.font='bold 9px monospace';
+  for(const [,intel] of _intelMap){
+    if(now-intel.lastSeen > INTEL_MEMORY) continue;
+    const px=(intel.x/(COLS*CS))*W, pz=(intel.z/(ROWS*CS))*H;
+    const age = (now-intel.lastSeen)/INTEL_MEMORY;
+    ctx.globalAlpha = Math.max(0.3, 1-age*0.7);
+    ctx.fillText('?', px-4, pz+4);
+  }
+  ctx.globalAlpha=1;
+
+  // P1 friendly dots (always visible)
+  const flash=(Date.now()%500)<250;
+  for(const u of units){
+    if(u.player!==1) continue;
+    const px=(u.mesh.position.x/(COLS*CS))*W, pz=(u.mesh.position.z/(ROWS*CS))*H;
+    const inCombat=!!u.combatTarget;
+    if(inCombat&&!flash) continue;
+    ctx.fillStyle=u.scouting?'#aaff22':(inCombat?'#ff2200':'#4499ff');
+    ctx.beginPath(); ctx.arc(px,pz,inCombat?3.5:2.5,0,Math.PI*2); ctx.fill();
+  }
+
+  // Camera dot
+  const cpx=Math.max(2,Math.min(W-2,(camera.position.x/(COLS*CS))*W));
+  const cpz=Math.max(2,Math.min(H-2,(camera.position.z/(ROWS*CS))*H));
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(cpx,cpz,2.5,0,Math.PI*2); ctx.fill();
+
+  ctx.restore();
+
+  // Circle border
+  ctx.strokeStyle='#334'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.arc(W/2,H/2,W/2-1,0,Math.PI*2); ctx.stroke();
 }
 
 // ─── HUD helper ───────────────────────────────────────────────
@@ -2002,7 +2180,9 @@ function animate(){
   tickUnitCombat(dt);
   tickUnitShots(dt);
   tickHPBars();
+  tickStaminaBars();
   tickUnitMovement(dt);
+  tickScout(dt);
   tickTNT(dt, t);
   tickShockwaves(dt);
   tickForts(dt);
@@ -2010,6 +2190,9 @@ function animate(){
   tickFireballs(dt);
   tickSpecialUnits(dt);
   tickCombatAudio(dt);
+  tickFogOfWar();
+  tickIntel();
+  tickTerrainReveal();
   drawMiniMap();
   for(const u of units){ if(u.isWizard){ if(u.fireballCooldown>0) u.fireballCooldown-=dt; if(u.teleportCooldown>0) u.teleportCooldown-=dt; } }
   updateChunks();
