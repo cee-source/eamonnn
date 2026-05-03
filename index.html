@@ -430,6 +430,13 @@ const MAT = {
   }),
   waterBed: new THREE.MeshStandardMaterial({color:0x0d3d5c, roughness:0.9, metalness:0.0}),
 };
+// Biome-specific materials (chunk terrain only)
+const MAT_BIOME = {
+  sand:    new THREE.MeshStandardMaterial({color:0xc8a85a, roughness:0.97, metalness:0}),
+  dryRock: new THREE.MeshStandardMaterial({color:0x9a8055, roughness:0.93, metalness:0}),
+  dense:   new THREE.MeshStandardMaterial({color:0x1a5c1a, roughness:0.90, metalness:0}),
+  river:   new THREE.MeshStandardMaterial({color:0x2a6090, roughness:0.12, metalness:0.45, transparent:true, opacity:0.82}),
+};
 const LEAF_COLS=[0x2d6a2d,0x1e5c1e,0x3a7a2a,0x256325,0x2e7a1e];
 function leafMat(i){ return new THREE.MeshStandardMaterial({color:LEAF_COLS[i%5], roughness:0.88, metalness:0.0}); }
 
@@ -648,49 +655,118 @@ for(let row=0;row<ROWS;row++){
 // ═══════════════════════════════════════════════════════════════
 const CHUNK_CELLS = 16, CHUNK_W = CHUNK_CELLS * CS; // 48 world units per chunk
 
-function procType(col, row){
-  const n = generateHeight(col*CS+CS/2, row*CS+CS/2) / 2; // normalise 0..1
-  if(n > 0.75) return T.MOUNTAIN;
-  if(n > 0.50) return T.FOREST;
-  if(n < 0.20) return T.WATER;
-  return T.PLAIN;
+// ─── Layered biome system (chunk terrain only) ────────────────
+const BIOME = {PLAIN:0, FOREST:1, WATER:2, MOUNTAIN:3, DESERT:4, RIVER:5};
+
+function getBiome(col, row){
+  const wx=col*CS+CS/2, wz=row*CS+CS/2;
+  // Three independent noise layers
+  const elev  = _n2(wx*0.040,       wz*0.040)*0.55 + _n2(wx*0.090,       wz*0.090)*0.45;
+  const detail = _n2(wx*0.180+7.1,  wz*0.180+13.3)*0.5 + _n2(wx*0.280+3, wz*0.280+5)*0.5;
+  const moist  = _n2(wx*0.032+50.7, wz*0.032+80.2)*0.65 + _n2(wx*0.068+30, wz*0.068+61)*0.35;
+  const h = elev*0.68 + detail*0.32; // final height 0..1
+  return {
+    biome: h>0.78 ? BIOME.MOUNTAIN
+         : h>0.62 && moist<0.36 ? BIOME.DESERT
+         : h>0.50 && moist>0.60 ? BIOME.FOREST
+         : h>0.42              ? BIOME.PLAIN
+         : h>0.30              ? BIOME.RIVER
+         : BIOME.WATER,
+    h, moist,
+    snow:  h>0.78 && moist<0.48,
+    dense: moist>0.72,
+  };
+}
+
+// ─── Boulder (mountain destructible) ─────────────────────────
+function makeBoulder(rand){
+  const g=new THREE.Group(), sc=0.45+rand()*0.55;
+  const b1=new THREE.Mesh(new THREE.SphereGeometry(0.38*sc,7,5),MAT.mountain);
+  b1.scale.set(1,0.7+rand()*0.5,1); b1.position.y=0.28*sc; b1.castShadow=true; g.add(b1);
+  if(rand()>0.45){
+    const b2=new THREE.Mesh(new THREE.SphereGeometry(0.22*sc,6,4),MAT.mountain);
+    b2.position.set(0.32*sc,0.18*sc,0.12*sc); b2.castShadow=true; g.add(b2);
+  }
+  return g;
+}
+
+// ─── Fallen log (forest destructible) ────────────────────────
+function makeFallenLog(rand){
+  const sc=0.6+rand()*0.6;
+  const log=new THREE.Mesh(new THREE.CylinderGeometry(0.1*sc,0.13*sc,1.3*sc,7),MAT.trunk);
+  log.rotation.z=Math.PI/2; log.rotation.y=rand()*Math.PI*2;
+  log.position.y=0.13*sc; log.castShadow=true;
+  return log;
 }
 
 function buildChunk(cx, cz){
   const g = new THREE.Group();
-  const chunkDst = []; // track this chunk's destructibles for cleanup on unload
+  const chunkDst = [];
   const rand = seededRand(cx*73856093 ^ cz*19349663+1);
   for(let dr=0; dr<CHUNK_CELLS; dr++){
     for(let dc=0; dc<CHUNK_CELLS; dc++){
       const col=cx*CHUNK_CELLS+dc, row=cz*CHUNK_CELLS+dr;
-      if(col>=0&&col<COLS&&row>=0&&row<ROWS) continue; // main map handles these
+      if(col>=0&&col<COLS&&row>=0&&row<ROWS) continue;
       const wx=col*CS+CS/2, wz=row*CS+CS/2;
-      const type=procType(col,row);
-      const cell=new THREE.Group(); cell.position.set(wx,0,wz); // flat, matches main map
-      if(type!==T.WATER){
-        const b=new THREE.Mesh(BASE_GEO,MAT.grass); b.position.y=0.2; b.receiveShadow=true; cell.add(b);
-      } else {
+      const {biome, h, moist, snow, dense} = getBiome(col, row);
+      const cell=new THREE.Group(); cell.position.set(wx,0,wz);
+
+      function addDst(obj){ const e={obj}; destructibles.push(e); chunkDst.push(e); }
+
+      if(biome===BIOME.WATER){
         const bed=new THREE.Mesh(new THREE.BoxGeometry(CS,0.55,CS),MAT.waterBed);
         bed.position.y=0.0; bed.receiveShadow=true; cell.add(bed);
         const surf=new THREE.Mesh(new THREE.PlaneGeometry(CS,CS),MAT.water);
         surf.rotation.x=-Math.PI/2; surf.position.y=0.32; cell.add(surf);
-      }
-      if(type===T.FOREST){
-        const cnt=2+Math.floor(rand()*3);
-        for(let i=0;i<cnt;i++){
-          const tree=makeTree(rand), a=rand()*Math.PI*2, r=0.4+rand()*0.45;
-          tree.position.set(Math.cos(a)*r,0.4,Math.sin(a)*r);
-          tree.rotation.y=rand()*Math.PI*2; cell.add(tree);
-          const entry={obj:tree}; destructibles.push(entry); chunkDst.push(entry);
+
+      } else if(biome===BIOME.RIVER){
+        // Shallow river runs slightly lower than surrounding plain
+        const bed=new THREE.Mesh(new THREE.BoxGeometry(CS,0.30,CS),MAT.waterBed);
+        bed.position.y=0.0; bed.receiveShadow=true; cell.add(bed);
+        const surf=new THREE.Mesh(new THREE.PlaneGeometry(CS,CS),MAT_BIOME.river);
+        surf.rotation.x=-Math.PI/2; surf.position.y=0.16; cell.add(surf);
+
+      } else if(biome===BIOME.DESERT){
+        const b=new THREE.Mesh(BASE_GEO,MAT_BIOME.sand); b.position.y=0.2; b.receiveShadow=true; cell.add(b);
+        // Sparse dry rocks
+        if(rand()<0.18){
+          const br=makeBoulder(rand); br.position.y=0.4; cell.add(br); addDst(br);
         }
-      }
-      if(type===T.MOUNTAIN){
+
+      } else if(biome===BIOME.MOUNTAIN){
+        const b=new THREE.Mesh(BASE_GEO,MAT.mountain); b.position.y=0.2; b.receiveShadow=true; cell.add(b);
         const sc=0.9+rand()*0.4;
         const pk=new THREE.Mesh(new THREE.ConeGeometry(0.85*sc,2*sc,7),MAT.mountain);
         pk.position.y=0.4+sc; pk.castShadow=true; cell.add(pk);
-        const sn=new THREE.Mesh(new THREE.ConeGeometry(0.35*sc,0.7*sc,7),MAT.snow);
-        sn.position.y=0.4+1.8*sc; sn.castShadow=true; cell.add(sn);
+        if(snow){
+          const sn=new THREE.Mesh(new THREE.ConeGeometry(0.35*sc,0.7*sc,7),MAT.snow);
+          sn.position.y=0.4+1.8*sc; sn.castShadow=true; cell.add(sn);
+        }
+        // 1-2 boulders per mountain tile
+        const nbr=1+Math.floor(rand()*2);
+        for(let i=0;i<nbr;i++){
+          const br=makeBoulder(rand), a=rand()*Math.PI*2, r=0.28+rand()*0.5;
+          br.position.set(Math.cos(a)*r,0.4,Math.sin(a)*r); cell.add(br); addDst(br);
+        }
+
+      } else if(biome===BIOME.FOREST){
+        const b=new THREE.Mesh(BASE_GEO, dense?MAT_BIOME.dense:MAT.grass);
+        b.position.y=0.2; b.receiveShadow=true; cell.add(b);
+        const cnt = dense ? 3+Math.floor(rand()*3) : 2+Math.floor(rand()*2);
+        for(let i=0;i<cnt;i++){
+          const tree=makeTree(rand), a=rand()*Math.PI*2, r=0.3+rand()*0.5;
+          tree.position.set(Math.cos(a)*r,0.4,Math.sin(a)*r);
+          tree.rotation.y=rand()*Math.PI*2; cell.add(tree); addDst(tree);
+        }
+        // Fallen log in dense/wet forest
+        if(dense && rand()<0.45){
+          const log=makeFallenLog(rand); log.position.y=0.4; cell.add(log); addDst(log);
+        }
+
+      } else {
+        const b=new THREE.Mesh(BASE_GEO,MAT.grass); b.position.y=0.2; b.receiveShadow=true; cell.add(b);
       }
+
       g.add(cell);
     }
   }
