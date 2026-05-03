@@ -1,59 +1,57 @@
 #!/usr/bin/env python3
 """
 PIR Motion Sensor -> Bluetooth Speaker Cat Meow Alert
-Plays meow.wav whenever the PIR sensor detects movement.
+Plays a random cat mating call whenever the PIR sensor detects movement.
 """
 
 import os
 import subprocess
 import time
+import random
 
-import RPi.GPIO as GPIO
+from gpiozero import MotionSensor
 
-PIR_PIN = 17        # GPIO 17 = physical pin 11
-SOUND_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meow.wav")
-COOLDOWN_SECONDS = 5  # minimum gap between meows so it doesn't spam
+PIR_PIN = 17
+FOLDER = os.path.dirname(os.path.abspath(__file__))
+
+SOUNDS = [
+    os.path.join(FOLDER, "cat1.wav"),
+    os.path.join(FOLDER, "cat2.wav"),
+    os.path.join(FOLDER, "cat3.wav"),
+    os.path.join(FOLDER, "cat4.wav"),
+]
+
+WEIGHTS = [50, 17, 17, 16]  # cat1 = 50%, others share the rest
+
+current_sound = None
+last_played = None
 
 
 def play_meow():
-    """Play the meow sound through the default PulseAudio sink (Bluetooth speaker)."""
-    if not os.path.exists(SOUND_FILE):
-        print(f"ERROR: sound file not found: {SOUND_FILE}")
-        print("Run  python3 get_meow.py  to download one, or copy your own meow.wav here.")
+    global current_sound, last_played
+    if current_sound and current_sound.poll() is None:
+        return  # already playing, don't overlap
+    available = [(s, w) for s, w in zip(SOUNDS, WEIGHTS)
+                 if os.path.exists(s) and s != last_played]
+    if not available:
         return
-    subprocess.Popen(["paplay", SOUND_FILE])
+    sounds, weights = zip(*available)
+    sound = random.choices(sounds, weights=weights, k=1)[0]
+    last_played = sound
+    print(f"Playing {os.path.basename(sound)}")
+    current_sound = subprocess.Popen(["paplay", sound])
 
 
-def main():
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(PIR_PIN, GPIO.IN)
+pir = MotionSensor(PIR_PIN)
+print("PIR meow alert is running. Press Ctrl+C to stop.")
 
-    print("PIR meow alert is running.")
-    print(f"  GPIO pin : {PIR_PIN}")
-    print(f"  Sound    : {SOUND_FILE}")
-    print(f"  Cooldown : {COOLDOWN_SECONDS}s")
-    print("Press Ctrl+C to stop.\n")
-
-    # The HC-SR501 needs ~30 s to stabilise on first power-on.
-    # If the script starts at boot give it a moment.
-    time.sleep(2)
-
-    last_trigger = 0.0
-
-    try:
-        while True:
-            if GPIO.input(PIR_PIN):
-                now = time.time()
-                if now - last_trigger >= COOLDOWN_SECONDS:
-                    print(f"Motion detected! ({time.strftime('%H:%M:%S')})")
-                    play_meow()
-                    last_trigger = now
-            time.sleep(0.05)  # 50 ms poll — low CPU, fast enough response
-    except KeyboardInterrupt:
-        print("\nStopped by user.")
-    finally:
-        GPIO.cleanup()
-
-
-if __name__ == "__main__":
-    main()
+try:
+    while True:
+        if pir.motion_detected:
+            print(f"Motion detected! ({time.strftime('%H:%M:%S')})")
+            play_meow()
+        time.sleep(0.05)
+except KeyboardInterrupt:
+    print("\nStopped.")
+    if current_sound:
+        current_sound.terminate()
