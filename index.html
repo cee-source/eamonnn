@@ -76,6 +76,27 @@
     }
     #minimap { display: block; }
 
+    /* Gold economy HUD */
+    #gold-wrap {
+      position: fixed; top: 50px; right: 18px;
+      background: rgba(0,0,0,0.60); border: 1px solid rgba(200,160,0,0.55);
+      border-radius: 10px; padding: 5px 12px;
+      display: flex; align-items: center; gap: 7px;
+      pointer-events: none; z-index: 10;
+    }
+    #gold-label { color: #ffcc00; font-size: 11px; font-family: monospace; }
+    #gold-num   { color: #ffdd44; font-size: 13px; font-weight: bold; font-family: monospace; min-width: 28px; }
+
+    /* Build ghost progress bar (shown below HUD when constructing) */
+    #build-status {
+      display: none; position: fixed; top: 48px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.75); border: 1px solid #2266aa;
+      border-radius: 8px; padding: 4px 14px; color: #44aaff;
+      font-size: 11px; font-family: monospace; pointer-events: none; z-index: 10;
+      letter-spacing: 1px; white-space: nowrap;
+    }
+
     /* Color grade the WebGL canvas: desaturate 28%, cool tint, slight contrast */
     #game-canvas { filter: saturate(0.72) contrast(1.07) hue-rotate(-8deg); display: block; }
 
@@ -153,6 +174,12 @@
   <canvas id="minimap" width="120" height="120"></canvas>
 </div>
 
+<div id="gold-wrap">
+  <span id="gold-label">⚜ GOLD</span>
+  <span id="gold-num">200</span>
+</div>
+<div id="build-status"></div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 'use strict';
@@ -166,6 +193,14 @@ const enemyLastSeen = [];
 const playerShots   = [];
 const sparks        = [];
 const unitShots     = [];
+const ghosts        = [];   // settlement ghost blueprints
+const oilCauldrons  = [];   // triggered oil cauldrons
+const spikeTraps    = [];   // hidden ground spike traps
+
+// ─── Gold economy ─────────────────────────────────────────────
+let playerGold = 200;
+const BLDG_COST = { tower:80, wall:30, barracks:100, cauldron:50, spike:20 };
+function updateGoldHUD(){ document.getElementById('gold-num').textContent = playerGold; }
 // Intel / Fog-of-War state (populated after ROWS/COLS are defined below)
 let _intelMap = null;   // Map<unit → {x,z,lastSeen,spotted}>
 let _revealed = null;   // Uint8Array[ROWS][COLS] — terrain seen by P1
@@ -254,6 +289,26 @@ const SND_RADIO_CONFIRM = _mkBuf((t,p)=>{
   const step=Math.floor(p*3); const freq=[700,900,1120][step]||1120;
   return Math.sin(2*Math.PI*freq*t) * Math.exp(-((p%0.334)/0.334)*7) * 0.42;
 }, 0.24);
+// Construction hammer: single metallic clang (looped by builder tick)
+const SND_HAMMER = _mkBuf((t,p)=>{
+  const env = p<0.08 ? p/0.08 : Math.exp(-(p-0.08)*14);
+  return (Math.sin(2*Math.PI*220*t)*0.55 + Math.sin(2*Math.PI*440*t)*0.2
+        + (Math.random()-0.5)*0.15) * env * 0.6;
+}, 0.35);
+// Oil pour: wet heavy slosh
+const SND_OIL_POUR = _mkBuf((t,p)=>{
+  const lfo=Math.sin(2*Math.PI*6*t)*0.5+0.5;
+  return (Math.sin(2*Math.PI*(80+lfo*40)*t)*0.4+(Math.random()-0.5)*0.35)*Math.exp(-p*2.5)*0.65;
+}, 1.2);
+// Spike trigger: brutal crunch
+const SND_SPIKE = _mkBuf((t,p)=>{
+  return (Math.sin(2*Math.PI*60*t)*0.5+(Math.random()-0.5)*0.4)*Math.exp(-p*8)*0.7;
+}, 0.4);
+// No-gold error: descending static blurt
+const SND_NO_GOLD = _mkBuf((t,p)=>{
+  const env=p<0.05?p/0.05:Math.exp(-(p-0.05)*7);
+  return (Math.random()-0.5)*2*env*0.55;
+}, 0.55);
 
 function playAt(worldPos, buffer, refDist=CS, rolloff=2.5){
   if(!buffer||audioCtx.state==='suspended') return;
@@ -565,6 +620,70 @@ function makeArcherFort(player, wx, wz){
   const flag=new THREE.Mesh(new THREE.PlaneGeometry(0.75,0.45),fm);
   flag.position.set(0.37,5.95,0); g.add(flag); flagMeshes.push(flag);
   collidables.push({wx,wz,radius:1.3});
+  return g;
+}
+
+// ─── Constructable buildings ──────────────────────────────────
+function makeWall(wx, wz){
+  const g=new THREE.Group(); g.userData.isBuilding=true;
+  const body=new THREE.Mesh(new THREE.BoxGeometry(CS,2.5,0.55),BMAT.stone);
+  body.position.y=1.25; body.castShadow=body.receiveShadow=true; g.add(body);
+  const par=new THREE.Mesh(new THREE.BoxGeometry(CS+0.15,0.45,0.72),BMAT.dark);
+  par.position.y=2.68; g.add(par);
+  [[-CS*0.3,2.95],[0,2.95],[CS*0.3,2.95]].forEach(([x,y])=>{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.48,0.72),BMAT.stone);
+    m.position.set(x,y,0); g.add(m);
+  });
+  collidables.push({wx,wz,radius:0.6});
+  return g;
+}
+
+function makeBarracks(wx, wz){
+  const g=new THREE.Group(); g.userData.isBuilding=true;
+  const body=new THREE.Mesh(new THREE.BoxGeometry(CS*0.9,2.2,CS*0.9),BMAT.stone);
+  body.position.y=1.1; body.castShadow=body.receiveShadow=true; g.add(body);
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(CS*0.72,1.4,4),BMAT.wood);
+  roof.position.y=2.9; roof.rotation.y=Math.PI/4; roof.castShadow=true; g.add(roof);
+  // Door arch
+  const door=new THREE.Mesh(new THREE.BoxGeometry(0.55,1.1,0.65),BMAT.dark);
+  door.position.set(0,0.55,CS*0.46); g.add(door);
+  collidables.push({wx,wz,radius:1.5});
+  return g;
+}
+
+function makeOilCauldronMesh(){
+  const g=new THREE.Group();
+  const legMat=new THREE.MeshStandardMaterial({color:0x222222,roughness:0.7,metalness:0.7});
+  for(let i=0;i<3;i++){
+    const a=(i/3)*Math.PI*2;
+    const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.06,0.85,5),legMat);
+    leg.position.set(Math.cos(a)*0.34,0.42,Math.sin(a)*0.34);
+    leg.rotation.z=Math.sin(a)*0.22; leg.castShadow=true; g.add(leg);
+  }
+  const bowlMat=new THREE.MeshStandardMaterial({color:0x181818,roughness:0.75,metalness:0.65});
+  const bowl=new THREE.Mesh(
+    new THREE.SphereGeometry(0.42,10,7,0,Math.PI*2,0,Math.PI*0.68), bowlMat);
+  bowl.position.y=0.75; bowl.castShadow=true; g.add(bowl);
+  const oilMat=new THREE.MeshStandardMaterial({color:0x0c0800,roughness:0.05,metalness:0.3});
+  const oilSurf=new THREE.Mesh(new THREE.CircleGeometry(0.37,10),oilMat);
+  oilSurf.rotation.x=-Math.PI/2; oilSurf.position.y=0.93; g.add(oilSurf);
+  return g;
+}
+
+function makeSpikeTrapMesh(){
+  const g=new THREE.Group();
+  const spikeMat=new THREE.MeshStandardMaterial({
+    color:0x888880, roughness:0.35, metalness:0.75,
+    transparent:true, opacity:0.18 // near-invisible to enemies; P1 sees faint outline
+  });
+  for(let i=0;i<6;i++){
+    const a=(i/6)*Math.PI*2;
+    const spike=new THREE.Mesh(new THREE.ConeGeometry(0.055,0.52,4),spikeMat);
+    spike.position.set(Math.cos(a)*0.28,0.26,Math.sin(a)*0.28);
+    g.add(spike);
+  }
+  const centre=new THREE.Mesh(new THREE.ConeGeometry(0.07,0.58,4),spikeMat);
+  centre.position.y=0.29; g.add(centre);
   return g;
 }
 
@@ -1047,6 +1166,40 @@ function spawnFunnyMan(player,col,row){
   units.push(unit); return unit;
 }
 
+// ─── Builder mesh ─────────────────────────────────────────────
+function buildBuilderMesh(player){
+  const col=player===1?0xcc8822:0x2288aa;
+  const g=new THREE.Group(); g.userData.isUnit=true;
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.28,0.75,10),
+    new THREE.MeshLambertMaterial({color:col}));
+  body.position.y=0.38; body.castShadow=true; g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.2,10,10),
+    new THREE.MeshLambertMaterial({color:0xffe0b0}));
+  head.position.y=0.9; g.add(head);
+  // Hard-hat
+  const hat=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.26,0.16,8),
+    new THREE.MeshLambertMaterial({color:player===1?0xffcc00:0xff6600}));
+  hat.position.y=1.05; g.add(hat);
+  // Hammer tool (box + cylinder)
+  const handle=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.5,5),
+    new THREE.MeshLambertMaterial({color:0x5a3010}));
+  handle.rotation.z=Math.PI/2.5; handle.position.set(0.3,0.6,0); g.add(handle);
+  const hammerHead=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.1,0.1),
+    new THREE.MeshLambertMaterial({color:0x888888}));
+  hammerHead.position.set(0.48,0.75,0); g.add(hammerHead);
+  return g;
+}
+function spawnBuilder(player,col,row){
+  const wx=col*CS+CS/2, wz=row*CS+CS/2;
+  const mesh=buildBuilderMesh(player);
+  mesh.position.set(wx,0.4,wz);
+  mesh.rotation.y=player===1?-Math.PI/2:Math.PI/2;
+  scene.add(mesh);
+  const unit={player,mesh,col,row,wx,wz,hp:14,isBuilder:true,_hammerTimer:0};
+  mesh.traverse(c=>{c.userData.unitRef=unit;});
+  units.push(unit); return unit;
+}
+
 // ─── Special unit ticks ───────────────────────────────────────
 function tickSpecialUnits(dt){
   // Cook: heal nearby friendlies every 5 seconds
@@ -1162,6 +1315,26 @@ function parseCommand(raw){
     return {all:true};
   }
 
+  // ── Build command — "build [type] here" ─────────────────────────────────
+  {
+    const bm=txt.match(/\b(?:build|construct|place|erect)\s+(tower|wall|barracks|oil\s*cauldron|cauldron|spike\s*trap|spike)/i);
+    if(bm){
+      let btype=bm[1].toLowerCase().replace(/\s+/g,'');
+      if(btype==='oilcauldron') btype='cauldron';
+      if(btype==='spiketrap')   btype='spike';
+      // Must be possessing a Builder OR standing within 5 tiles of P1 HQ
+      const nearHQ=(()=>{ const dx=camera.position.x-CS*0.5, dz=camera.position.z-CS*0.5; return dx*dx+dz*dz<(CS*5)*(CS*5); })();
+      const hasBuilder=isPossessing&&possessedUnit?.isBuilder;
+      if(!nearHQ&&!hasBuilder){
+        chatPrint('⚒ Possess a Builder or stand near your Town Center to build','sys');
+        return null;
+      }
+      const pos=getGhostPlacementPos();
+      placeGhost(btype, pos);
+      return {build:true, type:btype};
+    }
+  }
+
   // ── Resolve unit ────────────────────────────────────────────────────────
   // Priority: "Unit N" / "unit number N"  →  /Name  →  bare name anywhere in text
   let unit=null, rest='';
@@ -1254,7 +1427,22 @@ function parseCommand(raw){
     return unit;
   }
 
-  chatPrint(`Unknown command "${verb}" — try move/stop/attack/follow/retreat/scout`,'sys');
+  if(verb==='pour'||/pour.*oil/i.test(rest)){
+    let nearest=null, nd=Infinity;
+    for(const c of oilCauldrons){
+      if(c.triggered) continue;
+      const dx=unit.mesh.position.x-c.pos.x, dz=unit.mesh.position.z-c.pos.z;
+      const d=dx*dx+dz*dz; if(d<nd){nd=d;nearest=c;}
+    }
+    if(nearest&&nd<(CS*8)*(CS*8)){
+      triggerOilCauldron(nearest);
+      playAt(unit.mesh.position.clone(), SND_CMD);
+      return unit;
+    }
+    chatPrint(`${unit.unitName}: no oil cauldron nearby`,'sys'); return null;
+  }
+
+  chatPrint(`Unknown command "${verb}" — try move/stop/attack/follow/retreat/scout/pour`,'sys');
   return null;
 }
 
@@ -1285,6 +1473,9 @@ spawnSpy(1,3,1);      spawnSpy(2,10,1);
 spawnRanger(1,3,2);   spawnRanger(2,10,2);
 spawnAssassin(1,4,1); spawnAssassin(2,9,1);
 spawnFunnyMan(1,4,8); spawnFunnyMan(2,9,8);
+// Builders — 2 per player
+spawnBuilder(1,2,5);  spawnBuilder(1,3,6);
+spawnBuilder(2,11,4); spawnBuilder(2,10,6);
 // Assign random names, init timers, store maxHp, init combat state
 units.forEach(u=>{
   u.unitName     = pickName();
@@ -1342,8 +1533,10 @@ const GHOST_SPD  = 8;
 const _fwd       = new THREE.Vector3();
 const _right     = new THREE.Vector3();
 const _up        = new THREE.Vector3(0,1,0);
-const _euler     = new THREE.Euler(0,0,0,'YXZ');
 const _flatFwd   = new THREE.Vector3();
+// Persistent yaw/pitch — avoids quaternion round-trip float drift
+let _camYaw   = Math.PI;   // camera starts looking toward -Z (into the map)
+let _camPitch = 0;
 
 // Terrain height raycaster — shoots straight down from y=100
 const _terrainRay = new THREE.Raycaster();
@@ -1405,6 +1598,9 @@ function exitPossession(){
   cameraMode    = 'ghost';
   selRing.visible = false;
   document.getElementById('possess-hint').style.display = 'none';
+  // Re-sync persistent yaw/pitch from restored camera quaternion
+  const e = new THREE.Euler(0,0,0,'YXZ'); e.setFromQuaternion(camera.quaternion,'YXZ');
+  _camYaw = e.y; _camPitch = e.x;
   setHUD('WASD move | Mouse look | Click unit/fort to possess | F = unlock');
 }
 
@@ -1454,12 +1650,12 @@ function tickPossess(dt){
 }
 
 // ─── Pointer lock ─────────────────────────────────────────────
-let _skipMouseEvents = 0;
+let _lockTime = 0; // timestamp of last pointer-lock acquire
 document.addEventListener('pointerlockchange', ()=>{
   ghostLocked = !!document.pointerLockElement;
   document.getElementById('crosshair').style.display = ghostLocked ? 'block' : 'none';
   if(ghostLocked){
-    _skipMouseEvents = 5; // discard first events — browser fires huge accumulated delta on lock-acquire
+    _lockTime = performance.now(); // discard events for 150ms after lock — browser queues huge delta
     setHUD('WASD move | Mouse look | Click unit/fort to possess | F = unlock');
   } else {
     if(cameraMode==='possess') exitPossession();
@@ -1553,19 +1749,24 @@ document.addEventListener('keyup', e=>{
 // ─── Mouse look ───────────────────────────────────────────────
 document.addEventListener('mousemove', e=>{
   if(!ghostLocked) return;
-  if(_skipMouseEvents > 0){ _skipMouseEvents--; return; }
+  // Gate: ignore all events for 150ms after pointer lock is acquired
+  if(performance.now() - _lockTime < 150) return;
+  // Clamp per-event delta — caps any rogue huge movement from OS/browser artifacts
+  const mx = Math.max(-50, Math.min(50, e.movementX));
+  const my = Math.max(-50, Math.min(50, e.movementY));
+
   if(cameraMode==='ghost' || cameraMode==='fort'){
-    _euler.setFromQuaternion(camera.quaternion);
-    _euler.y -= e.movementX*0.002;
-    _euler.x -= e.movementY*0.002;
-    _euler.x  = Math.max(-Math.PI/2+0.01, Math.min(Math.PI/2-0.01, _euler.x));
-    camera.quaternion.setFromEuler(_euler);
+    // Use persistent yaw/pitch — no quaternion round-trip, no float drift
+    _camYaw   -= mx * 0.002;
+    _camPitch -= my * 0.002;
+    _camPitch  = Math.max(-Math.PI/2+0.01, Math.min(Math.PI/2-0.01, _camPitch));
+    camera.quaternion.setFromEuler(new THREE.Euler(_camPitch, _camYaw, 0, 'YXZ'));
   }
   if(isPossessing && possessedUnit){
-    possessedUnit.mesh.rotation.y -= e.movementX*0.002;  // turn the unit body
-    possessPitch -= e.movementY*0.002;
+    possessedUnit.mesh.rotation.y -= mx * 0.002;
+    possessPitch -= my * 0.002;
     possessPitch  = Math.max(-Math.PI/3, Math.min(Math.PI/3, possessPitch));
-    camera.rotation.x = possessPitch;  // tilt camera in unit-local space
+    camera.rotation.x = possessPitch;
   }
 });
 
@@ -1646,6 +1847,8 @@ function exitFortPossession(){
   possessedFort = null;
   cameraMode    = 'ghost';
   document.getElementById('possess-hint').style.display = 'none';
+  const ef = new THREE.Euler(0,0,0,'YXZ'); ef.setFromQuaternion(camera.quaternion,'YXZ');
+  _camYaw = ef.y; _camPitch = ef.x;
   setHUD('👻 Ghost Mode — click unit/fort to possess | F to exit');
 }
 
@@ -1971,6 +2174,189 @@ function tickUnitShots(dt){
 }
 
 // ═══════════════════════════════════════════════════════════════
+// DYNAMIC SETTLEMENT — Ghost blueprints + construction AI
+// ═══════════════════════════════════════════════════════════════
+const BUILD_TIME  = 10;   // seconds per structure
+const BUILD_RANGE = CS * 1.8;
+const _buildStatusEl = document.getElementById('build-status');
+
+// Ghost material: cyan holographic blueprint
+const GHOST_MAT = new THREE.MeshStandardMaterial({
+  color:0x44aaff, transparent:true, opacity:0.32,
+  roughness:0.5, metalness:0.3, side:THREE.DoubleSide, depthWrite:false,
+});
+
+function makeGhostMesh(type){
+  const mat = GHOST_MAT.clone();
+  const g   = new THREE.Group();
+  let geo;
+  switch(type){
+    case 'tower':    geo=new THREE.CylinderGeometry(0.85,1.0,9,12);     break;
+    case 'wall':     geo=new THREE.BoxGeometry(CS,2.5,0.55);             break;
+    case 'barracks': geo=new THREE.BoxGeometry(CS*0.9,2.2,CS*0.9);      break;
+    case 'cauldron': geo=new THREE.SphereGeometry(0.5,8,6);             break;
+    case 'spike':    geo=new THREE.CylinderGeometry(0.3,0.05,0.55,6);   break;
+  }
+  const mesh=new THREE.Mesh(geo,mat);
+  mesh.position.y=geo?1.0:0; g.add(mesh);
+  // Wireframe overlay for depth
+  const wfMat=new THREE.MeshBasicMaterial({color:0x88ccff,wireframe:true,transparent:true,opacity:0.22});
+  g.add(new THREE.Mesh(geo,wfMat));
+  return g;
+}
+
+// Raycast from camera crosshair onto terrain — returns world position
+function getGhostPlacementPos(){
+  const _r=new THREE.Raycaster();
+  _r.setFromCamera(new THREE.Vector2(0,0),camera);
+  const hits=_r.intersectObjects([envGroup,...chunks.values()],true);
+  for(const h of hits){ if(h.object.isMesh) return h.point.clone(); }
+  // fallback: 12 units ahead at ground level
+  const dir=new THREE.Vector3(); camera.getWorldDirection(dir);
+  const pos=camera.position.clone().addScaledVector(dir,12); pos.y=0.4;
+  return pos;
+}
+
+function placeGhost(type, pos){
+  if(playerGold < BLDG_COST[type]){
+    playUI(SND_NO_GOLD);
+    chatPrint(`💰 Not enough gold — need ${BLDG_COST[type]}g, have ${playerGold}g`,'sys');
+    return;
+  }
+  playerGold -= BLDG_COST[type];
+  updateGoldHUD();
+  const mesh=makeGhostMesh(type);
+  mesh.position.set(pos.x, 0.4, pos.z);
+  scene.add(mesh);
+  ghosts.push({type, mesh, pos:new THREE.Vector3(pos.x,0.4,pos.z), progress:0, builders:[]});
+  chatPrint(`🔵 Blueprint: ${type} — builders will construct automatically`,'sys');
+  playUI(SND_CMD);
+}
+
+function completeBuilding(ghost){
+  const p=ghost.pos;
+  let built;
+  switch(ghost.type){
+    case 'tower':    built=makeCastleTower(BMAT.flagP1,p.x,p.z); break;
+    case 'wall':     built=makeWall(p.x,p.z); break;
+    case 'barracks': built=makeBarracks(p.x,p.z); break;
+    case 'cauldron':{
+      const cm=makeOilCauldronMesh(); cm.position.set(p.x,0.4,p.z); scene.add(cm);
+      oilCauldrons.push({mesh:cm,pos:p.clone(),triggered:false,radius:CS*2.2,oilMesh:null,_dmgTimer:0});
+      chatPrint(`🏺 Oil Cauldron ready — say "[name], pour the oil" to trigger`,'sys');
+      return;
+    }
+    case 'spike':{
+      const sm=makeSpikeTrapMesh(); sm.position.set(p.x,0.4,p.z); scene.add(sm);
+      spikeTraps.push({mesh:sm,pos:p.clone(),radius:CS*0.85});
+      chatPrint(`🗡 Spike Trap set — invisible to enemies`,'sys');
+      return;
+    }
+  }
+  if(built){ built.position.set(p.x,0.4,p.z); scene.add(built); }
+  chatPrint(`✅ ${ghost.type} complete!`,'sys');
+  playAt(p.clone(), SND_CMD, CS, 2);
+}
+
+function tickBuilders(dt){
+  for(const u of units){
+    if(!u.isBuilder || u.player!==1 || ghosts.length===0) continue;
+    // find nearest incomplete ghost
+    let nearest=null, nd=Infinity;
+    for(const g of ghosts){
+      const dx=g.pos.x-u.mesh.position.x, dz=g.pos.z-u.mesh.position.z;
+      const d=dx*dx+dz*dz; if(d<nd){nd=d;nearest=g;}
+    }
+    if(!nearest) continue;
+    if(nd > BUILD_RANGE*BUILD_RANGE){
+      u.dest=nearest.pos.clone(); // walk toward ghost
+    } else {
+      u.dest=null; // stop — we're in range, start building
+      u._hammerTimer-=dt;
+      if(u._hammerTimer<=0){
+        u._hammerTimer=0.9+Math.random()*0.3;
+        playAt(u.mesh.position.clone(), SND_HAMMER, CS*0.6, 3);
+      }
+      if(!nearest.builders.includes(u)) nearest.builders.push(u);
+    }
+  }
+
+  // Advance ghost progress and update status HUD
+  let anyActive=false;
+  for(let i=ghosts.length-1;i>=0;i--){
+    const g=ghosts[i];
+    const active=g.builders.filter(u=>{
+      const dx=g.pos.x-u.mesh.position.x, dz=g.pos.z-u.mesh.position.z;
+      return units.includes(u) && dx*dx+dz*dz<=BUILD_RANGE*BUILD_RANGE;
+    });
+    g.builders=active;
+    if(active.length===0) continue;
+    anyActive=true;
+    g.progress+=dt*active.length;
+    // Ghost pulses brighter as it progresses
+    const ratio=Math.min(1, g.progress/BUILD_TIME);
+    g.mesh.traverse(c=>{ if(c.material&&c.material.transparent) c.material.opacity=0.28+ratio*0.45; });
+    if(g.progress>=BUILD_TIME){
+      completeBuilding(g);
+      scene.remove(g.mesh);
+      ghosts.splice(i,1);
+    }
+  }
+
+  // Build status bar
+  if(ghosts.length>0){
+    const g=ghosts[0];
+    const pct=Math.min(100, (g.progress/BUILD_TIME*100)|0);
+    _buildStatusEl.style.display='block';
+    _buildStatusEl.textContent=`⚒ Building ${g.type}… ${pct}%  (${g.builders.length} builder${g.builders.length!==1?'s':''})`;
+  } else { _buildStatusEl.style.display='none'; }
+}
+
+function triggerOilCauldron(cauldron){
+  if(cauldron.triggered) return;
+  cauldron.triggered=true;
+  playAt(cauldron.pos.clone(), SND_OIL_POUR, CS*2, 2);
+  const oilMat=new THREE.MeshStandardMaterial({
+    color:0x0d0800, transparent:true, opacity:0.78, roughness:0.04, metalness:0.2
+  });
+  const oilMesh=new THREE.Mesh(new THREE.CircleGeometry(cauldron.radius,20),oilMat);
+  oilMesh.rotation.x=-Math.PI/2; oilMesh.position.set(cauldron.pos.x,0.43,cauldron.pos.z);
+  scene.add(oilMesh); cauldron.oilMesh=oilMesh;
+  chatPrint('🔥 Oil poured — enemies in the slick take 20 dmg/s!','sys');
+}
+
+function tickOilCauldrons(dt){
+  for(const c of oilCauldrons){
+    if(!c.triggered||!c.oilMesh) continue;
+    c._dmgTimer-=dt;
+    if(c._dmgTimer>0) continue;
+    c._dmgTimer=1.0;
+    for(let i=units.length-1;i>=0;i--){
+      const u=units[i]; if(u.player===1) continue;
+      const dx=u.mesh.position.x-c.pos.x, dz=u.mesh.position.z-c.pos.z;
+      if(dx*dx+dz*dz<c.radius*c.radius){ u.hp-=20; if(u.hp<=0) killUnit(u); }
+    }
+  }
+}
+
+function tickSpikeTraps(){
+  for(let i=spikeTraps.length-1;i>=0;i--){
+    const trap=spikeTraps[i]; let hit=false;
+    for(const u of units){
+      if(u.player===1) continue;
+      const dx=u.mesh.position.x-trap.pos.x, dz=u.mesh.position.z-trap.pos.z;
+      if(dx*dx+dz*dz<trap.radius*trap.radius){
+        u.hp-=60; if(u.hp<=0) killUnit(u);
+        playAt(trap.pos.clone(), SND_SPIKE, CS, 3);
+        chatPrint('🗡 Spike trap triggered!','sys');
+        hit=true; break;
+      }
+    }
+    if(hit){ scene.remove(trap.mesh); spikeTraps.splice(i,1); }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // FOG OF WAR
 // ═══════════════════════════════════════════════════════════════
 const FOG_RANGE = 25; // world units — sight radius for P1 units + camera
@@ -2266,6 +2652,9 @@ function animate(){
   tickFireballs(dt);
   tickSpecialUnits(dt);
   tickCombatAudio(dt);
+  tickBuilders(dt);
+  tickOilCauldrons(dt);
+  tickSpikeTraps();
   tickFogOfWar();
   tickIntel();
   tickTerrainReveal();
