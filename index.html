@@ -80,22 +80,27 @@
     /* Color grade the WebGL canvas: desaturate 28%, cool tint, slight contrast */
     #game-canvas { filter: saturate(0.72) contrast(1.07) hue-rotate(-8deg); display: block; }
 
-    /* ── Voice recording indicator ──────────────────────────────── */
-    #rec-indicator {
+    /* ── Radio Commander HUD ─────────────────────────────────────── */
+    #radio-hud {
       display: none; position: fixed; top: 50%; left: 50%;
-      transform: translate(-50%, -42px);
-      background: rgba(210,0,0,0.92); color: #fff;
-      font-size: 11px; font-family: monospace; letter-spacing: 2px;
-      padding: 3px 11px; border-radius: 6px;
+      transform: translate(-50%, -58px);
+      background: rgba(0,0,0,0.90);
+      border: 1px solid rgba(255,36,36,0.65);
+      color: #ff2828;
+      font-family: 'Courier New', monospace;
+      padding: 7px 22px 6px;
+      border-radius: 3px;
       pointer-events: none; z-index: 20;
+      text-align: center;
+      box-shadow: 0 0 22px rgba(255,0,0,0.35), inset 0 0 10px rgba(255,0,0,0.08);
     }
-    #rec-indicator.active {
-      display: block;
-      animation: recPulse 0.65s ease-in-out infinite;
-    }
-    @keyframes recPulse {
-      0%,100% { opacity: 1;   box-shadow: 0 0 10px rgba(255,60,60,0.9); }
-      50%      { opacity: 0.5; box-shadow: 0 0 2px  rgba(255,60,60,0.3); }
+    #radio-hud.active { display: block; }
+    #radio-hud .r-label  { font-size: 9px; letter-spacing: 4px; opacity: 0.55; display: block; margin-bottom: 3px; }
+    #radio-hud .r-tx     { font-size: 13px; letter-spacing: 3px; animation: radioTx 0.38s steps(1) infinite; }
+    #radio-hud .r-bars   { margin-top: 4px; font-size: 9px; letter-spacing: 2px; opacity: 0.8; }
+    @keyframes radioTx {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.18; }
     }
 
     /* ── Cinematic overlays ─────────────────────────────────────── */
@@ -126,7 +131,11 @@
 
 <div id="hud">⚔ GAME OF WAR — Click or press F to enter | WASD move | Mouse look</div>
 <div id="crosshair"></div>
-<div id="rec-indicator">⏺ REC</div>
+<div id="radio-hud">
+  <span class="r-label">RADIO COMMANDER</span>
+  <span class="r-tx">◼ TRANSMITTING</span>
+  <div class="r-bars" id="radio-bars">▁▁▁▁▁</div>
+</div>
 <div id="possess-hint">WASD — Move Unit &nbsp;|&nbsp; Mouse — Look &nbsp;|&nbsp; F — Exit Possession</div>
 
 <div id="chat-wrap">
@@ -221,6 +230,20 @@ const SND_DEATH_LONG = _mkBuf((t,p)=>(
   Math.sin(2*Math.PI*55*t)*0.2
 )*Math.exp(-p*1.8)*0.7, 2.0);
 
+// Radio mic-open: 180ms white-noise burst with fast attack/decay (static hiss)
+const SND_RADIO_KEY = _mkBuf((t,p)=>{
+  const env = p < 0.12 ? p/0.12 : Math.exp(-(p-0.12)*9);
+  return (Math.random()-0.5)*2 * env * 0.5;
+}, 0.18);
+// Radio click: short low-freq transient (mic close)
+const SND_RADIO_CLICK = _mkBuf((t,p)=>
+  Math.sin(2*Math.PI*100*t) * Math.exp(-p*40) * 0.55, 0.07);
+// Command confirm: ascending 3-step chirp played at unit position
+const SND_RADIO_CONFIRM = _mkBuf((t,p)=>{
+  const step=Math.floor(p*3); const freq=[700,900,1120][step]||1120;
+  return Math.sin(2*Math.PI*freq*t) * Math.exp(-((p%0.334)/0.334)*7) * 0.42;
+}, 0.24);
+
 function playAt(worldPos, buffer, refDist=CS, rolloff=2.5){
   if(!buffer||audioCtx.state==='suspended') return;
   const anchor=new THREE.Object3D(); anchor.position.copy(worldPos); scene.add(anchor);
@@ -229,6 +252,13 @@ function playAt(worldPos, buffer, refDist=CS, rolloff=2.5){
   pa.setRolloffFactor(rolloff); pa.setMaxDistance(60);
   anchor.add(pa); pa.play();
   pa.source.onended=()=>{ anchor.remove(pa); scene.remove(anchor); };
+}
+// Non-positional: plays directly at full volume (UI SFX, radio clicks etc.)
+function playUI(buffer){
+  if(!buffer||audioCtx.state==='suspended') return;
+  const src=audioCtx.createBufferSource();
+  const gain=audioCtx.createGain(); gain.gain.value=0.9;
+  src.buffer=buffer; src.connect(gain); gain.connect(audioCtx.destination); src.start();
 }
 
 const renderer = new THREE.WebGLRenderer({ antialias:true });
@@ -1029,52 +1059,105 @@ function chatPrint(msg, cls='sys'){
 const CMD_DIRS = {north:[0,-1],south:[0,1],east:[1,0],west:[-1,0],
                   n:[0,-1],s:[0,1],e:[1,0],w:[-1,0]};
 
-// ─── Shared command parser (called by chat Enter AND voice transcript) ───
+// ─── Shared command parser (chat Enter + voice transcript) ───────────────
+// Returns the matched unit on success, null on failure, {all:true} for all-retreat.
 function parseCommand(raw){
-  if(!raw) return;
+  if(!raw) return null;
+  const txt = raw.trim();
 
-  if(/^\/all\s+retreat\b/i.test(raw)){
-    const p1HQ = new THREE.Vector3(CS*0+CS/2, 0, CS*0+CS/2);
-    const p2HQ = new THREE.Vector3(CS*12+CS/2, 0, CS*9+CS/2);
-    let count = 0;
-    for(const u of units){
-      u.combatTarget = null;
-      u.dest = (u.player===1 ? p1HQ : p2HQ).clone();
-      count++;
-    }
-    chatPrint(`⚑ Retreat! ${count} units falling back to Town Center.`, 'sys');
-    return;
+  // ── /all retreat (or "all retreat") ────────────────────────────────────
+  if(/\ball\s+retreat\b/i.test(txt)){
+    const p1HQ=new THREE.Vector3(CS*0+CS/2,0,CS*0+CS/2);
+    const p2HQ=new THREE.Vector3(CS*12+CS/2,0,CS*9+CS/2);
+    let count=0;
+    for(const u of units){ u.combatTarget=null; u.dest=(u.player===1?p1HQ:p2HQ).clone(); count++; }
+    chatPrint(`⚑ Retreat! ${count} units falling back to Town Center.`,'sys');
+    return {all:true};
   }
 
-  const m=raw.match(/^\/(\w+)\s+(.+)/);
-  if(!m){ chatPrint('Usage: /Name command  |  /all retreat','sys'); return; }
-  const [,nameArg,rest]=m;
-  const unit=units.find(u=>u.unitName?.toLowerCase()===nameArg.toLowerCase());
-  if(!unit){ chatPrint(`No unit named "${nameArg}"`,'sys'); return; }
-  const parts=rest.toLowerCase().split(/\s+/);
-  const verb=parts[0];
-  if(verb==='move'||verb==='go'){
-    const dv=CMD_DIRS[parts[1]];
-    if(!dv){ chatPrint(`Unknown direction "${parts[1]}"`,'sys'); return; }
-    unit.dest=new THREE.Vector3(
-      unit.mesh.position.x+dv[0]*CS*4, 0,
-      unit.mesh.position.z+dv[1]*CS*4);
+  // ── Resolve unit ────────────────────────────────────────────────────────
+  // Priority: "Unit N" / "unit number N"  →  /Name  →  bare name anywhere in text
+  let unit=null, rest='';
+
+  const numM = txt.match(/\bunit(?:\s+number)?\s+(\d+)\b[,:\s]*(.*)/i);
+  if(numM){
+    const idx=parseInt(numM[1])-1;  // 1-based
+    unit = idx>=0 && idx<units.length ? units[idx] : null;
+    if(!unit){ chatPrint(`No unit #${parseInt(numM[1])} exists`,'sys'); return null; }
+    rest = numM[2];
+  }
+
+  if(!unit){
+    const slashM = txt.match(/^\/(\w+)\s+(.*)/);
+    if(slashM){
+      unit = units.find(u=>u.unitName?.toLowerCase()===slashM[1].toLowerCase()) || null;
+      if(unit) rest = slashM[2];
+    }
+  }
+
+  if(!unit){
+    // search for any known name anywhere in the sentence
+    for(const u of units){
+      if(!u.unitName) continue;
+      const re=new RegExp('\\b'+u.unitName+'\\b','i');
+      if(re.test(txt)){ unit=u; rest=txt.replace(re,'').replace(/^[\s,/]+/,''); break; }
+    }
+  }
+
+  if(!unit){
+    chatPrint('Usage: /Name cmd  |  Unit 1 move north  |  all retreat','sys');
+    return null;
+  }
+
+  // ── Parse verb + direction ──────────────────────────────────────────────
+  const parts = rest.toLowerCase().split(/\s+/).filter(Boolean);
+  const verb  = parts[0] || '';
+
+  // "follow me" — move toward camera
+  if(/follow|come\s+here|to\s+me/i.test(rest) || (verb==='follow')){
+    unit.dest = camera.position.clone(); unit.dest.y=0;
     playAt(unit.mesh.position.clone(), SND_CMD);
-  } else if(verb==='stop'){
-    unit.dest=null;
+    chatPrint(`${unit.unitName} → following`,'sys');
+    return unit;
+  }
+
+  if(verb==='move'||verb==='go'||verb==='march'||verb==='head'||verb==='advance'){
+    const dirKey = parts[1];
+    const dv = CMD_DIRS[dirKey];
+    if(!dv){ chatPrint(`Unknown direction "${dirKey}" — try north/south/east/west`,'sys'); return null; }
+    unit.dest=new THREE.Vector3(unit.mesh.position.x+dv[0]*CS*4,0,unit.mesh.position.z+dv[1]*CS*4);
     playAt(unit.mesh.position.clone(), SND_CMD);
-  } else if(verb==='attack'){
+    return unit;
+  }
+
+  if(verb==='stop'||verb==='halt'||verb==='hold'||verb==='wait'){
+    unit.dest=null; unit.combatTarget=null;
+    playAt(unit.mesh.position.clone(), SND_CMD);
+    return unit;
+  }
+
+  if(verb==='attack'||verb==='charge'||verb==='engage'||verb==='fight'){
     let nearest=null, nd=Infinity;
     for(const e of units){
       if(e.player===unit.player) continue;
-      const dx=e.mesh.position.x-unit.mesh.position.x,dz=e.mesh.position.z-unit.mesh.position.z;
+      const dx=e.mesh.position.x-unit.mesh.position.x, dz=e.mesh.position.z-unit.mesh.position.z;
       const d=dx*dx+dz*dz; if(d<nd){nd=d;nearest=e;}
     }
-    if(nearest){ unit.dest=nearest.mesh.position.clone(); playAt(unit.mesh.position.clone(),SND_CMD); }
-    else chatPrint('No enemies in range','sys');
-  } else {
-    chatPrint(`Unknown command "${verb}" — try move/stop/attack`,'sys');
+    if(nearest){ unit.dest=nearest.mesh.position.clone(); playAt(unit.mesh.position.clone(),SND_CMD); return unit; }
+    chatPrint('No enemies in range','sys'); return null;
   }
+
+  if(verb==='retreat'||verb==='fall'||(verb==='fall'&&parts[1]==='back')){
+    const hq=unit.player===1
+      ?new THREE.Vector3(CS*0+CS/2,0,CS*0+CS/2)
+      :new THREE.Vector3(CS*12+CS/2,0,CS*9+CS/2);
+    unit.combatTarget=null; unit.dest=hq.clone();
+    playAt(unit.mesh.position.clone(), SND_CMD);
+    return unit;
+  }
+
+  chatPrint(`Unknown command "${verb}" — try move/stop/attack/follow/retreat`,'sys');
+  return null;
 }
 
 chatIn.addEventListener('keydown', ev=>{
@@ -1790,22 +1873,36 @@ function drawMiniMap(){
 // ─── HUD helper ───────────────────────────────────────────────
 function setHUD(msg){ document.getElementById('hud').textContent = msg; }
 
-// ─── Voice command system (Space to record → Whisper → parseCommand) ────
-const _recEl = document.getElementById('rec-indicator');
-let _mediaRecorder = null;
-let _audioChunks   = [];
-let _voiceActive   = false;
+// ═══════════════════════════════════════════════════════════════
+// RADIO COMMANDER — Space to transmit → Whisper → parseCommand
+// ═══════════════════════════════════════════════════════════════
+const _radioHUD  = document.getElementById('radio-hud');
+const _radioBars = document.getElementById('radio-bars');
+let _mediaRecorder  = null;
+let _audioChunks    = [];
+let _voiceActive    = false;
+let _barsInterval   = null;
+const _BAR_FRAMES   = ['▁▁▁▁▁','▂▁▁▁▁','▂▃▁▁▁','▂▃▄▁▁','▂▃▄▅▁','▁▃▄▅▅','▁▁▄▅▄','▁▁▁▅▃','▁▁▁▁▁'];
+
+function _barsStart(){
+  let i=0;
+  _barsInterval = setInterval(()=>{ _radioBars.textContent=_BAR_FRAMES[i++%_BAR_FRAMES.length]; }, 75);
+}
+function _barsStop(){
+  clearInterval(_barsInterval); _barsInterval=null;
+  _radioBars.textContent='▁▁▁▁▁';
+}
 
 async function _voiceInit(){
   if(_mediaRecorder) return true;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({audio:true, video:false});
     _mediaRecorder = new MediaRecorder(stream);
-    _mediaRecorder.ondataavailable = ev => { if(ev.data.size > 0) _audioChunks.push(ev.data); };
+    _mediaRecorder.ondataavailable = ev=>{ if(ev.data.size>0) _audioChunks.push(ev.data); };
     _mediaRecorder.onstop = _voiceTranscribe;
     return true;
   } catch(err){
-    chatPrint('🎙 Mic denied — check browser permissions', 'sys');
+    chatPrint('📻 Mic denied — check browser permissions','sys');
     return false;
   }
 }
@@ -1813,46 +1910,52 @@ async function _voiceInit(){
 async function _voiceStart(){
   if(_voiceActive) return;
   if(!await _voiceInit()) return;
-  _voiceActive  = true;
-  _audioChunks  = [];
+  _voiceActive = true;
+  _audioChunks = [];
   _mediaRecorder.start();
-  _recEl.classList.add('active');
-  setHUD('🎙 Recording… release Space to send');
+  playUI(SND_RADIO_KEY);                  // mic-open static burst
+  _radioHUD.classList.add('active');
+  _barsStart();
+  setHUD('📻 TRANSMITTING… release Space to send');
 }
 
 function _voiceStop(){
   if(!_voiceActive || !_mediaRecorder || _mediaRecorder.state==='inactive') return;
   _voiceActive = false;
   _mediaRecorder.stop();
-  _recEl.classList.remove('active');
-  setHUD('🎙 Processing…');
+  playUI(SND_RADIO_CLICK);               // mic-close click
+  _radioHUD.classList.remove('active');
+  _barsStop();
+  setHUD('📻 Processing…');
 }
 
 async function _voiceTranscribe(){
-  const blob = new Blob(_audioChunks, {type: _mediaRecorder.mimeType || 'audio/webm'});
+  const blob = new Blob(_audioChunks, {type: _mediaRecorder.mimeType||'audio/webm'});
   _audioChunks = [];
-
   const form = new FormData();
   form.append('file', blob, 'voice.webm');
-  form.append('model', 'whisper-1');
-
+  form.append('model','whisper-1');
   try {
-    const res  = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method:  'POST',
-      headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
-      body:    form,
+    const res = await fetch('https://api.openai.com/v1/audio/transcriptions',{
+      method:'POST',
+      headers:{ Authorization:`Bearer ${OPENAI_API_KEY}` },
+      body: form,
     });
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    const text = (data.text || '').trim();
+    const text = (data.text||'').trim();
     if(text){
-      chatPrint(text, 'cmd');
-      parseCommand(text);
+      chatPrint(text,'cmd');
+      const result = parseCommand(text);
+      // Play confirming beep from the unit's 3D position
+      if(result && result.mesh){
+        playAt(result.mesh.position.clone(), SND_RADIO_CONFIRM, CS, 2);
+      }
     } else {
-      chatPrint('🎙 No speech detected', 'sys');
+      chatPrint('📻 No speech detected','sys');
     }
   } catch(err){
-    chatPrint(`🎙 Whisper error: ${err.message}`, 'sys');
+    chatPrint(`📻 Whisper error: ${err.message}`,'sys');
   } finally {
     setHUD('WASD move | Mouse look | Click unit/fort to possess | F = unlock');
   }
