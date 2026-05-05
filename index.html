@@ -142,6 +142,53 @@
     /* Keep all HUD elements above vignette/grain */
     #hud, #crosshair, #possess-hint,
     #chat-wrap, #ammo-wrap, #minimap-wrap { position: fixed; z-index: 10; }
+
+    /* ── Command Menu ─────────────────────────────────────────── */
+    #cmd-menu {
+      position: fixed; bottom: 124px; left: 14px;
+      background: rgba(0,0,0,0.88);
+      border: 1px solid rgba(0,255,80,0.50);
+      border-radius: 5px;
+      padding: 10px 16px 8px;
+      pointer-events: none; z-index: 20;
+      font-family: 'Courier New', monospace;
+      box-shadow: 0 0 18px rgba(0,255,60,0.18), inset 0 0 12px rgba(0,255,60,0.05);
+      opacity: 0; transform: translateY(10px);
+      transition: opacity 0.16s ease-out, transform 0.16s ease-out;
+      visibility: hidden;
+    }
+    #cmd-menu.cmd-visible {
+      opacity: 1; transform: translateY(0);
+      visibility: visible;
+    }
+    #cmd-menu .cm-title {
+      display: block; color: rgba(0,255,80,0.50);
+      font-size: 8px; letter-spacing: 4px;
+      margin-bottom: 9px; text-transform: uppercase;
+    }
+    #cmd-menu .cm-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 3px 0; color: #00ff50; font-size: 12px;
+      text-shadow: 0 0 9px rgba(0,255,80,0.85);
+      letter-spacing: 0.5px;
+    }
+    #cmd-menu .cm-item.cm-hover {
+      color: #afffcc;
+      text-shadow: 0 0 14px rgba(0,255,80,1);
+    }
+    #cmd-menu .cm-key {
+      color: rgba(0,255,80,0.60);
+      background: rgba(0,255,80,0.08);
+      border: 1px solid rgba(0,255,80,0.35);
+      border-radius: 3px; padding: 0 5px;
+      font-size: 10px; min-width: 14px; text-align: center;
+    }
+    #cmd-menu .cm-target {
+      margin-top: 8px; padding-top: 7px;
+      border-top: 1px solid rgba(0,255,80,0.18);
+      color: rgba(0,255,80,0.45); font-size: 9px;
+      letter-spacing: 2px;
+    }
   </style>
 </head>
 <body>
@@ -179,6 +226,16 @@
   <span id="gold-num">200</span>
 </div>
 <div id="build-status"></div>
+
+<!-- Command Menu overlay -->
+<div id="cmd-menu">
+  <span class="cm-title">▶ COMMAND MENU</span>
+  <div class="cm-item" id="cmi-1"><span class="cm-key">1</span>&nbsp;Follow Me</div>
+  <div class="cm-item" id="cmi-2"><span class="cm-key">2</span>&nbsp;Scout Forward</div>
+  <div class="cm-item" id="cmi-3"><span class="cm-key">3</span>&nbsp;Attack Nearest</div>
+  <div class="cm-item" id="cmi-4"><span class="cm-key">4</span>&nbsp;Retreat to Town</div>
+  <div class="cm-target" id="cmd-target">— no unit selected —</div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -1850,6 +1907,7 @@ document.addEventListener('pointerlockchange', ()=>{
     if(cameraMode==='possess') exitPossession();
     if(cameraMode==='fort')    exitFortPossession();
     cameraMode = 'ghost';
+    hideCmdMenu();
     setHUD('⚔ GAME OF WAR — Click or press F to play');
   }
 });
@@ -1857,6 +1915,31 @@ document.addEventListener('pointerlockchange', ()=>{
 // ─── Key events ───────────────────────────────────────────────
 document.addEventListener('keydown', e=>{
   ghostKeys[e.code]=true;
+
+  // ── Command Menu intercepts (highest priority) ────────────────
+  if(_cmdVisible){
+    if(e.code==='Escape'||e.code==='Slash'){ e.preventDefault(); hideCmdMenu(); return; }
+    if(e.code==='ArrowUp'||e.code==='KeyW'){
+      e.preventDefault(); _cmdHover=Math.max(1,_cmdHover-1); _cmdUpdateHighlight(_cmdHover); return;
+    }
+    if(e.code==='ArrowDown'||e.code==='KeyS'){
+      e.preventDefault(); _cmdHover=Math.min(4,_cmdHover+1); _cmdUpdateHighlight(_cmdHover); return;
+    }
+    if(e.code==='Enter'){
+      e.preventDefault(); execCmdMenu(_cmdHover); return;
+    }
+    const _dn=parseInt(e.code.replace('Digit','').replace('Numpad',''));
+    if(_dn>=1&&_dn<=4){ e.preventDefault(); execCmdMenu(_dn); return; }
+  }
+
+  // '/' opens the menu (ghost mode, not typing in chat)
+  if(e.code==='Slash' && ghostLocked && cameraMode==='ghost' && document.activeElement!==chatIn){
+    e.preventDefault();
+    if(!_cmdVisible) showCmdMenu();
+    return;
+  }
+  if(e.code==='Escape' && ghostLocked){ hideCmdMenu(); }
+
   if(e.code==='Space'){
     e.preventDefault();
     if(ghostLocked && cameraMode==='ghost' && document.activeElement!==chatIn){
@@ -2926,6 +3009,82 @@ function tickVillagers(dt){
         v.mesh.rotation.y=Math.atan2(-dx,-dz);
       }
     }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// COMMAND MENU  (/ key → war-room overlay → 1-4 to execute)
+// ═══════════════════════════════════════════════════════════════
+const _cmdMenuEl  = document.getElementById('cmd-menu');
+const _cmdTargetEl= document.getElementById('cmd-target');
+let   _cmdVisible = false;
+let   _cmdHover   = 0;  // 1-4, for keyboard highlight
+
+const _CMD_ITEMS = [1,2,3,4];
+
+function _cmdUpdateHighlight(n){
+  _CMD_ITEMS.forEach(i=>{
+    document.getElementById(`cmi-${i}`)
+      .classList.toggle('cm-hover', i===n);
+  });
+}
+
+function _cmdGetTarget(){
+  return possessedUnit || selectedUnit || null;
+}
+
+function showCmdMenu(){
+  const u = _cmdGetTarget();
+  _cmdTargetEl.textContent = u ? `▶ ${u.unitName}` : '— no unit selected —';
+  _cmdHover = 1;
+  _cmdUpdateHighlight(1);
+  _cmdMenuEl.classList.add('cmd-visible');
+  _cmdVisible = true;
+  setHUD('COMMAND MENU — 1-4 to execute | / or Esc to close');
+}
+
+function hideCmdMenu(){
+  _cmdMenuEl.classList.remove('cmd-visible');
+  _cmdVisible = false;
+  _cmdUpdateHighlight(0);
+  if(ghostLocked) setHUD('WASD move | Mouse look | Click unit/fort to possess | F = unlock');
+}
+
+function execCmdMenu(n){
+  const u = _cmdGetTarget();
+  hideCmdMenu();
+  if(!u){ chatPrint('No unit selected — possess or click a unit first','sys'); return; }
+  playUI(SND_RADIO_CLICK);
+  playAt(u.mesh.position.clone(), SND_CMD, CS, 2);
+  switch(n){
+    case 1: // Follow Me
+      u.dest = camera.position.clone(); u.dest.y = 0; u.combatTarget = null;
+      chatPrint(`📡 ${u.unitName} → following Commander`,'sys'); break;
+    case 2: // Scout Forward
+      u.scouting = true; u.scoutTimer = 30;
+      { const a=Math.random()*Math.PI*2;
+        u.dest = new THREE.Vector3(
+          u.mesh.position.x+Math.cos(a)*CS*6, 0,
+          u.mesh.position.z+Math.sin(a)*CS*6); }
+      chatPrint(`📡 ${u.unitName} → scouting (30s)`,'sys'); break;
+    case 3: // Attack Nearest
+      { let nearest=null, nd=Infinity;
+        for(const e of units){
+          if(e.player===u.player) continue;
+          const dx=e.mesh.position.x-u.mesh.position.x, dz=e.mesh.position.z-u.mesh.position.z;
+          const d=dx*dx+dz*dz; if(d<nd){nd=d;nearest=e;}
+        }
+        if(nearest){ u.dest=nearest.mesh.position.clone(); u.combatTarget=null;
+          chatPrint(`📡 ${u.unitName} → engaging nearest enemy`,'sys'); }
+        else chatPrint('No enemies in range','sys'); }
+      break;
+    case 4: // Retreat to Town
+      { const hq = u.player===1
+          ? new THREE.Vector3(CS*0+CS/2,0,CS*0+CS/2)
+          : new THREE.Vector3(CS*12+CS/2,0,CS*9+CS/2);
+        u.combatTarget=null; u.dest=hq.clone();
+        chatPrint(`📡 ${u.unitName} → retreating to Town`,'sys'); }
+      break;
   }
 }
 
