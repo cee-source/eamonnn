@@ -196,6 +196,9 @@ const unitShots     = [];
 const ghosts        = [];   // settlement ghost blueprints
 const oilCauldrons  = [];   // triggered oil cauldrons
 const spikeTraps    = [];   // hidden ground spike traps
+const villagers     = [];   // NPC villagers with daily routines
+const houses        = [];   // shelter positions for nighttime
+let   _bellMeshRef  = null; // bell mesh for swing animation
 
 // ─── Gold economy ─────────────────────────────────────────────
 let playerGold = 200;
@@ -309,6 +312,21 @@ const SND_NO_GOLD = _mkBuf((t,p)=>{
   const env=p<0.05?p/0.05:Math.exp(-(p-0.05)*7);
   return (Math.random()-0.5)*2*env*0.55;
 }, 0.55);
+// Villager happy: bright ascending two-tone (gold plentiful)
+const SND_HAPPY = _mkBuf((t,p)=>
+  (Math.sin(2*Math.PI*(700+p*500)*t)+Math.sin(2*Math.PI*(1050+p*600)*t)*0.4)
+  * Math.exp(-p*5) * 0.42, 0.32);
+// Villager sad: mournful descending tone (town under attack)
+const SND_SAD = _mkBuf((t,p)=>
+  (Math.sin(2*Math.PI*(380-p*200)*t)+Math.sin(2*Math.PI*(190-p*100)*t)*0.35)
+  * Math.exp(-p*2.5) * 0.5, 0.65);
+// Bell toll: resonant bronze peal with overtones
+const SND_BELL = _mkBuf((t,p)=>(
+  Math.sin(2*Math.PI*220*t)*0.50 +
+  Math.sin(2*Math.PI*330*t)*0.28 +
+  Math.sin(2*Math.PI*550*t)*0.14 +
+  Math.sin(2*Math.PI*880*t)*0.06
+) * Math.exp(-p*1.1) * 0.75, 3.2);
 
 function playAt(worldPos, buffer, refDist=CS, rolloff=2.5){
   if(!buffer||audioCtx.state==='suspended') return;
@@ -344,7 +362,8 @@ window.addEventListener('resize', ()=>{
 });
 
 // ─── Lighting ─────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0x6688bb, 0.55));
+const _ambLight = new THREE.AmbientLight(0x6688bb, 0.55);
+scene.add(_ambLight);
 const sun = new THREE.DirectionalLight(0xffe0b0, 2.0);
 sun.position.set(30, 60, 20);
 sun.castShadow = true;
@@ -687,6 +706,79 @@ function makeSpikeTrapMesh(){
   return g;
 }
 
+// ─── House (villager shelter) ─────────────────────────────────
+function makeHouseMesh(){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.BoxGeometry(1.35,1.55,1.35),
+    new THREE.MeshStandardMaterial({map:_rpt(_TEX_WOOD,2,2),roughness:0.88}));
+  body.position.y=0.78; body.castShadow=body.receiveShadow=true; g.add(body);
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(1.1,0.88,4),
+    new THREE.MeshStandardMaterial({color:0x7a3010,roughness:0.87}));
+  roof.position.y=1.88; roof.rotation.y=Math.PI/4; roof.castShadow=true; g.add(roof);
+  const door=new THREE.Mesh(new THREE.BoxGeometry(0.30,0.52,0.12),
+    new THREE.MeshStandardMaterial({color:0x2a1a08,roughness:0.95}));
+  door.position.set(0,0.26,0.72); g.add(door);
+  const wMat=new THREE.MeshStandardMaterial({color:0xaaddff,transparent:true,opacity:0.45});
+  const win=new THREE.Mesh(new THREE.PlaneGeometry(0.22,0.22),wMat);
+  win.position.set(0.45,0.72,0.68); win.rotation.y=Math.PI/2; g.add(win);
+  return g;
+}
+
+// ─── Bell tower ───────────────────────────────────────────────
+function makeBellMesh(){
+  const g=new THREE.Group(); g.userData.isBell=true;
+  const wMat=new THREE.MeshStandardMaterial({map:_rpt(_TEX_WOOD,1,1),roughness:0.88});
+  const p1=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.07,1.85,6),wMat);
+  p1.position.set(-0.42,0.92,0); p1.castShadow=true; g.add(p1);
+  const p2=p1.clone(); p2.position.x=0.42; g.add(p2);
+  const beam=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.0,6),wMat);
+  beam.rotation.z=Math.PI/2; beam.position.y=1.78; g.add(beam);
+  const bellMat=new THREE.MeshStandardMaterial({color:0xd4a017,roughness:0.22,metalness:0.88});
+  const bell=new THREE.Mesh(
+    new THREE.CylinderGeometry(0.28,0.18,0.34,12,1,true),bellMat);
+  bell.position.y=1.52; bell.castShadow=true; g.add(bell);
+  g.userData.bellChild=bell; // reference for swing animation
+  return g;
+}
+
+// ─── Villager mesh ────────────────────────────────────────────
+const _VCOLS={
+  farmer:    [0x6b4218, 0xb8860b],
+  craftsman: [0x3a3a4a, 0xff7700],
+  commoner:  [0x7a4a28, 0x4466aa],
+};
+function buildVillagerMesh(type){
+  const [bodyCol,accentCol]=_VCOLS[type];
+  const g=new THREE.Group(); g.userData.isVillager=true;
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.19,0.65,8),
+    new THREE.MeshLambertMaterial({color:bodyCol}));
+  body.position.y=0.33; body.castShadow=true; g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.155,8,8),
+    new THREE.MeshLambertMaterial({color:0xffddaa}));
+  head.position.y=0.79; head.castShadow=true; g.add(head);
+  if(type==='farmer'){
+    const hat=new THREE.Mesh(new THREE.ConeGeometry(0.21,0.13,8),
+      new THREE.MeshLambertMaterial({color:0xb8860b}));
+    hat.position.y=0.94; hat.rotation.x=0.18; g.add(hat);
+    const handle=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.68,4),
+      new THREE.MeshLambertMaterial({color:0x5a3010}));
+    handle.rotation.z=Math.PI/5; handle.position.set(0.22,0.38,0); g.add(handle);
+  } else if(type==='craftsman'){
+    const apron=new THREE.Mesh(new THREE.BoxGeometry(0.26,0.40,0.055),
+      new THREE.MeshLambertMaterial({color:accentCol}));
+    apron.position.set(0,0.25,0.16); g.add(apron);
+    const hammerHead=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.08,0.08),
+      new THREE.MeshLambertMaterial({color:0x888888}));
+    hammerHead.position.set(0.26,0.52,0); g.add(hammerHead);
+    g.userData.hammerMesh=hammerHead;
+  } else {
+    const bag=new THREE.Mesh(new THREE.SphereGeometry(0.09,6,5),
+      new THREE.MeshLambertMaterial({color:0xaa8833}));
+    bag.position.set(0.21,0.25,0); g.add(bag);
+  }
+  return g;
+}
+
 // ─── Unit name pool ───────────────────────────────────────────
 const UNIT_NAMES=['Aldric','Bram','Cedric','Dorin','Elgar','Finn','Godwin','Harlan',
   'Ivan','Jorin','Kell','Lorin','Mors','Navin','Oswin','Pell','Quinn','Roric',
@@ -694,6 +786,28 @@ const UNIT_NAMES=['Aldric','Bram','Cedric','Dorin','Elgar','Finn','Godwin','Harl
   'Edwyn','Falk','Gareth','Hadwin','Idris','Jarvik','Kern','Leofric','Merrick','Nolan'];
 let _nameIdx=0;
 function pickName(){ return UNIT_NAMES[_nameIdx++%UNIT_NAMES.length]; }
+
+// ─── Villager name pool ───────────────────────────────────────
+const VILLAGER_NAMES=['Agnes','Berta','Clara','Dortha','Elsie','Frieda','Greta',
+  'Helga','Inga','Josie','Kira','Lena','Marta','Nora','Olga','Petra','Rosa',
+  'Sigrid','Tilda','Ursa'];
+let _vNameIdx=0;
+function pickVillagerName(){ return VILLAGER_NAMES[_vNameIdx++%VILLAGER_NAMES.length]; }
+
+// ─── Day / Night cycle ────────────────────────────────────────
+const DAY_LENGTH = 120;  // seconds per full cycle
+let   _dayT      = 0;    // 0 = bright noon; 60 = deep night
+
+// 0 = full day, 1 = full night
+function nightness(){ return 0.5-0.5*Math.cos((_dayT/DAY_LENGTH)*Math.PI*2); }
+function isDaytime(){ return nightness()<0.5; }
+
+// ─── Villager waypoints (P1 territory) ───────────────────────
+const WHEAT_A  = new THREE.Vector3(0*CS+CS/2, 0.4, 3*CS+CS/2); // col0,row3 plain
+const WHEAT_B  = new THREE.Vector3(2*CS+CS/2, 0.4, 3*CS+CS/2); // col2,row3 plain
+const GRANARY  = new THREE.Vector3(0*CS+CS/2, 0.4, 2*CS+CS/2); // col0,row2 plain
+const FORGE_WP = new THREE.Vector3(3*CS+CS/2, 0.4, 5*CS+CS/2); // col3,row5 plain
+const KEEP_POS = new THREE.Vector3(0*CS+CS/2, 0.4, 0*CS+CS/2); // HQ
 
 // ─── Remaining game arrays (units/destructibles/enemyLastSeen are at script top) ──
 const forts        = [];
@@ -768,6 +882,66 @@ for(let row=0;row<ROWS;row++){
   mesh.traverse(c=>{ c.userData.fortRef=fort; });
   forts.push(fort);
 });
+
+// ─── Town structures: houses + bell ───────────────────────────
+(function buildTown(){
+  // Three houses near P1 HQ on plain tiles
+  [[0,1,0],[2,0,0.3],[3,0,0]].forEach(([c,r,ry])=>{
+    const wx=c*CS+CS/2, wz=r*CS+CS/2;
+    const h=makeHouseMesh();
+    h.position.set(wx, 0.4, wz);
+    h.rotation.y=ry+Math.random()*0.25;
+    scene.add(h);
+    houses.push({wx,wz,pos:new THREE.Vector3(wx,0.4,wz)});
+  });
+  // Bell near the HQ
+  const bx=1*CS+CS/2, bz=0*CS+CS/2;
+  const bellMesh=makeBellMesh();
+  bellMesh.position.set(bx, 0.4, bz);
+  scene.add(bellMesh);
+  _bellMeshRef=bellMesh;
+})();
+
+// Bell state
+let _bellRinging=false, _bellTimer=0, _bellSwingT=0;
+
+function ringBell(){
+  if(_bellRinging) return;
+  _bellRinging=true; _bellTimer=30; _bellSwingT=0;
+  playUI(SND_BELL);
+  chatPrint('🔔 The bell tolls — villagers rally to the defences!','sys');
+  for(const v of villagers){
+    let best=null, bd=Infinity;
+    for(const f of forts){
+      const dx=f.wx-v.mesh.position.x, dz=f.wz-v.mesh.position.z;
+      const d=dx*dx+dz*dz; if(d<bd){bd=d;best=f;}
+    }
+    if(best){ v.dest=new THREE.Vector3(best.wx,0.4,best.wz); v.sprinting=true; }
+  }
+}
+
+// ─── Villager spawn ───────────────────────────────────────────
+function spawnVillager(type, wx, wz){
+  const mesh=buildVillagerMesh(type);
+  const sc=0.82+Math.random()*0.30;
+  mesh.scale.set(sc,sc,sc);
+  mesh.position.set(wx, 0.4, wz);
+  scene.add(mesh);
+  let workA, workB;
+  if(type==='farmer'){
+    workA=WHEAT_A.clone(); workB=GRANARY.clone();
+  } else if(type==='craftsman'){
+    workA=FORGE_WP.clone(); workB=FORGE_WP.clone();
+  } else {
+    workA=new THREE.Vector3(wx+(Math.random()-0.5)*CS*3,0.4,wz+(Math.random()-0.5)*CS*3);
+    workB=new THREE.Vector3(wx+(Math.random()-0.5)*CS*3,0.4,wz+(Math.random()-0.5)*CS*3);
+  }
+  const v={type,mesh,name:pickVillagerName(),dest:workA.clone(),workA,workB,
+    atA:true,sprinting:false,_nightShelter:null,_moveTimer:Math.random()*5,_hammerT:0,_sc:sc};
+  mesh.traverse(c=>{ c.userData.villagerRef=v; });
+  villagers.push(v);
+  return v;
+}
 
 // ═══════════════════════════════════════════════════════════════
 // INFINITE CHUNK SYSTEM
@@ -1315,6 +1489,11 @@ function parseCommand(raw){
     return {all:true};
   }
 
+  // ── Bell command ────────────────────────────────────────────────────────
+  if(/\bring\s+bell\b|bell\s+ring|\bring.*bell|\bbell\b/i.test(txt)){
+    ringBell(); return {bell:true};
+  }
+
   // ── Build command — "build [type] here" ─────────────────────────────────
   {
     const bm=txt.match(/\b(?:build|construct|place|erect)\s+(tower|wall|barracks|oil\s*cauldron|cauldron|spike\s*trap|spike)/i);
@@ -1476,6 +1655,16 @@ spawnFunnyMan(1,4,8); spawnFunnyMan(2,9,8);
 // Builders — 2 per player
 spawnBuilder(1,2,5);  spawnBuilder(1,3,6);
 spawnBuilder(2,11,4); spawnBuilder(2,10,6);
+// Villagers — 3 farmers, 2 craftsmen, 4 commoners
+spawnVillager('farmer',   0*CS+CS/2,      3*CS+CS/2);
+spawnVillager('farmer',   2*CS+CS/2,      3*CS+CS/2);
+spawnVillager('farmer',   0*CS+CS/2+0.5,  2*CS+CS/2);
+spawnVillager('craftsman',3*CS+CS/2,      5*CS+CS/2);
+spawnVillager('craftsman',3*CS+CS/2-0.9,  5*CS+CS/2+0.7);
+spawnVillager('commoner', 2*CS+CS/2,      0*CS+CS/2);
+spawnVillager('commoner', 3*CS+CS/2,      0*CS+CS/2);
+spawnVillager('commoner', 0*CS+CS/2,      1*CS+CS/2+0.6);
+spawnVillager('commoner', 1*CS+CS/2+0.5,  0*CS+CS/2+0.8);
 // Assign random names, init timers, store maxHp, init combat state
 units.forEach(u=>{
   u.unitName     = pickName();
@@ -1670,9 +1859,15 @@ document.addEventListener('keydown', e=>{
   ghostKeys[e.code]=true;
   if(e.code==='Space'){
     e.preventDefault();
-    // Hold Space in ghost mode (not while typing) → voice command
     if(ghostLocked && cameraMode==='ghost' && document.activeElement!==chatIn){
-      _voiceStart();
+      // Check for a nearby villager first — talk to them instead of radioing
+      const nearby=villagers.find(v=>{
+        if(!v.mesh.visible) return false;
+        const dx=camera.position.x-v.mesh.position.x, dz=camera.position.z-v.mesh.position.z;
+        return dx*dx+dz*dz<(CS*1.8)*(CS*1.8);
+      });
+      if(nearby) _talkToVillager(nearby);
+      else        _voiceStart();
     }
   }
 
@@ -2292,7 +2487,7 @@ function tickBuilders(dt){
     g.builders=active;
     if(active.length===0) continue;
     anyActive=true;
-    g.progress+=dt*active.length;
+    g.progress+=dt*active.length*(1+getCraftsmanBonus());
     // Ghost pulses brighter as it progresses
     const ratio=Math.min(1, g.progress/BUILD_TIME);
     g.mesh.traverse(c=>{ if(c.material&&c.material.transparent) c.material.opacity=0.28+ratio*0.45; });
@@ -2601,6 +2796,139 @@ async function _voiceTranscribe(){
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// DAY / NIGHT CYCLE
+// ═══════════════════════════════════════════════════════════════
+function tickDayNight(dt){
+  _dayT=(_dayT+dt)%DAY_LENGTH;
+  const n=nightness();
+  _ambLight.intensity = 0.55-n*0.40;
+  _ambLight.color.setRGB(0.40+(1-n)*0.22, 0.53+(1-n)*0.18, 0.73+(1-n)*0.04);
+  sun.intensity = 2.0-n*1.65;
+  scene.fog.density = 0.045+n*0.038;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VILLAGER AI
+// ═══════════════════════════════════════════════════════════════
+const VILLAGER_SPD        = 1.7;
+const VILLAGER_SPD_SPRINT = 4.5;
+
+function getCraftsmanBonus(){
+  let bonus=0;
+  for(const v of villagers){
+    if(v.type!=='craftsman') continue;
+    const dx=v.mesh.position.x-FORGE_WP.x, dz=v.mesh.position.z-FORGE_WP.z;
+    if(dx*dx+dz*dz<(CS*1.6)*(CS*1.6)) bonus+=0.10;
+  }
+  return bonus;
+}
+
+function _talkToVillager(v){
+  const underAttack=units.some(u=>{
+    if(u.player!==2) return false;
+    const dx=u.mesh.position.x-KEEP_POS.x, dz=u.mesh.position.z-KEEP_POS.z;
+    return dx*dx+dz*dz<(CS*7)*(CS*7);
+  });
+  const goldHigh=playerGold>=150;
+  let line;
+  if(underAttack)     line='We are under attack, m\'lord! Please save us!';
+  else if(goldHigh)   line='The coffers are full! The harvest is plentiful!';
+  else                line='Life is… tolerable, m\'lord. We endure.';
+  chatPrint(`💬 ${v.name}: "${line}"`, 'sys');
+  playAt(v.mesh.position.clone(), underAttack?SND_SAD:SND_HAPPY, CS*0.9, 2.5);
+}
+
+function tickVillagers(dt){
+  // Bell swing animation
+  if(_bellMeshRef && _bellRinging){
+    _bellSwingT+=dt*6;
+    const bc=_bellMeshRef.userData.bellChild;
+    if(bc) bc.rotation.z=Math.sin(_bellSwingT)*0.55*Math.exp(-_bellSwingT*0.10);
+    _bellTimer-=dt;
+    if(_bellTimer<=0){
+      _bellRinging=false;
+      if(bc) bc.rotation.z=0;
+      for(const v of villagers) v.sprinting=false;
+    }
+  }
+
+  const n=nightness();
+  const goToSleep=n>0.62 && !_bellRinging; // start retreating toward 63% night
+
+  for(const v of villagers){
+    if(goToSleep){
+      // Find shelter if not already assigned
+      if(!v._nightShelter){
+        let best=KEEP_POS.clone(), bd=Infinity;
+        for(const h of houses){
+          const dx=h.pos.x-v.mesh.position.x, dz=h.pos.z-v.mesh.position.z;
+          const d=dx*dx+dz*dz; if(d<bd){bd=d;best=h.pos.clone();}
+        }
+        v._nightShelter=best; v.dest=best.clone();
+      }
+      if(!v.mesh.visible) continue;
+      const dx=v.dest.x-v.mesh.position.x, dz=v.dest.z-v.mesh.position.z;
+      const dist=Math.sqrt(dx*dx+dz*dz);
+      if(dist<0.28){
+        v.mesh.visible=false; // tuck inside
+      } else {
+        const spd=VILLAGER_SPD*dt; const mv=Math.min(spd,dist);
+        v.mesh.position.x+=(dx/dist)*mv; v.mesh.position.z+=(dz/dist)*mv;
+        v.mesh.rotation.y=Math.atan2(-dx,-dz);
+      }
+    } else {
+      // Daytime or bell rang
+      if(v._nightShelter){
+        v._nightShelter=null; v.dest=v.workA.clone(); // wake up at workstation
+      }
+      if(!v.mesh.visible) v.mesh.visible=true;
+
+      // Craftsman hammer animation at forge
+      if(v.type==='craftsman'){
+        const dx=v.mesh.position.x-FORGE_WP.x, dz=v.mesh.position.z-FORGE_WP.z;
+        if(dx*dx+dz*dz<(CS*0.9)*(CS*0.9)){
+          const hm=v.mesh.userData.hammerMesh;
+          if(hm){
+            v._hammerT+=dt;
+            hm.position.y=0.52+Math.abs(Math.sin(v._hammerT*3.8))*0.20;
+            if(Math.floor(v._hammerT*2)!==Math.floor((v._hammerT-dt)*2)){
+              playAt(v.mesh.position.clone(),SND_HAMMER,CS*0.5,4);
+            }
+          }
+        }
+      }
+
+      if(!v.dest) v.dest=v.workA.clone();
+      const dx=v.dest.x-v.mesh.position.x, dz=v.dest.z-v.mesh.position.z;
+      const dist=Math.sqrt(dx*dx+dz*dz);
+      if(dist<0.28){
+        // Arrived — rest, then pick next waypoint
+        v._moveTimer-=dt;
+        if(v._moveTimer<=0){
+          v._moveTimer=2.5+Math.random()*4.5;
+          if(v.sprinting){ v.dest=null; v.sprinting=false; }
+          else if(v.type==='commoner'){
+            // Wander randomly in P1 town area (cols 0-3, rows 0-4)
+            v.dest=new THREE.Vector3(
+              Math.random()*3*CS+CS*0.5, 0.4,
+              Math.random()*4*CS+CS*0.5);
+          } else {
+            v.atA=!v.atA;
+            v.dest=(v.atA?v.workA:v.workB).clone();
+          }
+        }
+      } else {
+        const spd=(v.sprinting?VILLAGER_SPD_SPRINT:VILLAGER_SPD)*dt;
+        const mv=Math.min(spd,dist);
+        v.mesh.position.x+=(dx/dist)*mv; v.mesh.position.z+=(dz/dist)*mv;
+        v.mesh.position.y=0.4+Math.abs(Math.sin(performance.now()*0.006+villagers.indexOf(v)))*0.042;
+        v.mesh.rotation.y=Math.atan2(-dx,-dz);
+      }
+    }
+  }
+}
+
 // ─── Grain overlay animation ──────────────────────────────────
 const _grainCtx = document.getElementById('grain-overlay').getContext('2d');
 let _grainFrame = 0;
@@ -2655,6 +2983,8 @@ function animate(){
   tickBuilders(dt);
   tickOilCauldrons(dt);
   tickSpikeTraps();
+  tickDayNight(dt);
+  tickVillagers(dt);
   tickFogOfWar();
   tickIntel();
   tickTerrainReveal();
