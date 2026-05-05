@@ -236,6 +236,18 @@
     @keyframes goFlicker {
       0%,92%,100% { opacity: 1; } 93%,99% { opacity: 0.15; }
     }
+
+    /* ── Medic bandage supply bar ───────────────────────────────── */
+    #medic-supply-wrap {
+      position: fixed; bottom: 50px; right: 160px;
+      display: none; align-items: center; gap: 7px;
+      background: rgba(0,0,0,0.6); border: 1px solid rgba(50,200,100,0.55);
+      border-radius: 10px; padding: 6px 12px; pointer-events: none; z-index: 10;
+    }
+    #msp-track { width: 90px; height: 7px; background: #222; border-radius: 4px; overflow: hidden; }
+    #msp-fill  { height: 100%; width: 100%; background: #22bb55; border-radius: 4px; transition: width 0.1s linear; }
+    #msp-num   { color: #44ff88; font-size: 11px; font-family: monospace; min-width: 30px; }
+    #msp-label { color: #aaa; font-size: 12px; }
   </style>
 </head>
 <body>
@@ -288,6 +300,13 @@
     <div class="go-sub">THE WAR IS LOST.</div>
     <button class="go-restart" onclick="location.reload()">RESTART</button>
   </div>
+</div>
+
+<!-- Medic bandage supply bar (visible when possessing a Medic) -->
+<div id="medic-supply-wrap">
+  <span id="msp-label">✚ SUPPLIES</span>
+  <div id="msp-track"><div id="msp-fill"></div></div>
+  <span id="msp-num">100</span>
 </div>
 
 <!-- Command Menu overlay -->
@@ -477,6 +496,12 @@ const SND_CASTLE_HIT = _mkBuf((t,p)=>{
 const SND_CASTLE_FALL = _mkBuf((t,p)=>(
   Math.sin(2*Math.PI*38*t)*0.55+Math.sin(2*Math.PI*28*t)*0.30+(Math.random()-0.5)*0.55
 )*Math.exp(-p*1.4)*0.9, 3.2);
+// Healing chime: soft tripartite harmonic bell tone
+const SND_HEAL_CHIME = _mkBuf((t,p)=>(
+  Math.sin(2*Math.PI*880*t)*0.40 +
+  Math.sin(2*Math.PI*1320*t)*0.25 +
+  Math.sin(2*Math.PI*1760*t)*0.12
+)*Math.exp(-p*3.5)*0.55, 0.9);
 
 function playAt(worldPos, buffer, refDist=CS, rolloff=2.5){
   if(!buffer||audioCtx.state==='suspended') return;
@@ -1067,6 +1092,158 @@ function tickShieldMen(dt){
       u._linkGeo.setFromPoints([u.mesh.position.clone().setY(0.8),tgt.clone().setY(0.8)]);
       u._linkLine.visible=true;
     } else { u._linkLine.visible=false; }
+  }
+}
+
+// ─── Medic unit ───────────────────────────────────────────────
+function buildMedicMesh(player){
+  const g=new THREE.Group(); g.userData.isMedic=true;
+  const whiteMat=new THREE.MeshStandardMaterial({color:0xf5f5f5,roughness:0.75,metalness:0.04});
+  const crossMat=new THREE.MeshStandardMaterial({color:0xdd1111,roughness:0.7});
+  // Body: white cylinder tunic
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.19,0.22,0.68,8),whiteMat);
+  body.position.y=0.34; body.castShadow=true; g.add(body);
+  // Head: skin tone
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.175,8,8),
+    new THREE.MeshStandardMaterial({color:0xffd5a0,roughness:0.8}));
+  head.position.y=0.84; head.castShadow=true; g.add(head);
+  // White cap
+  const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.205,0.225,0.13,8),whiteMat);
+  cap.position.y=0.99; g.add(cap);
+  // Red cross on front — horizontal bar
+  const hBar=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.07,0.025),crossMat);
+  hBar.position.set(0,0.40,0.22); g.add(hBar);
+  // Red cross — vertical bar
+  const vBar=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.22,0.025),crossMat);
+  vBar.position.set(0,0.40,0.22); g.add(vBar);
+  // Medical satchel on hip
+  const bagMat=new THREE.MeshStandardMaterial({color:0xe8e8e8,roughness:0.8});
+  const bag=new THREE.Mesh(new THREE.BoxGeometry(0.17,0.15,0.11),bagMat);
+  bag.position.set(0.25,0.26,0); g.add(bag);
+  const bagCross=new THREE.Mesh(new THREE.BoxGeometry(0.065,0.11,0.025),crossMat);
+  bagCross.position.set(0.25,0.26,0.058); g.add(bagCross);
+  // Player arm band (blue P1, red P2)
+  const bandCol=player===1?0x2255cc:0xcc3311;
+  const band=new THREE.Mesh(new THREE.CylinderGeometry(0.21,0.21,0.09,8),
+    new THREE.MeshStandardMaterial({color:bandCol,roughness:0.6}));
+  band.position.y=0.62; g.add(band);
+  return g;
+}
+
+const MEDIC_MAX_SUPPLY  = 100;
+const MEDIC_HEAL_RANGE  = CS * 2.2;
+const MEDIC_HEAL_RATE   = 10;    // HP / s
+const MEDIC_SUPPLY_COST = 8;     // supply / s while actively healing
+const MEDIC_SUPPLY_REGEN= 5;     // supply / s when inside town centre
+
+function spawnMedic(player, col, row){
+  const mesh=buildMedicMesh(player);
+  mesh.position.set(col*CS+CS/2, 0.4, row*CS+CS/2);
+  mesh.rotation.y=player===1?-Math.PI/2:Math.PI/2;
+  scene.add(mesh);
+  const unit={
+    player, mesh, hp:80, maxHp:80, isSpecial:true, isMedic:true,
+    supply:MEDIC_MAX_SUPPLY, maxSupply:MEDIC_MAX_SUPPLY,
+    dest:null, combatTarget:null,
+    _healTimer:0, _healLight:null, _healAuraMesh:null,
+    scouting:false, scoutTimer:0
+  };
+  mesh.traverse(c=>{ if(c.isMesh) c.userData.unitRef=unit; });
+  units.push(unit);
+  return unit;
+}
+
+// ─── Medic tick ───────────────────────────────────────────────
+function tickMedics(dt){
+  for(const u of units){
+    if(!u.isMedic) continue;
+
+    // Supply regeneration when near P1 town-centre (KEEP_POS)
+    if(u.player===1){
+      const tkdx=u.mesh.position.x-KEEP_POS.x, tkdz=u.mesh.position.z-KEEP_POS.z;
+      if(tkdx*tkdx+tkdz*tkdz < (MEDIC_HEAL_RANGE*1.5)*(MEDIC_HEAL_RANGE*1.5)){
+        u.supply=Math.min(u.maxSupply, u.supply+MEDIC_SUPPLY_REGEN*dt);
+      }
+    }
+
+    // ── Possessed medic: E-held heal aura ──────────────────────
+    if(possessedUnit===u){
+      const healing=ghostKeys['KeyE'] && u.supply>0;
+      // Create / destroy PointLight aura
+      if(healing && !u._healLight){
+        const pl=new THREE.PointLight(0x22ff77, 2.4, MEDIC_HEAL_RANGE*2.2);
+        pl.position.set(0,0.9,0); u.mesh.add(pl); u._healLight=pl;
+      }
+      if(!healing && u._healLight){
+        u.mesh.remove(u._healLight); u._healLight=null;
+      }
+      if(healing){
+        u._healTimer-=dt;
+        if(u._healTimer<=0){
+          u._healTimer=0.5;
+          let healed=false;
+          // Heal nearby friendly units
+          for(const a of units){
+            if(a===u||a.player!==u.player) continue;
+            if(a.hp>=a.maxHp) continue;
+            const dx=a.mesh.position.x-u.mesh.position.x, dz=a.mesh.position.z-u.mesh.position.z;
+            if(dx*dx+dz*dz<MEDIC_HEAL_RANGE*MEDIC_HEAL_RANGE){
+              a.hp=Math.min(a.maxHp, a.hp+MEDIC_HEAL_RATE*0.5);
+              healed=true;
+            }
+          }
+          // Heal player commander if nearby
+          const cdx=camera.position.x-u.mesh.position.x, cdz=camera.position.z-u.mesh.position.z;
+          if(cdx*cdx+cdz*cdz<MEDIC_HEAL_RANGE*MEDIC_HEAL_RANGE && playerHP<PLAYER_MAX_HP){
+            playerHP=Math.min(PLAYER_MAX_HP, playerHP+MEDIC_HEAL_RATE*0.5);
+            healed=true;
+          }
+          if(healed){
+            u.supply=Math.max(0, u.supply-MEDIC_SUPPLY_COST*0.5);
+            playAt(u.mesh.position.clone(), SND_HEAL_CHIME, CS*1.5, 2.5);
+          }
+        }
+        u.supply=Math.max(0, u.supply-MEDIC_SUPPLY_COST*dt);
+      }
+    } else {
+      // ── AI medic: follow lowest-HP ally and heal ────────────
+      if(u.supply>0){
+        // Find friendliest lowest-HP unit within range
+        let lowestUnit=null, lowestHp=Infinity;
+        for(const a of units){
+          if(a===u||a.player!==u.player) continue;
+          if(a.hp<a.maxHp && a.hp<lowestHp){ lowestHp=a.hp; lowestUnit=a; }
+        }
+        if(lowestUnit){
+          u.dest=lowestUnit.mesh.position.clone(); u.dest.y=0;
+          // Heal if close enough
+          u._healTimer-=dt;
+          if(u._healTimer<=0){
+            u._healTimer=0.5;
+            const dx=lowestUnit.mesh.position.x-u.mesh.position.x;
+            const dz=lowestUnit.mesh.position.z-u.mesh.position.z;
+            if(dx*dx+dz*dz<MEDIC_HEAL_RANGE*MEDIC_HEAL_RANGE){
+              lowestUnit.hp=Math.min(lowestUnit.maxHp, lowestUnit.hp+MEDIC_HEAL_RATE*0.5);
+              u.supply=Math.max(0, u.supply-MEDIC_SUPPLY_COST*0.5);
+              playAt(lowestUnit.mesh.position.clone(), SND_HEAL_CHIME, CS*1.5, 2.8);
+            }
+          }
+        }
+      }
+      // Clean up light if possession ended
+      if(u._healLight){ u.mesh.remove(u._healLight); u._healLight=null; }
+    }
+  }
+
+  // ── Update medic supply HUD ───────────────────────────────────
+  const msWrap=document.getElementById('medic-supply-wrap');
+  if(possessedUnit && possessedUnit.isMedic){
+    const pct=Math.max(0,(possessedUnit.supply/possessedUnit.maxSupply)*100);
+    document.getElementById('msp-fill').style.width=pct+'%';
+    document.getElementById('msp-num').textContent=Math.floor(possessedUnit.supply);
+    msWrap.style.display='flex';
+  } else {
+    msWrap.style.display='none';
   }
 }
 
@@ -2037,6 +2214,8 @@ spawnBuilder(1,2,5);  spawnBuilder(1,3,6);
 spawnBuilder(2,11,4); spawnBuilder(2,10,6);
 // Shield Men — 1 per player (heavy, armored protectors)
 spawnShieldMan(1,2,1); spawnShieldMan(2,11,1);
+// Medics — 1 per player (field healers)
+spawnMedic(1,1,3); spawnMedic(2,12,3);
 // Villagers — 3 farmers, 2 craftsmen, 4 commoners
 spawnVillager('farmer',   0*CS+CS/2,      3*CS+CS/2);
 spawnVillager('farmer',   2*CS+CS/2,      3*CS+CS/2);
@@ -2156,7 +2335,8 @@ function possessUnit(unit){
   selRing.position.set(unit.mesh.position.x, 0.42, unit.mesh.position.z);
   selRing.visible = true;
   document.getElementById('possess-hint').style.display = 'block';
-  setHUD(`👁 Possessing P${unit.player} unit — F to exit`);
+  if(unit.isMedic) setHUD(`✚ Medic — Hold E to activate Healing Aura | F to exit`);
+  else setHUD(`👁 Possessing P${unit.player} unit — F to exit`);
 }
 
 function exitPossession(){
@@ -2182,7 +2362,7 @@ function tickPossess(dt){
   if(moving) u.stamina = Math.max(0, u.stamina - 12*dt);
   else u.stamina = Math.min(u.maxStamina, u.stamina + 20*dt);
   const speedMod = u.stamina > 0 ? 1 : 0.25;
-  const spd = UNIT_SPD * dt * (u.isAssassin ? 2 : 1) * (u.isShieldMan ? 0.70 : 1) * speedMod;
+  const spd = UNIT_SPD * dt * (u.isAssassin ? 2 : 1) * (u.isShieldMan ? 0.70 : 1) * (u.isMedic ? 0.85 : 1) * speedMod;
 
   if(ghostKeys['KeyW']) mesh.translateZ(-spd);
   if(ghostKeys['KeyS']) mesh.translateZ( spd);
@@ -2329,6 +2509,11 @@ document.addEventListener('keydown', e=>{
       u.stealthActive=true; u.stealthTimer=10; u.oHKReady=true; u.stealthCooldown=30;
       setHUD('🌿 Stealth! Next hit = One-Hit-Kill');
     } else { setHUD(`🌿 Stealth cooldown: ${u.stealthCooldown.toFixed(1)}s`); }
+  }
+  // Medic: E held = Healing Aura (handled in tickMedics via ghostKeys)
+  if(e.code==='KeyE' && isPossessing && possessedUnit?.isMedic){
+    if(possessedUnit.supply>0) setHUD('✚ Hold E — Healing Aura active');
+    else setHUD('✚ No supplies! Return to town centre to resupply.');
   }
   // Funny Man: E = Confusion Aura
   if(e.code==='KeyE' && isPossessing && possessedUnit?.isFunny){
@@ -3566,6 +3751,7 @@ function animate(){
   tickDayNight(dt);
   tickVillagers(dt);
   tickShieldMen(dt);
+  tickMedics(dt);
   tickCastleHPBars();
   tickFogOfWar();
   tickIntel();
