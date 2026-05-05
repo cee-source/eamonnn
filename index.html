@@ -189,6 +189,53 @@
       color: rgba(0,255,80,0.45); font-size: 9px;
       letter-spacing: 2px;
     }
+
+    /* ── Player HP bar ──────────────────────────────────────── */
+    #player-hp-wrap {
+      position: fixed; bottom: 18px; right: 160px;
+      display: flex; align-items: center; gap: 7px;
+      background: rgba(0,0,0,0.6); border: 1px solid rgba(200,50,50,0.55);
+      border-radius: 10px; padding: 6px 12px; pointer-events: none; z-index: 10;
+    }
+    #php-track {
+      width: 90px; height: 7px; background: #222; border-radius: 4px; overflow: hidden;
+    }
+    #php-fill {
+      height: 100%; width: 100%; background: #dd2222; border-radius: 4px;
+      transition: width 0.1s linear;
+    }
+    #php-num   { color: #ff4444; font-size: 11px; font-family: monospace; min-width: 30px; }
+    #php-label { color: #aaa; font-size: 12px; }
+
+    /* ── Game Over screen ────────────────────────────────────── */
+    #game-over {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.88); z-index: 200;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(8px);
+    }
+    #game-over.go-active { display: flex; }
+    .go-inner { text-align: center; }
+    .go-title {
+      color: #cc1111; font-size: 38px; letter-spacing: 6px;
+      font-family: 'Courier New', monospace;
+      text-shadow: 0 0 40px #ff0000, 0 0 80px rgba(255,0,0,0.4);
+      animation: goFlicker 2.5s steps(1) infinite;
+    }
+    .go-sub {
+      color: #883333; font-size: 16px; margin-top: 14px;
+      font-family: 'Courier New', monospace; letter-spacing: 5px;
+    }
+    .go-restart {
+      margin-top: 36px; display: block; background: none;
+      border: 1px solid #cc2222; color: #cc2222;
+      font-family: 'Courier New', monospace; font-size: 13px;
+      letter-spacing: 3px; padding: 10px 28px; cursor: pointer;
+    }
+    .go-restart:hover { background: rgba(204,34,34,0.18); }
+    @keyframes goFlicker {
+      0%,92%,100% { opacity: 1; } 93%,99% { opacity: 0.15; }
+    }
   </style>
 </head>
 <body>
@@ -227,13 +274,29 @@
 </div>
 <div id="build-status"></div>
 
+<!-- Player HP bar -->
+<div id="player-hp-wrap">
+  <span id="php-label">❤ CMD HP</span>
+  <div id="php-track"><div id="php-fill"></div></div>
+  <span id="php-num">100</span>
+</div>
+
+<!-- Game Over overlay -->
+<div id="game-over">
+  <div class="go-inner">
+    <div class="go-title">THE COMMANDER HAS FALLEN</div>
+    <div class="go-sub">THE WAR IS LOST.</div>
+    <button class="go-restart" onclick="location.reload()">RESTART</button>
+  </div>
+</div>
+
 <!-- Command Menu overlay -->
 <div id="cmd-menu">
   <span class="cm-title">▶ COMMAND MENU</span>
-  <div class="cm-item" id="cmi-1"><span class="cm-key">1</span>&nbsp;Follow Me</div>
+  <div class="cm-item" id="cmi-1"><span class="cm-key">1</span>&nbsp;Move to Me</div>
   <div class="cm-item" id="cmi-2"><span class="cm-key">2</span>&nbsp;Scout Forward</div>
-  <div class="cm-item" id="cmi-3"><span class="cm-key">3</span>&nbsp;Attack Nearest</div>
-  <div class="cm-item" id="cmi-4"><span class="cm-key">4</span>&nbsp;Retreat to Town</div>
+  <div class="cm-item" id="cmi-3"><span class="cm-key">3</span>&nbsp;Shield Me</div>
+  <div class="cm-item" id="cmi-4"><span class="cm-key">4</span>&nbsp;Train Unit</div>
   <div class="cm-target" id="cmd-target">— no unit selected —</div>
 </div>
 
@@ -255,12 +318,33 @@ const oilCauldrons  = [];   // triggered oil cauldrons
 const spikeTraps    = [];   // hidden ground spike traps
 const villagers     = [];   // NPC villagers with daily routines
 const houses        = [];   // shelter positions for nighttime
+const castles       = [];   // mega castle structures with HP
 let   _bellMeshRef  = null; // bell mesh for swing animation
 
 // ─── Gold economy ─────────────────────────────────────────────
 let playerGold = 200;
 const BLDG_COST = { tower:80, wall:30, barracks:100, cauldron:50, spike:20 };
 function updateGoldHUD(){ document.getElementById('gold-num').textContent = playerGold; }
+
+// ─── Commander vitality ───────────────────────────────────────
+let playerHP = 100;
+const PLAYER_MAX_HP = 100;
+let _gameOver = false;
+function updatePlayerHPBar(){
+  const pct=Math.max(0,playerHP/PLAYER_MAX_HP*100);
+  document.getElementById('php-fill').style.width=pct+'%';
+  document.getElementById('php-num').textContent=Math.max(0,Math.floor(playerHP));
+}
+function damagePlayer(amt){
+  if(_gameOver) return;
+  playerHP=Math.max(0,playerHP-amt);
+  updatePlayerHPBar();
+  if(playerHP<=0) triggerGameOver();
+}
+function triggerGameOver(){
+  _gameOver=true;
+  document.getElementById('game-over').classList.add('go-active');
+}
 // Intel / Fog-of-War state (populated after ROWS/COLS are defined below)
 let _intelMap = null;   // Map<unit → {x,z,lastSeen,spotted}>
 let _revealed = null;   // Uint8Array[ROWS][COLS] — terrain seen by P1
@@ -384,6 +468,15 @@ const SND_BELL = _mkBuf((t,p)=>(
   Math.sin(2*Math.PI*550*t)*0.14 +
   Math.sin(2*Math.PI*880*t)*0.06
 ) * Math.exp(-p*1.1) * 0.75, 3.2);
+// Castle heavy stone impact
+const SND_CASTLE_HIT = _mkBuf((t,p)=>{
+  const env=p<0.04?p/0.04:Math.exp(-(p-0.04)*3.2);
+  return (Math.sin(2*Math.PI*48*t)*0.65+(Math.random()-0.5)*0.40)*env*0.75;
+}, 0.9);
+// Castle destruction — massive rumble with debris crash
+const SND_CASTLE_FALL = _mkBuf((t,p)=>(
+  Math.sin(2*Math.PI*38*t)*0.55+Math.sin(2*Math.PI*28*t)*0.30+(Math.random()-0.5)*0.55
+)*Math.exp(-p*1.4)*0.9, 3.2);
 
 function playAt(worldPos, buffer, refDist=CS, rolloff=2.5){
   if(!buffer||audioCtx.state==='suspended') return;
@@ -763,6 +856,220 @@ function makeSpikeTrapMesh(){
   return g;
 }
 
+// ─── Mega Castle (5× titan fortress) ─────────────────────────
+function makeMegaCastle(player){
+  const g=new THREE.Group(); g.userData.isCastle=true;
+  const fm=player===1?BMAT.flagP1:BMAT.flagP2;
+  // Massive stone base platform
+  const base=new THREE.Mesh(new THREE.BoxGeometry(14,2.5,14),BMAT.stone);
+  base.position.y=1.25; base.castShadow=base.receiveShadow=true; g.add(base);
+  // Connecting curtain walls
+  [[-6.0,4.0,12,false],[6.0,4.0,12,false],[0,4.0,14,true],[0,4.0,14,true]].forEach(([x,y,l,isZ],i)=>{
+    if(i<2){ const w=new THREE.Mesh(new THREE.BoxGeometry(1.4,6,l),BMAT.stone); w.position.set(x,y,0); w.castShadow=true; g.add(w); }
+  });
+  const frontWall=new THREE.Mesh(new THREE.BoxGeometry(14,6,1.4),BMAT.stone);
+  frontWall.position.set(0,4,-6.8); frontWall.castShadow=true; g.add(frontWall);
+  const backWall=frontWall.clone(); backWall.position.z=6.8; g.add(backWall);
+  // Gate arch (carved out of front wall visually)
+  const arch=new THREE.Mesh(new THREE.BoxGeometry(3.2,4.5,2.0),BMAT.dark);
+  arch.position.set(0,2.25,-6.8); g.add(arch);
+  const portcullis=new THREE.Mesh(new THREE.BoxGeometry(3.0,0.18,0.12),BMAT.dark);
+  for(let i=0;i<7;i++){ const b=portcullis.clone(); b.position.set(0,0.26+i*0.6,-6.5); g.add(b); }
+  // Central keep — massive cylinder
+  const keep=new THREE.Mesh(new THREE.CylinderGeometry(3.6,4.4,22,14),BMAT.stone);
+  keep.position.y=12.5; keep.castShadow=true; g.add(keep);
+  const kRing=new THREE.Mesh(new THREE.CylinderGeometry(5.0,5.0,1.2,14),BMAT.dark);
+  kRing.position.y=24.1; g.add(kRing);
+  // Battlement teeth on keep
+  for(let i=0;i<14;i++){
+    const a=(i/14)*Math.PI*2;
+    const bt=new THREE.Mesh(new THREE.BoxGeometry(1.1,1.5,1.1),BMAT.stone);
+    bt.position.set(Math.cos(a)*4.8,25.0,Math.sin(a)*4.8); g.add(bt);
+  }
+  // 4 Corner towers
+  [[-5.5,-5.5],[5.5,-5.5],[-5.5,5.5],[5.5,5.5]].forEach(([x,z])=>{
+    const ct=new THREE.Mesh(new THREE.CylinderGeometry(1.9,2.3,16,10),BMAT.stone);
+    ct.position.set(x,9,z); ct.castShadow=true; g.add(ct);
+    const cr=new THREE.Mesh(new THREE.CylinderGeometry(2.4,2.4,0.9,10),BMAT.dark);
+    cr.position.set(x,17.4,z); g.add(cr);
+    // Corner tower battlements
+    for(let i=0;i<8;i++){
+      const a=(i/8)*Math.PI*2;
+      const bt=new THREE.Mesh(new THREE.BoxGeometry(0.65,0.9,0.65),BMAT.stone);
+      bt.position.set(x+Math.cos(a)*2.1,18.4,z+Math.sin(a)*2.1); g.add(bt);
+    }
+  });
+  // Flag at peak of keep
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,5,6),BMAT.wood);
+  pole.position.y=27.8; g.add(pole);
+  const flag=new THREE.Mesh(new THREE.PlaneGeometry(3.2,1.7),fm);
+  flag.position.set(1.6,30.0,0); g.add(flag);
+  flagMeshes.push(flag);
+  return g;
+}
+
+// ─── Ruined Castle (TNT devastation replacement) ──────────────
+function makeRuinedCastle(){
+  const g=new THREE.Group();
+  const rMat=new THREE.MeshStandardMaterial({color:0x666055,roughness:0.95,metalness:0.05});
+  // Scattered rubble chunks
+  const rubble=[
+    [6,1.8,5, 0, 0.9,-2, 0.22],
+    [4,3.2,3.5,-3,1.6, 0,-0.28],
+    [5,1.4,4.5, 2.5,0.7,1.8, 0.55],
+    [2.2,4.0,2.2,-1.5,2.0,3.2,-0.12],
+    [4.0,1.1,4.5, 1.2,0.55,-4,-0.18],
+    [1.8,1.8,1.8, 4.5,0.9,3.2, 0.72],
+    [3.0,0.9,2.5,-4.8,0.45,2,-0.38],
+    [1.4,1.4,1.4, 3.2,0.7,-2.5,0.88],
+    [3.2,0.7,2.4,-2.2,0.35,1, 0.25],
+    [1.2,2.8,1.2, 0.8,1.4,5.0, 0.35],
+    [2.8,1.4,2.8, 5.5,0.7,-1.2, 1.1],
+    [1.0,1.0,1.0,-3.5,0.5,-3.5,0.44],
+  ];
+  rubble.forEach(([w,h,d,x,y,z,ry])=>{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),rMat);
+    m.position.set(x,y,z); m.rotation.y=ry; m.castShadow=m.receiveShadow=true; g.add(m);
+  });
+  return g;
+}
+
+// ─── Castle HP bar (billboard, tall above keep) ───────────────
+function addCastleHPBar(castle){
+  const pivot=new THREE.Object3D(); scene.add(pivot);
+  const bgMat=new THREE.MeshBasicMaterial({color:0x111111,side:THREE.DoubleSide,depthTest:false});
+  const bg=new THREE.Mesh(new THREE.PlaneGeometry(6,0.45),bgMat);
+  bg.renderOrder=999; pivot.add(bg);
+  const fillMat=new THREE.MeshBasicMaterial({color:0xdd1111,side:THREE.DoubleSide,depthTest:false});
+  const fill=new THREE.Mesh(new THREE.PlaneGeometry(6,0.45),fillMat);
+  fill.renderOrder=1000; fill.position.z=0.01; pivot.add(fill);
+  castle._hpBar={pivot,fill,fillMat};
+}
+function tickCastleHPBars(){
+  for(const c of castles){
+    if(!c._hpBar||c.ruined) continue;
+    c._hpBar.pivot.position.set(c.wx,31,c.wz);
+    c._hpBar.pivot.lookAt(camera.position);
+    const ratio=Math.max(0,c.hp/c.maxHp);
+    c._hpBar.fill.scale.x=Math.max(0.001,ratio);
+    c._hpBar.fill.position.x=-3*(1-ratio);
+    c._hpBar.fillMat.color.setRGB(1-ratio*0.5,ratio*0.7,0);
+  }
+}
+
+// ─── Castle spawn + destroy ───────────────────────────────────
+function spawnCastle(player, wx, wz){
+  const mesh=makeMegaCastle(player);
+  mesh.position.set(wx,0.4,wz); scene.add(mesh);
+  const castle={player,mesh,wx,wz,hp:500,maxHp:500,ruined:false};
+  mesh.traverse(c=>{ c.userData.castleRef=castle; });
+  addCastleHPBar(castle);
+  castles.push(castle);
+  return castle;
+}
+function destroyCastle(castle){
+  scene.remove(castle.mesh);
+  if(castle._hpBar){ scene.remove(castle._hpBar.pivot); castle._hpBar=null; }
+  const ruins=makeRuinedCastle();
+  ruins.position.set(castle.wx,0.4,castle.wz);
+  scene.add(ruins); castle.mesh=ruins; castle.hp=0; castle.ruined=true;
+  spawnShockwave(new THREE.Vector3(castle.wx,3,castle.wz));
+  playUI(SND_CASTLE_FALL);
+  chatPrint(`💥 A ${castle.player===1?'P1':'P2'} castle has been destroyed!`,'sys');
+}
+
+// ─── Shield Man mesh ──────────────────────────────────────────
+function buildShieldManMesh(player){
+  const col=player===1?0x8833aa:0x3388aa;
+  const g=new THREE.Group(); g.userData.isUnit=true;
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.34,0.72,10),
+    new THREE.MeshLambertMaterial({color:col}));
+  body.position.y=0.36; body.castShadow=true; g.add(body);
+  // Pauldrons
+  [-0.31,0.31].forEach(x=>{
+    const p=new THREE.Mesh(new THREE.SphereGeometry(0.19,6,5),
+      new THREE.MeshLambertMaterial({color:0x999999,metalness:0.8}));
+    p.position.set(x,0.61,0); g.add(p);
+  });
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.22,10,10),
+    new THREE.MeshLambertMaterial({color:0xffe0b0}));
+  head.position.y=0.91; g.add(head);
+  // Full-face helmet
+  const helm=new THREE.Mesh(new THREE.SphereGeometry(0.26,10,6,0,Math.PI*2,0,Math.PI*0.58),
+    new THREE.MeshLambertMaterial({color:0x777777,metalness:0.9,roughness:0.18}));
+  helm.position.y=0.91; g.add(helm);
+  // Large rectangular shield mounted in front
+  const shieldMat=new THREE.MeshStandardMaterial({color:0xb0b0b8,metalness:0.90,roughness:0.18});
+  const shield=new THREE.Mesh(new THREE.BoxGeometry(0.95,1.35,0.09),shieldMat);
+  shield.position.set(0,0.52,0.46); shield.castShadow=true; g.add(shield);
+  // Decorative gold rim
+  const rim=new THREE.Mesh(new THREE.BoxGeometry(0.99,1.39,0.04),
+    new THREE.MeshLambertMaterial({color:0xddaa00,metalness:0.8}));
+  rim.position.set(0,0.52,0.41); g.add(rim);
+  // Boss rivet
+  const boss=new THREE.Mesh(new THREE.SphereGeometry(0.105,8,6),
+    new THREE.MeshLambertMaterial({color:0xffcc22,metalness:0.9}));
+  boss.position.set(0,0.52,0.52); g.add(boss);
+  return g;
+}
+
+function spawnShieldMan(player, col, row){
+  const wx=col*CS+CS/2, wz=row*CS+CS/2;
+  const mesh=buildShieldManMesh(player);
+  mesh.position.set(wx,0.4,wz);
+  mesh.rotation.y=player===1?-Math.PI/2:Math.PI/2;
+  scene.add(mesh);
+  const linkGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]);
+  const linkLine=new THREE.Line(linkGeo,
+    new THREE.LineBasicMaterial({color:0x4488ff,transparent:true,opacity:0.32}));
+  linkLine.visible=false; scene.add(linkLine);
+  const unit={player,mesh,col,row,wx,wz,hp:150,isShieldMan:true,
+    _guardTarget:null,_guardingPlayer:false,_linkLine:linkLine,_linkGeo:linkGeo};
+  mesh.traverse(c=>{ c.userData.unitRef=unit; });
+  units.push(unit);
+  return unit;
+}
+
+function tickShieldMen(dt){
+  for(const u of units){
+    if(!u.isShieldMan) continue;
+    // Auto-tether to nearest non-shield friendly if not assigned
+    if(!u._guardTarget&&!u._guardingPlayer&&u!==possessedUnit){
+      let best=null, bd=Infinity;
+      for(const f of units){
+        if(f.player!==u.player||f===u||f.isShieldMan) continue;
+        const dx=f.mesh.position.x-u.mesh.position.x, dz=f.mesh.position.z-u.mesh.position.z;
+        const d=dx*dx+dz*dz; if(d<bd){bd=d;best=f;}
+      }
+      u._guardTarget=best;
+    }
+    // Clear stale guard target
+    if(u._guardTarget&&!units.includes(u._guardTarget)){u._guardTarget=null;}
+    // Move toward guard target, keep within ~1.2 CS
+    if(u!==possessedUnit){
+      const tp=u._guardingPlayer
+        ?new THREE.Vector3(camera.position.x,0,camera.position.z)
+        :u._guardTarget?new THREE.Vector3(u._guardTarget.mesh.position.x,0,u._guardTarget.mesh.position.z):null;
+      if(tp){
+        const dx=tp.x-u.mesh.position.x, dz=tp.z-u.mesh.position.z;
+        const dist=Math.sqrt(dx*dx+dz*dz);
+        if(dist>CS*1.2){
+          const spd=Math.min(UNIT_SPD*0.70*dt, dist-CS*1.1);
+          u.mesh.position.x+=(dx/dist)*spd; u.mesh.position.z+=(dz/dist)*spd;
+          u.mesh.rotation.y=Math.atan2(-dx,-dz);
+        }
+      }
+    }
+    // Update protection link line
+    const hasTarget=u._guardingPlayer||(u._guardTarget&&units.includes(u._guardTarget));
+    if(hasTarget){
+      const tgt=u._guardingPlayer?camera.position:u._guardTarget.mesh.position;
+      u._linkGeo.setFromPoints([u.mesh.position.clone().setY(0.8),tgt.clone().setY(0.8)]);
+      u._linkLine.visible=true;
+    } else { u._linkLine.visible=false; }
+  }
+}
+
 // ─── House (villager shelter) ─────────────────────────────────
 function makeHouseMesh(){
   const g=new THREE.Group();
@@ -958,6 +1265,12 @@ for(let row=0;row<ROWS;row++){
   scene.add(bellMesh);
   _bellMeshRef=bellMesh;
 })();
+
+// ─── Mega Castles ─────────────────────────────────────────────
+// P1 capital: just behind the HQ, visible from start
+spawnCastle(1, -5, -5);
+// P2 enemy stronghold: 500+ world units east — deep in fog, scouting mandatory
+spawnCastle(2, 522, 15);
 
 // Bell state
 let _bellRinging=false, _bellTimer=0, _bellSwingT=0;
@@ -1551,6 +1864,16 @@ function parseCommand(raw){
     ringBell(); return {bell:true};
   }
 
+  // ── Shield Me command ───────────────────────────────────────────────────
+  if(/\bshield\s+me\b|\bprotect\s+me\b|\bguard\s+me\b/i.test(txt)){
+    const sm=units.find(u=>u.isShieldMan&&u.player===1);
+    if(sm){ sm._guardingPlayer=true; sm._guardTarget=null;
+      sm.dest=new THREE.Vector3(camera.position.x,0,camera.position.z);
+      chatPrint(`🛡 ${sm.unitName||'Shield Man'} → guarding Commander`,'sys'); }
+    else chatPrint('No Shield Man available','sys');
+    return {shield:true};
+  }
+
   // ── Build command — "build [type] here" ─────────────────────────────────
   {
     const bm=txt.match(/\b(?:build|construct|place|erect)\s+(tower|wall|barracks|oil\s*cauldron|cauldron|spike\s*trap|spike)/i);
@@ -1712,6 +2035,8 @@ spawnFunnyMan(1,4,8); spawnFunnyMan(2,9,8);
 // Builders — 2 per player
 spawnBuilder(1,2,5);  spawnBuilder(1,3,6);
 spawnBuilder(2,11,4); spawnBuilder(2,10,6);
+// Shield Men — 1 per player (heavy, armored protectors)
+spawnShieldMan(1,2,1); spawnShieldMan(2,11,1);
 // Villagers — 3 farmers, 2 craftsmen, 4 commoners
 spawnVillager('farmer',   0*CS+CS/2,      3*CS+CS/2);
 spawnVillager('farmer',   2*CS+CS/2,      3*CS+CS/2);
@@ -1857,7 +2182,7 @@ function tickPossess(dt){
   if(moving) u.stamina = Math.max(0, u.stamina - 12*dt);
   else u.stamina = Math.min(u.maxStamina, u.stamina + 20*dt);
   const speedMod = u.stamina > 0 ? 1 : 0.25;
-  const spd = UNIT_SPD * dt * (u.isAssassin ? 2 : 1) * speedMod;
+  const spd = UNIT_SPD * dt * (u.isAssassin ? 2 : 1) * (u.isShieldMan ? 0.70 : 1) * speedMod;
 
   if(ghostKeys['KeyW']) mesh.translateZ(-spd);
   if(ghostKeys['KeyS']) mesh.translateZ( spd);
@@ -2093,7 +2418,8 @@ function tickUnitMovement(dt){
     // Drain stamina while moving; 25% speed when exhausted
     unit.stamina = Math.max(0, unit.stamina - 12*dt);
     const speedMod = unit.stamina > 0 ? 1 : 0.25;
-    const move = Math.min(UNIT_SPD * speedMod * dt, dist);
+    const shieldSlowMod = unit.isShieldMan ? 0.70 : 1;
+    const move = Math.min(UNIT_SPD * speedMod * shieldSlowMod * dt, dist);
     unit.mesh.position.x += (dx/dist) * move;
     unit.mesh.position.z += (dz/dist) * move;
     unit.mesh.rotation.y  = Math.atan2(-dx, -dz);
@@ -2145,12 +2471,33 @@ function tickArrows(dt){
     a.traveled+=step;
     a.mesh.position.addScaledVector(a.dir, step);
     let hit=false;
+    // Check castle damage (minimal — arrows barely scratch stone)
+    for(const c of castles){
+      if(c.ruined||c.player===a.ownerPlayer) continue;
+      const dx=a.mesh.position.x-c.wx, dz=a.mesh.position.z-c.wz;
+      if(dx*dx+dz*dz<64){ // within ~8 units of castle center
+        c.hp=Math.max(0,c.hp-1);
+        playAt(new THREE.Vector3(c.wx,4,c.wz),SND_CASTLE_HIT,8,1.5);
+        if(c.hp<=0) destroyCastle(c);
+        hit=true; break;
+      }
+    }
+    if(hit){ scene.remove(a.mesh); a.mesh=null; arrows.splice(i,1); continue; }
+    // Check unit damage with shield man intercept
     for(const unit of units){
       if(unit.player===a.ownerPlayer) continue;
       const dx=a.mesh.position.x-unit.mesh.position.x;
       const dy=a.mesh.position.y-(unit.mesh.position.y+0.7);
       const dz=a.mesh.position.z-unit.mesh.position.z;
-      if(dx*dx+dy*dy+dz*dz < 0.64){ unit.hp-=5; if(unit.hp<=0) killUnit(unit); hit=true; break; }
+      if(dx*dx+dy*dy+dz*dz < 0.64){
+        // Check for friendly shield man intercept
+        const sm=units.find(s=>s.isShieldMan&&s.player===unit.player&&s!==unit&&
+          Math.hypot(s.mesh.position.x-unit.mesh.position.x,s.mesh.position.z-unit.mesh.position.z)<2*CS);
+        const target=sm||unit;
+        target.hp-=sm?3:5;
+        if(target.hp<=0) killUnit(target);
+        hit=true; break;
+      }
     }
     if(hit||a.traveled>a.maxDist){ scene.remove(a.mesh); a.mesh=null; arrows.splice(i,1); }
   }
@@ -2193,6 +2540,7 @@ function killUnit(unit){
   if(possessedUnit===unit) exitPossession();
   if(unit._hpBar)     { scene.remove(unit._hpBar.pivot);     unit._hpBar=null; }
   if(unit._staminaBar){ scene.remove(unit._staminaBar.pivot); unit._staminaBar=null; }
+  if(unit._linkLine)  { scene.remove(unit._linkLine); unit._linkLine=null; }
   if(_intelMap) _intelMap.delete(unit);
   const name = unit.unitName || 'Unknown';
   chatPrint(`⚰ ${name} has fallen in battle.`, 'sys');
@@ -2237,6 +2585,16 @@ function explode(unit){
     if(dx*dx+dz*dz <= BLAST_R*BLAST_R){
       d.obj.parent.remove(d.obj);
       destructibles.splice(i,1);
+    }
+  }
+
+  // TNT devastation: one-shot castle if within 10 world units
+  const TNT_CASTLE_R = 10;
+  for(const c of castles){
+    if(c.ruined) continue;
+    const dx=c.wx-pos.x, dz=c.wz-pos.z;
+    if(dx*dx+dz*dz <= TNT_CASTLE_R*TNT_CASTLE_R){
+      destroyCastle(c);
     }
   }
 
@@ -2312,11 +2670,40 @@ function tickPlayerShots(dt){
     const uHits = _shotRay.intersectObjects(uTargets, false);
     if(uHits.length){
       const unit = uHits[0].object.userData.unitRef;
-      if(unit){ unit.hp -= 25; if(unit.hp <= 0) killUnit(unit); }
+      if(unit && units.includes(unit)){
+        // Shield man intercept for P2 units
+        const sm=units.find(s=>s.isShieldMan&&s.player===unit.player&&s!==unit&&
+          Math.hypot(s.mesh.position.x-unit.mesh.position.x,s.mesh.position.z-unit.mesh.position.z)<2*CS);
+        const target=sm||unit;
+        // Front-facing shield man gets 50% reduction
+        let dmg=25;
+        if(sm){
+          const smFwd=new THREE.Vector3(); sm.mesh.getWorldDirection(smFwd);
+          dmg=s.dir.dot(smFwd)>0 ? 13 : 25; // attacker in front = half dmg
+        }
+        target.hp-=dmg; if(target.hp<=0) killUnit(target);
+      }
       spawnSpark(uHits[0].point);
       scene.remove(s.mesh); s.mesh.material.dispose();
       playerShots.splice(i, 1); continue;
     }
+
+    // --- castle hit (reduced damage from magic bolts) ---
+    let castleHit=false;
+    for(const c of castles){
+      if(c.ruined) continue;
+      const cTargets=[]; c.mesh.traverse(ch=>{if(ch.isMesh)cTargets.push(ch);});
+      const cHits=_shotRay.intersectObjects(cTargets,false);
+      if(cHits.length){
+        c.hp=Math.max(0,c.hp-8);
+        playAt(new THREE.Vector3(c.wx,4,c.wz),SND_CASTLE_HIT,10,1.5);
+        if(c.hp<=0) destroyCastle(c);
+        spawnSpark(cHits[0].point);
+        scene.remove(s.mesh); s.mesh.material.dispose();
+        playerShots.splice(i,1); castleHit=true; break;
+      }
+    }
+    if(castleHit) continue;
 
     // --- terrain hit ---
     const tHits = _shotRay.intersectObjects([envGroup, ...chunks.values()], true);
@@ -2437,13 +2824,41 @@ function tickUnitShots(dt){
     if(hits.length){
       const unit = hits[0].object.userData.unitRef;
       if(unit && units.includes(unit)){
-        unit.hp -= UNIT_ATTACK_DMG;
-        if(unit.player === 1) playAt(unit.mesh.position.clone(), SND_HIT, CS, 3);
-        if(unit.hp <= 0) killUnit(unit);
+        // Shield man intercept
+        const sm=units.find(ss=>ss.isShieldMan&&ss.player===unit.player&&ss!==unit&&
+          Math.hypot(ss.mesh.position.x-unit.mesh.position.x,ss.mesh.position.z-unit.mesh.position.z)<2*CS);
+        const target=sm||unit;
+        let dmg=UNIT_ATTACK_DMG;
+        if(sm){
+          const smFwd=new THREE.Vector3(); sm.mesh.getWorldDirection(smFwd);
+          dmg=s.dir.dot(smFwd)>0 ? Math.ceil(UNIT_ATTACK_DMG*0.5) : UNIT_ATTACK_DMG;
+        }
+        target.hp-=dmg;
+        if(target.player===1) playAt(target.mesh.position.clone(),SND_HIT,CS,3);
+        if(target.hp<=0) killUnit(target);
+        // Player HP damage if P1 unit is hit by P2 shot and no shield man nearby
+        if(unit.player===1&&!sm&&s.ownerPlayer===2){
+          const camDist=Math.hypot(unit.mesh.position.x-camera.position.x,unit.mesh.position.z-camera.position.z);
+          // Only deal commander damage if extremely close (< 2 units)
+          if(camDist<2){ const pSM=units.find(ps=>ps.isShieldMan&&ps.player===1&&Math.hypot(ps.mesh.position.x-camera.position.x,ps.mesh.position.z-camera.position.z)<2*CS); if(pSM){pSM.hp-=dmg;if(pSM.hp<=0)killUnit(pSM);}else{damagePlayer(dmg);} }
+        }
       }
       spawnSpark(hits[0].point);
       scene.remove(s.mesh); s.mat.dispose(); unitShots.splice(i,1); continue;
     }
+    // Castle hit from unit shots
+    let unitCastleHit=false;
+    for(const c of castles){
+      if(c.ruined||c.player===s.ownerPlayer) continue;
+      const dx=s.mesh.position.x-c.wx, dz=s.mesh.position.z-c.wz;
+      if(dx*dx+dz*dz<64){
+        c.hp=Math.max(0,c.hp-1);
+        playAt(new THREE.Vector3(c.wx,3,c.wz),SND_CASTLE_HIT,8,1.5);
+        if(c.hp<=0) destroyCastle(c);
+        scene.remove(s.mesh); s.mat.dispose(); unitShots.splice(i,1); unitCastleHit=true; break;
+      }
+    }
+    if(unitCastleHit) continue;
 
     if(s.traveled > s.maxDist){
       scene.remove(s.mesh); s.mat.dispose(); unitShots.splice(i,1);
@@ -3053,37 +3468,39 @@ function hideCmdMenu(){
 function execCmdMenu(n){
   const u = _cmdGetTarget();
   hideCmdMenu();
-  if(!u){ chatPrint('No unit selected — possess or click a unit first','sys'); return; }
   playUI(SND_RADIO_CLICK);
-  playAt(u.mesh.position.clone(), SND_CMD, CS, 2);
   switch(n){
-    case 1: // Follow Me
+    case 1: // Move to Me
+      if(!u){ chatPrint('No unit selected — possess or click a unit first','sys'); return; }
       u.dest = camera.position.clone(); u.dest.y = 0; u.combatTarget = null;
-      chatPrint(`📡 ${u.unitName} → following Commander`,'sys'); break;
+      playAt(u.mesh.position.clone(), SND_CMD, CS, 2);
+      chatPrint(`📡 ${u.unitName} → moving to Commander`,'sys'); break;
     case 2: // Scout Forward
+      if(!u){ chatPrint('No unit selected — possess or click a unit first','sys'); return; }
       u.scouting = true; u.scoutTimer = 30;
       { const a=Math.random()*Math.PI*2;
         u.dest = new THREE.Vector3(
           u.mesh.position.x+Math.cos(a)*CS*6, 0,
           u.mesh.position.z+Math.sin(a)*CS*6); }
+      playAt(u.mesh.position.clone(), SND_CMD, CS, 2);
       chatPrint(`📡 ${u.unitName} → scouting (30s)`,'sys'); break;
-    case 3: // Attack Nearest
-      { let nearest=null, nd=Infinity;
-        for(const e of units){
-          if(e.player===u.player) continue;
-          const dx=e.mesh.position.x-u.mesh.position.x, dz=e.mesh.position.z-u.mesh.position.z;
-          const d=dx*dx+dz*dz; if(d<nd){nd=d;nearest=e;}
-        }
-        if(nearest){ u.dest=nearest.mesh.position.clone(); u.combatTarget=null;
-          chatPrint(`📡 ${u.unitName} → engaging nearest enemy`,'sys'); }
-        else chatPrint('No enemies in range','sys'); }
+    case 3: // Shield Me
+      { const sm=units.find(s=>s.isShieldMan&&s.player===1);
+        if(sm){ sm._guardingPlayer=true; sm._guardTarget=null;
+          sm.dest=new THREE.Vector3(camera.position.x,0,camera.position.z);
+          chatPrint(`📡 🛡 Shield Man → guarding Commander`,'sys'); }
+        else chatPrint('No Shield Man available','sys'); }
       break;
-    case 4: // Retreat to Town
-      { const hq = u.player===1
-          ? new THREE.Vector3(CS*0+CS/2,0,CS*0+CS/2)
-          : new THREE.Vector3(CS*12+CS/2,0,CS*9+CS/2);
-        u.combatTarget=null; u.dest=hq.clone();
-        chatPrint(`📡 ${u.unitName} → retreating to Town`,'sys'); }
+    case 4: // Train Unit — spawn a fresh soldier for 50 gold
+      { if(playerGold<50){ playUI(SND_NO_GOLD); chatPrint('⚜ Training costs 50 gold','sys'); return; }
+        playerGold-=50; updateGoldHUD();
+        const tx=Math.round(camera.position.x/CS), tz=Math.round(camera.position.z/CS);
+        const nu=spawnUnit(1, Math.max(0,Math.min(COLS-1,tx)), Math.max(0,Math.min(ROWS-1,tz)));
+        nu.unitName=pickName(); nu._warnTimer=Math.random()*5;
+        nu.maxHp=nu.hp=20; nu.attackTimer=Math.random()*2;
+        nu.stamina=100; nu.maxStamina=100; nu.scouting=false; nu.scoutTimer=0;
+        addHPBar(nu); addStaminaBar(nu);
+        chatPrint(`📡 ⚔ ${nu.unitName} trained and deployed!`,'sys'); }
       break;
   }
 }
@@ -3109,6 +3526,7 @@ function animate(){
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
   const t  = clock.getElapsedTime();
+  if(_gameOver){ renderer.render(scene, camera); return; }
 
   // Flag wave
   flagMeshes.forEach((f,i)=>{ f.rotation.y = Math.sin(t*1.8+i*1.3)*0.25; });
@@ -3123,6 +3541,9 @@ function animate(){
   // Mana recharge (only when not actively firing)
   if(playerMana < MAX_MANA){ playerMana = Math.min(MAX_MANA, playerMana + MANA_REGEN * dt); }
   updateAmmoBar();
+  // Commander HP slow regen (1 HP/sec when not being shot)
+  if(playerHP < PLAYER_MAX_HP && !_gameOver) playerHP = Math.min(PLAYER_MAX_HP, playerHP + 1*dt);
+  updatePlayerHPBar();
 
   tickPlayerShots(dt);
   tickSparks(dt);
@@ -3144,6 +3565,8 @@ function animate(){
   tickSpikeTraps();
   tickDayNight(dt);
   tickVillagers(dt);
+  tickShieldMen(dt);
+  tickCastleHPBars();
   tickFogOfWar();
   tickIntel();
   tickTerrainReveal();
