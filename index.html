@@ -3117,6 +3117,7 @@ function spawnUnitShot(fromPos, toPos, ownerPlayer){
 
 function tickUnitCombat(dt){
   for(const u of units){
+    if(u === possessedUnit) continue;   // player controls rotation while possessing
     // Clear stale combat target (dead or out of range)
     if(u.combatTarget && !units.includes(u.combatTarget)) u.combatTarget = null;
 
