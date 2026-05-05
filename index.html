@@ -248,9 +248,158 @@
     #msp-fill  { height: 100%; width: 100%; background: #22bb55; border-radius: 4px; transition: width 0.1s linear; }
     #msp-num   { color: #44ff88; font-size: 11px; font-family: monospace; min-width: 30px; }
     #msp-label { color: #aaa; font-size: 12px; }
+
+    /* ══════════════════════════════════════════════════════════
+       TITLE SCREEN & MENUS
+    ══════════════════════════════════════════════════════════ */
+    #game-canvas { transition: filter 0.5s ease; }
+    #game-canvas.menu-blur { filter: blur(8px); }
+
+    #title-screen {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(4, 7, 16, 0.78);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 500; transition: opacity 0.65s ease;
+    }
+    #title-screen.ts-fade-out { opacity: 0; pointer-events: none; }
+
+    .ts-logo { text-align: center; margin-bottom: 0; }
+    .ts-title {
+      font-family: 'Palatino Linotype', 'Book Antiqua', serif;
+      font-size: 74px; font-weight: 700; letter-spacing: 14px;
+      color: #e0b84a;
+      text-shadow:
+        0 0 30px rgba(220,175,65,0.80),
+        0 0 80px rgba(200,140,30,0.45),
+        0 0 150px rgba(180,110,15,0.20);
+      animation: tsGlow 3.5s ease-in-out infinite;
+    }
+    @keyframes tsGlow {
+      0%,100% { text-shadow: 0 0 30px rgba(220,175,65,0.70),0 0 80px rgba(200,140,30,0.40); }
+      50%      { text-shadow: 0 0 50px rgba(240,195,75,0.95),0 0 120px rgba(220,155,40,0.65),0 0 200px rgba(200,130,20,0.25); }
+    }
+    .ts-subtitle {
+      color: rgba(200,175,105,0.50); font-size: 11px; letter-spacing: 9px;
+      margin-top: 10px; font-family: 'Courier New', monospace;
+    }
+    .ts-title-sm {
+      font-family: 'Palatino Linotype', serif;
+      font-size: 28px; letter-spacing: 10px; color: #c8a040;
+      text-shadow: 0 0 30px rgba(200,160,50,0.55);
+    }
+    .ts-panel {
+      margin-top: 54px; display: flex; flex-direction: column;
+      align-items: center; gap: 10px; min-width: 300px;
+    }
+    .ts-btn {
+      width: 100%; padding: 13px 0;
+      background: rgba(220,175,65,0.07); border: 1px solid rgba(220,175,65,0.35);
+      border-radius: 3px; color: #c8a040; font-family: 'Courier New', monospace;
+      font-size: 13px; letter-spacing: 5px; cursor: pointer; text-transform: uppercase;
+      transition: background 0.18s, border-color 0.18s, color 0.18s;
+    }
+    .ts-btn:hover:not(.ts-disabled) {
+      background: rgba(220,175,65,0.16); border-color: rgba(220,175,65,0.75);
+      color: #f0c858;
+    }
+    .ts-btn.ts-disabled {
+      color: rgba(180,155,80,0.28); border-color: rgba(180,155,80,0.12);
+      cursor: default;
+    }
+    .ts-back {
+      margin-top: 28px; color: rgba(200,175,105,0.38);
+      font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 4px;
+      cursor: pointer; transition: color 0.18s;
+    }
+    .ts-back:hover { color: rgba(200,175,105,0.80); }
+    .ts-section { display: none; flex-direction: column; align-items: center; }
+    .ts-section.ts-active { display: flex; }
+    .ts-divider { width: 100%; height: 1px; background: rgba(200,160,50,0.14); margin: 16px 0; }
+    .ts-badge {
+      display: inline-block; background: rgba(160,60,15,0.55);
+      border: 1px solid rgba(210,100,30,0.40); color: #e07040;
+      font-size: 8px; letter-spacing: 2px; padding: 2px 7px; border-radius: 2px;
+      vertical-align: middle; margin-left: 10px; font-family: 'Courier New', monospace;
+    }
+    .ts-server-item {
+      width: 100%; padding: 11px 16px;
+      background: rgba(20,20,22,0.70); border: 1px solid rgba(70,65,55,0.30);
+      border-radius: 3px; color: rgba(150,140,110,0.35);
+      font-family: 'Courier New', monospace; font-size: 12px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .ts-ctrl-row {
+      width: 100%; display: flex; justify-content: space-between;
+      color: rgba(170,150,90,0.55); font-family: 'Courier New', monospace;
+      font-size: 11px; padding: 3px 0;
+    }
+    .ts-ctrl-row span:last-child { color: rgba(130,120,80,0.45); }
   </style>
 </head>
 <body>
+
+<!-- ══════════════════════════════════════════════════════════
+     TITLE SCREEN (gameState: TITLE / WORLD_SELECT / etc.)
+══════════════════════════════════════════════════════════ -->
+<div id="title-screen">
+
+  <!-- ── Main Menu ─────────────────────────────────────────── -->
+  <div class="ts-section ts-active" id="ts-main">
+    <div class="ts-logo">
+      <div class="ts-title">GAME OF WAR</div>
+      <div class="ts-subtitle">CONQUER · COMMAND · CONTROL</div>
+    </div>
+    <div class="ts-panel">
+      <button class="ts-btn" onclick="tsNav('ts-world')">⚔ &nbsp;Singleplayer</button>
+      <button class="ts-btn" onclick="tsNav('ts-multi')">⚑ &nbsp;Multiplayer</button>
+      <button class="ts-btn" onclick="tsNav('ts-settings')">⚙ &nbsp;Settings</button>
+    </div>
+  </div>
+
+  <!-- ── World Select ───────────────────────────────────────── -->
+  <div class="ts-section" id="ts-world">
+    <div class="ts-title-sm">WORLD SELECT</div>
+    <div class="ts-panel">
+      <button class="ts-btn" onclick="tsCreateWorld()">⚔ &nbsp;Create New World</button>
+      <button class="ts-btn ts-disabled" id="ts-load-btn" onclick="tsLoadWorld()">📜 &nbsp;Load Past World</button>
+    </div>
+    <div class="ts-back" onclick="tsNav('ts-main')">← &nbsp;BACK</div>
+  </div>
+
+  <!-- ── Multiplayer (Under Construction) ──────────────────── -->
+  <div class="ts-section" id="ts-multi">
+    <div class="ts-title-sm">SERVER LIST</div>
+    <div class="ts-panel">
+      <div class="ts-server-item">Realm of Ash <span class="ts-badge">UNDER CONSTRUCTION</span></div>
+      <div class="ts-server-item">Iron Citadel PvP <span class="ts-badge">UNDER CONSTRUCTION</span></div>
+      <div class="ts-server-item">The Forsaken Frontier <span class="ts-badge">UNDER CONSTRUCTION</span></div>
+      <div class="ts-server-item">Siege of Ravenmoor <span class="ts-badge">UNDER CONSTRUCTION</span></div>
+    </div>
+    <div class="ts-back" onclick="tsNav('ts-main')">← &nbsp;BACK</div>
+  </div>
+
+  <!-- ── Settings ───────────────────────────────────────────── -->
+  <div class="ts-section" id="ts-settings">
+    <div class="ts-title-sm">SETTINGS</div>
+    <div class="ts-panel" style="align-items:flex-start;width:360px">
+      <div style="color:#9a8050;font-size:10px;letter-spacing:5px;margin-bottom:10px">CONTROLS</div>
+      <div class="ts-ctrl-row"><span>WASD</span><span>Move Commander</span></div>
+      <div class="ts-ctrl-row"><span>Mouse</span><span>Look Around</span></div>
+      <div class="ts-ctrl-row"><span>F</span><span>Lock / Unlock Mouse</span></div>
+      <div class="ts-ctrl-row"><span>E</span><span>Possess Unit / Use Ability</span></div>
+      <div class="ts-ctrl-row"><span>Space (hold)</span><span>Voice Radio Command</span></div>
+      <div class="ts-ctrl-row"><span>Click Unit</span><span>Select / Possess</span></div>
+      <div class="ts-ctrl-row"><span>/</span><span>Command Menu</span></div>
+      <div class="ts-ctrl-row"><span>Ctrl+S</span><span>Save World</span></div>
+      <div class="ts-divider"></div>
+      <div style="color:#9a8050;font-size:10px;letter-spacing:5px;margin-bottom:10px">AUDIO</div>
+      <div style="color:#6a5838;font-size:11px">Procedural Web Audio API — no external files required.</div>
+    </div>
+    <div class="ts-back" onclick="tsNav('ts-main')">← &nbsp;BACK</div>
+  </div>
+
+</div>
+
 <!-- Cinematic overlays (below HUD, above WebGL canvas) -->
 <div id="vignette"></div>
 <canvas id="grain-overlay" width="256" height="256"></canvas>
@@ -2421,6 +2570,9 @@ document.addEventListener('pointerlockchange', ()=>{
 document.addEventListener('keydown', e=>{
   ghostKeys[e.code]=true;
 
+  // Ctrl+S — save world
+  if(e.code==='KeyS' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); saveWorld(); return; }
+
   // ── Command Menu intercepts (highest priority) ────────────────
   if(_cmdVisible){
     if(e.code==='Escape'||e.code==='Slash'){ e.preventDefault(); hideCmdMenu(); return; }
@@ -3704,6 +3856,120 @@ function _updateGrain(){
   _grainCtx.putImageData(id, 0, 0);
 }
 
+// ═══════════════════════════════════════════════════════════════
+// TITLE SCREEN / GAME STATE MACHINE
+// ═══════════════════════════════════════════════════════════════
+let gameState = 'TITLE'; // 'TITLE' | 'WORLD_SELECT' | 'SERVER_SELECT' | 'PLAYING'
+
+// Apply blur on canvas and hide HUD while in menus
+(function _initMenuState(){
+  document.getElementById('game-canvas').classList.add('menu-blur');
+  // Hide all HUD elements until game starts
+  const hudIds=['hud','crosshair','radio-hud','possess-hint','chat-wrap',
+                'ammo-wrap','minimap-wrap','gold-wrap','build-status',
+                'player-hp-wrap','medic-supply-wrap','cmd-menu'];
+  hudIds.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){ el.dataset.origDisplay=el.style.display||''; el.style.display='none'; }
+  });
+  // Check if a save exists and enable Load button
+  if(localStorage.getItem('gow_save')){
+    const btn=document.getElementById('ts-load-btn');
+    if(btn) btn.classList.remove('ts-disabled');
+  }
+})();
+
+function _setHUDVisible(visible){
+  const hudIds=['hud','chat-wrap','ammo-wrap','minimap-wrap','gold-wrap',
+                'build-status','player-hp-wrap'];
+  hudIds.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=visible?(el.dataset.origDisplay||''):'none';
+  });
+}
+
+function tsNav(sectionId){
+  document.querySelectorAll('.ts-section').forEach(s=>s.classList.remove('ts-active'));
+  document.getElementById(sectionId).classList.add('ts-active');
+}
+
+function _doStartPlaying(){
+  gameState='PLAYING';
+  const ts=document.getElementById('title-screen');
+  ts.classList.add('ts-fade-out');
+  document.getElementById('game-canvas').classList.remove('menu-blur');
+  _setHUDVisible(true);
+  setTimeout(()=>{ ts.style.display='none'; }, 700);
+  // Resume audio context and lock pointer
+  if(audioCtx.state==='suspended') audioCtx.resume();
+  setHUD('WASD move | Mouse look | Click unit/fort to possess | F = unlock');
+}
+
+function tsCreateWorld(){
+  _doStartPlaying();
+}
+
+function tsLoadWorld(){
+  const btn=document.getElementById('ts-load-btn');
+  if(btn && btn.classList.contains('ts-disabled')) return;
+  const raw=localStorage.getItem('gow_save');
+  if(!raw){ return; }
+  try {
+    const save=JSON.parse(raw);
+    // Restore economy
+    if(save.gold!=null){ playerGold=save.gold; updateGoldHUD(); }
+    if(save.playerHP!=null){ playerHP=save.playerHP; updatePlayerHPBar(); }
+    // Restore unit positions/HP by type+player
+    const typeFlag={
+      normal: u=>!u.isSpecial,
+      tnt:   u=>u.isTNT, wizard:u=>u.isWizard, cook:u=>u.isCook,
+      spy:   u=>u.isSpy, ranger:u=>u.isRanger, assassin:u=>u.isAssassin,
+      funnyMan:u=>u.isFunnyMan, builder:u=>u.isBuilder,
+      shieldMan:u=>u.isShieldMan, medic:u=>u.isMedic
+    };
+    const typed={};
+    for(const u of units){
+      for(const [t,fn] of Object.entries(typeFlag)){
+        if(fn(u)){ const k=`${u.player}:${t}`; (typed[k]=typed[k]||[]).push(u); break; }
+      }
+    }
+    const usedIdx={};
+    for(const s of (save.units||[])){
+      const k=`${s.player}:${s.type}`, pool=typed[k]||[], idx=usedIdx[k]||0;
+      const u=pool[idx]; usedIdx[k]=idx+1;
+      if(u){ u.mesh.position.set(s.x, 0.4, s.z); u.hp=Math.max(1,Math.min(s.hp,u.maxHp||s.maxHp)); }
+    }
+    // Restore minimap reveal
+    if(save.revealed){
+      save.revealed.forEach((row,r)=>row.forEach((v,c)=>{
+        if(_revealed[r]&&c<_revealed[r].length) _revealed[r][c]=v;
+      }));
+    }
+  } catch(e){ console.warn('Save load error:',e); }
+  _doStartPlaying();
+}
+
+// Save world to localStorage
+function saveWorld(){
+  if(gameState!=='PLAYING') return;
+  const save={
+    gold:playerGold, playerHP,
+    units:units.map(u=>{
+      let type='normal';
+      if(u.isTNT) type='tnt'; else if(u.isWizard) type='wizard';
+      else if(u.isCook) type='cook'; else if(u.isSpy) type='spy';
+      else if(u.isRanger) type='ranger'; else if(u.isAssassin) type='assassin';
+      else if(u.isFunnyMan) type='funnyMan'; else if(u.isBuilder) type='builder';
+      else if(u.isShieldMan) type='shieldMan'; else if(u.isMedic) type='medic';
+      return { player:u.player, x:u.mesh.position.x, z:u.mesh.position.z,
+               hp:u.hp, maxHp:u.maxHp, type };
+    }),
+    revealed:Array.from(_revealed, row=>Array.from(row))
+  };
+  localStorage.setItem('gow_save', JSON.stringify(save));
+  chatPrint('💾 World saved! (Ctrl+S)','sys');
+}
+
 // ─── Animate ──────────────────────────────────────────────────
 const clock = new THREE.Clock();
 
@@ -3711,6 +3977,15 @@ function animate(){
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
   const t  = clock.getElapsedTime();
+
+  // In menu state: render the live scene as cinematic background; skip gameplay
+  if(gameState !== 'PLAYING'){
+    tickDayNight(dt);
+    flagMeshes.forEach((f,i)=>{ f.rotation.y = Math.sin(t*1.8+i*1.3)*0.25; });
+    renderer.render(scene, camera);
+    return;
+  }
+
   if(_gameOver){ renderer.render(scene, camera); return; }
 
   // Flag wave
