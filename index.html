@@ -334,6 +334,77 @@
       font-size: 11px; padding: 3px 0;
     }
     .ts-ctrl-row span:last-child { color: rgba(130,120,80,0.45); }
+
+    /* ── Control mode picker cards ── */
+    .ts-ctrl-cards { display:flex; gap:20px; margin-top:24px; }
+    .ts-ctrl-card {
+      width:130px; padding:24px 16px;
+      background:rgba(220,175,65,0.06); border:1px solid rgba(220,175,65,0.22);
+      border-radius:6px; cursor:pointer; text-align:center;
+      transition:background 0.18s, border-color 0.18s, transform 0.18s;
+    }
+    .ts-ctrl-card:hover {
+      background:rgba(220,175,65,0.16); border-color:rgba(220,175,65,0.68);
+      transform:translateY(-3px);
+    }
+    .ts-ctrl-icon { font-size:42px; }
+    .ts-ctrl-label {
+      font-family:'Courier New',monospace; color:#c8a040;
+      font-size:11px; letter-spacing:4px; margin-top:10px; text-transform:uppercase;
+    }
+    .ts-ctrl-desc {
+      color:rgba(180,155,90,0.42); font-family:'Courier New',monospace;
+      font-size:9px; letter-spacing:2px; margin-top:4px;
+    }
+
+    /* ── Save slot items ── */
+    .ts-save-item {
+      width:100%; padding:10px 16px;
+      background:rgba(20,20,22,0.70); border:1px solid rgba(100,90,60,0.32);
+      border-radius:3px; cursor:pointer;
+      font-family:'Courier New',monospace; font-size:11px; color:#a89060;
+      display:flex; justify-content:space-between; align-items:center;
+      transition:background 0.15s, border-color 0.15s; box-sizing:border-box;
+    }
+    .ts-save-item:hover { background:rgba(220,175,65,0.10); border-color:rgba(220,175,65,0.44); color:#d4a846; }
+    .ts-save-date { color:rgba(140,120,70,0.50); font-size:9px; letter-spacing:1px; }
+
+    /* ── Mobile virtual joystick ── */
+    #mobile-joy-wrap {
+      position:fixed; bottom:8vh; left:4vw;
+      z-index:200; touch-action:none; display:none;
+    }
+    #mjoy-outer {
+      width:clamp(100px,22vmin,140px); height:clamp(100px,22vmin,140px);
+      border-radius:50%;
+      background:rgba(255,255,255,0.10); border:2px solid rgba(255,255,255,0.28);
+      position:relative; touch-action:none;
+      display:flex; align-items:center; justify-content:center;
+    }
+    #mjoy-inner {
+      width:clamp(38px,10vmin,58px); height:clamp(38px,10vmin,58px);
+      border-radius:50%; background:rgba(255,255,255,0.42);
+      position:absolute; pointer-events:none;
+    }
+    #mobile-radio-btn {
+      position:fixed; bottom:8vh; right:4vw;
+      width:clamp(60px,16vmin,88px); height:clamp(60px,16vmin,88px);
+      border-radius:50%;
+      background:rgba(200,60,60,0.58); border:2px solid rgba(255,120,120,0.68);
+      display:none; align-items:center; justify-content:center;
+      font-size:clamp(22px,7vmin,38px);
+      z-index:200; cursor:pointer; touch-action:none;
+      user-select:none; -webkit-user-select:none;
+      box-shadow:0 0 18px rgba(255,80,80,0.28);
+    }
+    #mobile-radio-btn.radio-active {
+      background:rgba(255,60,60,0.85);
+      box-shadow:0 0 30px rgba(255,80,80,0.60);
+    }
+    #mobile-look-area {
+      position:fixed; top:0; right:0; width:55%; height:100%;
+      z-index:100; touch-action:none; display:none;
+    }
   </style>
 </head>
 <body>
@@ -360,16 +431,51 @@
   <div class="ts-section" id="ts-world">
     <div class="ts-title-sm">WORLD SELECT</div>
     <div class="ts-panel">
-      <button class="ts-btn" onclick="tsCreateWorld()">⚔ &nbsp;Create New World</button>
+      <button class="ts-btn" onclick="tsNav('ts-ctrl-pick')">⚔ &nbsp;Create New World</button>
       <button class="ts-btn ts-disabled" id="ts-load-btn" onclick="tsLoadWorld()">📜 &nbsp;Load Past World</button>
     </div>
     <div class="ts-back" onclick="tsNav('ts-main')">← &nbsp;BACK</div>
   </div>
 
+  <!-- ── Control Mode Picker ───────────────────────────────── -->
+  <div class="ts-section" id="ts-ctrl-pick">
+    <div class="ts-title-sm">CHOOSE CONTROLS</div>
+    <div class="ts-ctrl-cards">
+      <div class="ts-ctrl-card" onclick="tsPickControl('keyboard')">
+        <div class="ts-ctrl-icon">⌨</div>
+        <div class="ts-ctrl-label">Keyboard</div>
+        <div class="ts-ctrl-desc">WASD + Mouse</div>
+      </div>
+      <div class="ts-ctrl-card" onclick="tsPickControl('touch')">
+        <div class="ts-ctrl-icon">📱</div>
+        <div class="ts-ctrl-label">Touch Screen</div>
+        <div class="ts-ctrl-desc">Virtual Joystick</div>
+      </div>
+    </div>
+    <div class="ts-back" onclick="tsNav('ts-world')">← &nbsp;BACK</div>
+  </div>
+
+  <!-- ── Load Past World ───────────────────────────────────── -->
+  <div class="ts-section" id="ts-load-list">
+    <div class="ts-title-sm">LOAD WORLD</div>
+    <div class="ts-panel" id="ts-save-list" style="min-width:340px; max-height:280px; overflow-y:auto;">
+      <!-- populated by tsShowLoadList() -->
+    </div>
+    <div class="ts-back" onclick="tsNav('ts-world')">← &nbsp;BACK</div>
+  </div>
+
   <!-- ── Multiplayer (Under Construction) ──────────────────── -->
   <div class="ts-section" id="ts-multi">
-    <div class="ts-title-sm">SERVER LIST</div>
+    <div class="ts-title-sm">JOIN SERVER</div>
     <div class="ts-panel">
+      <div style="display:flex;gap:8px;width:100%;margin-bottom:12px">
+        <input id="ts-server-input" type="text" placeholder="server address…"
+          style="flex:1;background:rgba(20,18,12,0.8);border:1px solid rgba(220,175,65,0.25);
+          border-radius:3px;color:#a08040;font-family:'Courier New',monospace;font-size:12px;
+          padding:10px 12px;outline:none;letter-spacing:2px;">
+        <button class="ts-btn ts-disabled" style="width:80px;flex-shrink:0">Connect</button>
+      </div>
+      <div class="ts-divider"></div>
       <div class="ts-server-item">Realm of Ash <span class="ts-badge">UNDER CONSTRUCTION</span></div>
       <div class="ts-server-item">Iron Citadel PvP <span class="ts-badge">UNDER CONSTRUCTION</span></div>
       <div class="ts-server-item">The Forsaken Frontier <span class="ts-badge">UNDER CONSTRUCTION</span></div>
@@ -891,6 +997,21 @@ function _n2(x,y){
 function generateHeight(wx,wz){
   return (_n2(wx*0.05,wz*0.05)*0.7 + _n2(wx*0.12,wz*0.12)*0.3) * 2;
 }
+
+// 3-octave terrain height for infinite chunks (returns Y world-units ≥ 0)
+function _chunkTerrainY(wx, wz){
+  const o1 = (_n2(wx/200+0.31, wz/200+0.73)*2-1); // sweeping ranges  ±50
+  const o2 = (_n2(wx/50 +3.17, wz/50 +8.41)*2-1); // hills/valleys    ±10
+  const o3 = (_n2(wx/5  +17.3, wz/5  +22.8)*2-1); // rocky texture    ±1
+  return Math.max(0, o1*50 + o2*10 + o3*1);
+}
+
+// Shared geometry + materials for dense InstancedMesh forests in chunks
+const _INST_TRUNK_GEO    = new THREE.CylinderGeometry(0.07, 0.11, 0.65, 6);
+const _INST_CANOPY_A_GEO = new THREE.ConeGeometry(0.55, 0.90, 7);
+const _INST_CANOPY_B_GEO = new THREE.ConeGeometry(0.35, 0.75, 7);
+const _INST_LEAF_MATS    = LEAF_COLS.map(c=>new THREE.MeshStandardMaterial({color:c,roughness:0.88,metalness:0}));
+const _DUMMY_OBJ         = new THREE.Object3D(); // reused for matrix composition
 
 // ─── Tree builder ─────────────────────────────────────────────
 function makeTree(rand){
@@ -1692,13 +1813,29 @@ function buildChunk(cx, cz){
   const g = new THREE.Group();
   const chunkDst = [];
   const rand = seededRand(cx*73856093 ^ cz*19349663+1);
+
+  // Chunk-level random feature seeded from chunk coords
+  const featureRoll = rand();
+  const chunkFeature = featureRoll < 0.12 ? 'ruins'
+                     : featureRoll < 0.22 ? 'cave'
+                     : featureRoll < 0.32 ? 'thick_forest' : 'none';
+
+  // First pass: collect all forest tree instances for this chunk
+  const treeInst = []; // {wx, wy, wz, sc, ry, ci}
+
   for(let dr=0; dr<CHUNK_CELLS; dr++){
     for(let dc=0; dc<CHUNK_CELLS; dc++){
       const col=cx*CHUNK_CELLS+dc, row=cz*CHUNK_CELLS+dr;
       if(col>=0&&col<COLS&&row>=0&&row<ROWS) continue;
       const wx=col*CS+CS/2, wz=row*CS+CS/2;
+
+      // 3-octave height — positive Y elevation
+      const terrainY = _chunkTerrainY(wx, wz);
       const {biome, h, moist, snow, dense} = getBiome(col, row);
-      const cell=new THREE.Group(); cell.position.set(wx,0,wz);
+
+      // Tall column from y=0 up fills any gap between adjacent tiles
+      const colH = Math.max(0.4, terrainY + 0.4);
+      const cell = new THREE.Group(); cell.position.set(wx, 0, wz);
 
       function addDst(obj){ const e={obj}; destructibles.push(e); chunkDst.push(e); }
 
@@ -1709,56 +1846,119 @@ function buildChunk(cx, cz){
         surf.rotation.x=-Math.PI/2; surf.position.y=0.32; cell.add(surf);
 
       } else if(biome===BIOME.RIVER){
-        // Shallow river runs slightly lower than surrounding plain
         const bed=new THREE.Mesh(new THREE.BoxGeometry(CS,0.30,CS),MAT.waterBed);
         bed.position.y=0.0; bed.receiveShadow=true; cell.add(bed);
         const surf=new THREE.Mesh(new THREE.PlaneGeometry(CS,CS),MAT_BIOME.river);
         surf.rotation.x=-Math.PI/2; surf.position.y=0.16; cell.add(surf);
 
       } else if(biome===BIOME.DESERT){
-        const b=new THREE.Mesh(BASE_GEO,MAT_BIOME.sand); b.position.y=0.2; b.receiveShadow=true; cell.add(b);
-        // Sparse dry rocks
+        const base=new THREE.Mesh(new THREE.BoxGeometry(CS,colH,CS),MAT_BIOME.sand);
+        base.position.y=colH/2; base.receiveShadow=base.castShadow=true; cell.add(base);
         if(rand()<0.18){
-          const br=makeBoulder(rand); br.position.y=0.4; cell.add(br); addDst(br);
+          const br=makeBoulder(rand); br.position.y=colH; cell.add(br); addDst(br);
         }
 
       } else if(biome===BIOME.MOUNTAIN){
-        const b=new THREE.Mesh(BASE_GEO,MAT.mountain); b.position.y=0.2; b.receiveShadow=true; cell.add(b);
-        const sc=0.9+rand()*0.4;
-        const pk=new THREE.Mesh(new THREE.ConeGeometry(0.85*sc,2*sc,7),MAT.mountain);
-        pk.position.y=0.4+sc; pk.castShadow=true; cell.add(pk);
-        if(snow){
-          const sn=new THREE.Mesh(new THREE.ConeGeometry(0.35*sc,0.7*sc,7),MAT.snow);
-          sn.position.y=0.4+1.8*sc; sn.castShadow=true; cell.add(sn);
+        const base=new THREE.Mesh(new THREE.BoxGeometry(CS,colH,CS),MAT.mountain);
+        base.position.y=colH/2; base.receiveShadow=base.castShadow=true; cell.add(base);
+
+        // Peak scales dramatically with terrain height
+        const sc=0.9+rand()*0.6;
+        const widthSc=Math.max(1, terrainY/8);
+        const peakH=Math.max(2*sc, terrainY*0.8);
+        const pk=new THREE.Mesh(new THREE.ConeGeometry(0.85*sc*widthSc, peakH, 7), MAT.mountain);
+        pk.position.y=colH+peakH/2; pk.castShadow=true; cell.add(pk);
+
+        if(snow || terrainY>20){
+          const snH=peakH*0.36;
+          const sn=new THREE.Mesh(new THREE.ConeGeometry(0.35*sc*widthSc, snH, 7), MAT.snow);
+          sn.position.y=colH+peakH*0.78; sn.castShadow=true; cell.add(sn);
         }
-        // 1-2 boulders per mountain tile
         const nbr=1+Math.floor(rand()*2);
         for(let i=0;i<nbr;i++){
           const br=makeBoulder(rand), a=rand()*Math.PI*2, r=0.28+rand()*0.5;
-          br.position.set(Math.cos(a)*r,0.4,Math.sin(a)*r); cell.add(br); addDst(br);
+          br.position.set(Math.cos(a)*r, colH, Math.sin(a)*r); cell.add(br); addDst(br);
+        }
+        // Cave entrance on mountain tile (chunk feature)
+        if(chunkFeature==='cave' && rand()<0.35){
+          const eGeo=new THREE.SphereGeometry(0.42+rand()*0.28,8,6,0,Math.PI*2,0,Math.PI*0.55);
+          const ent=new THREE.Mesh(eGeo,new THREE.MeshStandardMaterial({color:0x070707,roughness:1}));
+          ent.rotation.x=-Math.PI/2;
+          ent.position.set((rand()-0.5)*CS*0.4, colH+0.1, (rand()-0.5)*CS*0.4); cell.add(ent);
         }
 
       } else if(biome===BIOME.FOREST){
-        const b=new THREE.Mesh(BASE_GEO, dense?MAT_BIOME.dense:MAT.grass);
-        b.position.y=0.2; b.receiveShadow=true; cell.add(b);
-        const cnt = dense ? 3+Math.floor(rand()*3) : 2+Math.floor(rand()*2);
+        const isThick = dense || chunkFeature==='thick_forest';
+        const base=new THREE.Mesh(new THREE.BoxGeometry(CS,colH,CS), isThick?MAT_BIOME.dense:MAT.grass);
+        base.position.y=colH/2; base.receiveShadow=true; cell.add(base);
+
+        // Dense InstancedMesh cluster: 5–15 trees, randomised scale & rotation
+        const minT = isThick ? 9 : 5, maxT = isThick ? 15 : 11;
+        const cnt = minT + Math.floor(rand()*(maxT-minT+1));
         for(let i=0;i<cnt;i++){
-          const tree=makeTree(rand), a=rand()*Math.PI*2, r=0.3+rand()*0.5;
-          tree.position.set(Math.cos(a)*r,0.4,Math.sin(a)*r);
-          tree.rotation.y=rand()*Math.PI*2; cell.add(tree); addDst(tree);
+          const sc=0.45+rand()*0.85, a=rand()*Math.PI*2, r=rand()*CS*0.52;
+          treeInst.push({
+            wx: wx+Math.cos(a)*r, wy: colH, wz: wz+Math.sin(a)*r,
+            sc, ry: rand()*Math.PI*2, ci: Math.floor(rand()*5)
+          });
         }
-        // Fallen log in dense/wet forest
-        if(dense && rand()<0.45){
-          const log=makeFallenLog(rand); log.position.y=0.4; cell.add(log); addDst(log);
+        if(isThick && rand()<0.45){
+          const log=makeFallenLog(rand); log.position.y=colH; cell.add(log); addDst(log);
         }
 
       } else {
-        const b=new THREE.Mesh(BASE_GEO,MAT.grass); b.position.y=0.2; b.receiveShadow=true; cell.add(b);
+        // Plain
+        const base=new THREE.Mesh(new THREE.BoxGeometry(CS,colH,CS),MAT.grass);
+        base.position.y=colH/2; base.receiveShadow=true; cell.add(base);
+      }
+
+      // Ruins feature: broken stone walls on non-water tiles
+      if(chunkFeature==='ruins' && biome!==BIOME.WATER && biome!==BIOME.RIVER && rand()<0.24){
+        const wallH=0.7+rand()*1.1;
+        const wall=new THREE.Mesh(new THREE.BoxGeometry(CS*0.58,wallH,0.24),BMAT.stone);
+        wall.position.set(0, colH+wallH/2, (rand()-0.5)*CS*0.35);
+        wall.rotation.y=rand()*Math.PI; cell.add(wall); addDst(wall);
+        if(rand()<0.4){
+          const col2=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.15,0.7+rand()*0.5,8),BMAT.stone);
+          col2.rotation.z=Math.PI/2+(rand()-0.5)*0.3;
+          col2.position.set((rand()-0.5)*CS*0.4, colH+0.15, (rand()-0.5)*CS*0.4);
+          cell.add(col2); addDst(col2);
+        }
       }
 
       g.add(cell);
     }
   }
+
+  // Second pass: build InstancedMesh per leaf-colour group
+  if(treeInst.length > 0){
+    const byColor = Array.from({length:5}, ()=>[]);
+    treeInst.forEach(t => byColor[t.ci].push(t));
+    byColor.forEach((arr, ci) => {
+      if(!arr.length) return;
+      const n = arr.length;
+      const trunkIM   = new THREE.InstancedMesh(_INST_TRUNK_GEO,    MAT.trunk,           n);
+      const canopyAIM = new THREE.InstancedMesh(_INST_CANOPY_A_GEO, _INST_LEAF_MATS[ci], n);
+      const canopyBIM = new THREE.InstancedMesh(_INST_CANOPY_B_GEO, _INST_LEAF_MATS[ci], n);
+      trunkIM.castShadow = canopyAIM.castShadow = canopyBIM.castShadow = true;
+
+      arr.forEach(({wx, wy, wz, sc, ry}, idx) => {
+        const th = 0.6*sc;
+        _DUMMY_OBJ.scale.set(sc, sc, sc);
+        _DUMMY_OBJ.rotation.set(0, ry, 0);
+        _DUMMY_OBJ.position.set(wx, wy+th/2, wz);
+        _DUMMY_OBJ.updateMatrix(); trunkIM.setMatrixAt(idx, _DUMMY_OBJ.matrix);
+        _DUMMY_OBJ.position.set(wx, wy+th+0.35*sc, wz);
+        _DUMMY_OBJ.updateMatrix(); canopyAIM.setMatrixAt(idx, _DUMMY_OBJ.matrix);
+        _DUMMY_OBJ.position.set(wx, wy+th+0.90*sc, wz);
+        _DUMMY_OBJ.updateMatrix(); canopyBIM.setMatrixAt(idx, _DUMMY_OBJ.matrix);
+      });
+      [trunkIM, canopyAIM, canopyBIM].forEach(im => {
+        im.instanceMatrix.needsUpdate = true; g.add(im);
+      });
+    });
+  }
+
   g.userData.destructibles = chunkDst;
   return g;
 }
@@ -2686,6 +2886,118 @@ document.addEventListener('keyup', e=>{
   if(e.code==='Space') _voiceStop();
 });
 
+// ─── Mobile controls ──────────────────────────────────────────
+let controlMode = 'keyboard'; // set before _doStartPlaying is called
+
+function _initMobileControls(){
+  document.getElementById('mobile-joy-wrap').style.display = 'block';
+  document.getElementById('mobile-radio-btn').style.display = 'flex';
+  document.getElementById('mobile-look-area').style.display = 'block';
+  ghostLocked = true; // mobile doesn't need pointer lock
+}
+
+// Virtual joystick touch
+const _joyOuter = document.getElementById('mjoy-outer');
+const _joyInner = document.getElementById('mjoy-inner');
+let _joyTouchId = null, _joyCX = 0, _joyCY = 0;
+
+_joyOuter.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  if(_joyTouchId != null) return;
+  const t = e.changedTouches[0];
+  _joyTouchId = t.identifier;
+  const r = _joyOuter.getBoundingClientRect();
+  _joyCX = r.left + r.width/2; _joyCY = r.top + r.height/2;
+  _applyJoy(t.clientX, t.clientY);
+},{passive:false});
+
+_joyOuter.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  for(const t of e.changedTouches)
+    if(t.identifier===_joyTouchId) _applyJoy(t.clientX, t.clientY);
+},{passive:false});
+
+['touchend','touchcancel'].forEach(ev=>_joyOuter.addEventListener(ev, e=>{
+  e.preventDefault();
+  for(const t of e.changedTouches){
+    if(t.identifier===_joyTouchId){
+      _joyTouchId=null;
+      _joyInner.style.transform='translate(-50%,-50%)';
+      ghostKeys['KeyW']=ghostKeys['KeyS']=ghostKeys['KeyA']=ghostKeys['KeyD']=false;
+    }
+  }
+},{passive:false}));
+
+function _applyJoy(cx, cy){
+  const maxR = _joyOuter.getBoundingClientRect().width * 0.36;
+  let dx=cx-_joyCX, dy=cy-_joyCY;
+  const len=Math.sqrt(dx*dx+dy*dy);
+  const cl=Math.min(len,maxR), nx=len>0?dx/len:0, ny=len>0?dy/len:0;
+  dx=nx*cl; dy=ny*cl;
+  _joyInner.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  const D=0.28;
+  ghostKeys['KeyW']=ny<-D; ghostKeys['KeyS']=ny>D;
+  ghostKeys['KeyA']=nx<-D; ghostKeys['KeyD']=nx>D;
+}
+
+// Right-half look area touch (camera rotation)
+const _lookArea = document.getElementById('mobile-look-area');
+let _lookTouchId=null, _lookLX=0, _lookLY=0;
+
+_lookArea.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  if(_lookTouchId!=null) return;
+  const t=e.changedTouches[0]; _lookTouchId=t.identifier;
+  _lookLX=t.clientX; _lookLY=t.clientY;
+},{passive:false});
+
+_lookArea.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  for(const t of e.changedTouches){
+    if(t.identifier!==_lookTouchId) continue;
+    const dx=t.clientX-_lookLX, dy=t.clientY-_lookLY;
+    _lookLX=t.clientX; _lookLY=t.clientY;
+    const s=0.003;
+    if(cameraMode==='ghost'||cameraMode==='fort'){
+      _camYaw-=dx*s; _camPitch-=dy*s;
+      _camPitch=Math.max(-Math.PI/2+0.01,Math.min(Math.PI/2-0.01,_camPitch));
+      camera.quaternion.setFromEuler(new THREE.Euler(_camPitch,_camYaw,0,'YXZ'));
+    }
+    if(isPossessing&&possessedUnit){
+      possessedUnit.mesh.rotation.y-=dx*s;
+      possessPitch-=dy*s;
+      possessPitch=Math.max(-Math.PI/3,Math.min(Math.PI/3,possessPitch));
+      camera.rotation.x=possessPitch;
+    }
+  }
+},{passive:false});
+
+['touchend','touchcancel'].forEach(ev=>_lookArea.addEventListener(ev, e=>{
+  e.preventDefault();
+  for(const t of e.changedTouches)
+    if(t.identifier===_lookTouchId) _lookTouchId=null;
+},{passive:false}));
+
+// Mobile radio button
+const _mobileRadioEl = document.getElementById('mobile-radio-btn');
+_mobileRadioEl.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  _mobileRadioEl.classList.add('radio-active');
+  if(cameraMode==='ghost'){
+    const nearby=villagers.find(v=>{
+      if(!v.mesh.visible) return false;
+      const dx=camera.position.x-v.mesh.position.x, dz=camera.position.z-v.mesh.position.z;
+      return dx*dx+dz*dz<(CS*1.8)*(CS*1.8);
+    });
+    if(nearby) _talkToVillager(nearby); else _voiceStart();
+  }
+},{passive:false});
+_mobileRadioEl.addEventListener('touchend', e=>{
+  e.preventDefault();
+  _mobileRadioEl.classList.remove('radio-active');
+  _voiceStop();
+},{passive:false});
+
 // ─── Mouse look ───────────────────────────────────────────────
 document.addEventListener('mousemove', e=>{
   if(!ghostLocked) return;
@@ -3545,91 +3857,77 @@ function drawMiniMap(){
 function setHUD(msg){ document.getElementById('hud').textContent = msg; }
 
 // ═══════════════════════════════════════════════════════════════
-// RADIO COMMANDER — Space to transmit → Whisper → parseCommand
+// RADIO COMMANDER — Space/hold → Web Speech API → parseCommand
+// (Free, no API key required — uses browser's built-in webkitSpeechRecognition)
 // ═══════════════════════════════════════════════════════════════
 const _radioHUD  = document.getElementById('radio-hud');
 const _radioBars = document.getElementById('radio-bars');
-let _mediaRecorder  = null;
-let _audioChunks    = [];
 let _voiceActive    = false;
 let _barsInterval   = null;
+let _speechRec      = null;
 const _BAR_FRAMES   = ['▁▁▁▁▁','▂▁▁▁▁','▂▃▁▁▁','▂▃▄▁▁','▂▃▄▅▁','▁▃▄▅▅','▁▁▄▅▄','▁▁▁▅▃','▁▁▁▁▁'];
 
 function _barsStart(){
   let i=0;
-  _barsInterval = setInterval(()=>{ _radioBars.textContent=_BAR_FRAMES[i++%_BAR_FRAMES.length]; }, 75);
+  _barsInterval=setInterval(()=>{ _radioBars.textContent=_BAR_FRAMES[i++%_BAR_FRAMES.length]; },75);
 }
 function _barsStop(){
   clearInterval(_barsInterval); _barsInterval=null;
   _radioBars.textContent='▁▁▁▁▁';
 }
 
-async function _voiceInit(){
-  if(_mediaRecorder) return true;
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({audio:true, video:false});
-    _mediaRecorder = new MediaRecorder(stream);
-    _mediaRecorder.ondataavailable = ev=>{ if(ev.data.size>0) _audioChunks.push(ev.data); };
-    _mediaRecorder.onstop = _voiceTranscribe;
-    return true;
-  } catch(err){
-    chatPrint('📻 Mic denied — check browser permissions','sys');
-    return false;
-  }
-}
-
-async function _voiceStart(){
-  if(_voiceActive) return;
-  if(!await _voiceInit()) return;
-  _voiceActive = true;
-  _audioChunks = [];
-  _mediaRecorder.start();
-  playUI(SND_RADIO_KEY);                  // mic-open static burst
-  _radioHUD.classList.add('active');
-  _barsStart();
-  setHUD('📻 TRANSMITTING… release Space to send');
-}
-
-function _voiceStop(){
-  if(!_voiceActive || !_mediaRecorder || _mediaRecorder.state==='inactive') return;
-  _voiceActive = false;
-  _mediaRecorder.stop();
-  playUI(SND_RADIO_CLICK);               // mic-close click
-  _radioHUD.classList.remove('active');
-  _barsStop();
-  setHUD('📻 Processing…');
-}
-
-async function _voiceTranscribe(){
-  const blob = new Blob(_audioChunks, {type: _mediaRecorder.mimeType||'audio/webm'});
-  _audioChunks = [];
-  const form = new FormData();
-  form.append('file', blob, 'voice.webm');
-  form.append('model','whisper-1');
-  try {
-    const res = await fetch('https://api.openai.com/v1/audio/transcriptions',{
-      method:'POST',
-      headers:{ Authorization:`Bearer ${OPENAI_API_KEY}` },
-      body: form,
-    });
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const text = (data.text||'').trim();
+function _speechInit(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ chatPrint('📻 Speech Recognition not supported in this browser','sys'); return null; }
+  const rec=new SR();
+  rec.lang='en-US';
+  rec.interimResults=false;
+  rec.maxAlternatives=1;
+  rec.continuous=false;
+  rec.onresult=ev=>{
+    const text=(ev.results[0][0].transcript||'').trim();
     if(text){
       chatPrint(text,'cmd');
-      const result = parseCommand(text);
-      // Play confirming beep from the unit's 3D position
-      if(result && result.mesh){
-        playAt(result.mesh.position.clone(), SND_RADIO_CONFIRM, CS, 2);
-      }
+      const result=parseCommand(text);
+      if(result&&result.mesh) playAt(result.mesh.position.clone(),SND_RADIO_CONFIRM,CS,2);
     } else {
       chatPrint('📻 No speech detected','sys');
     }
-  } catch(err){
-    chatPrint(`📻 Whisper error: ${err.message}`,'sys');
-  } finally {
-    setHUD('WASD move | Mouse look | Click unit/fort to possess | F = unlock');
-  }
+  };
+  rec.onerror=ev=>{
+    if(ev.error!=='aborted') chatPrint(`📻 Voice error: ${ev.error}`,'sys');
+  };
+  rec.onend=()=>{
+    _voiceActive=false;
+    _radioHUD.classList.remove('active');
+    _barsStop();
+    setHUD(controlMode==='touch'?'Joystick: move  |  Drag right: look  |  🎙 hold: radio'
+                                :'WASD move | Mouse look | Click unit/fort to possess | F = unlock');
+  };
+  return rec;
+}
+
+function _voiceStart(){
+  if(_voiceActive) return;
+  if(!_speechRec) _speechRec=_speechInit();
+  if(!_speechRec) return;
+  try{
+    _speechRec.start();
+    _voiceActive=true;
+    playUI(SND_RADIO_KEY);
+    _radioHUD.classList.add('active');
+    _barsStart();
+    setHUD('📻 TRANSMITTING… release Space to send');
+  } catch(e){ /* already started */ }
+}
+
+function _voiceStop(){
+  if(!_voiceActive||!_speechRec) return;
+  try{
+    _speechRec.stop();
+    playUI(SND_RADIO_CLICK);
+  } catch(e){ /* already stopped */ }
+  // onend callback cleans up state
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3860,12 +4158,11 @@ function _updateGrain(){
 // ═══════════════════════════════════════════════════════════════
 // TITLE SCREEN / GAME STATE MACHINE
 // ═══════════════════════════════════════════════════════════════
-let gameState = 'TITLE'; // 'TITLE' | 'WORLD_SELECT' | 'SERVER_SELECT' | 'PLAYING'
+let gameState = 'TITLE'; // 'TITLE' | 'PLAYING'
 
-// Apply blur on canvas and hide HUD while in menus
+// Hide HUD on load; check for any existing saves
 (function _initMenuState(){
   document.getElementById('game-canvas').classList.add('menu-blur');
-  // Hide all HUD elements until game starts
   const hudIds=['hud','crosshair','radio-hud','possess-hint','chat-wrap',
                 'ammo-wrap','minimap-wrap','gold-wrap','build-status',
                 'player-hp-wrap','medic-supply-wrap','cmd-menu'];
@@ -3873,16 +4170,15 @@ let gameState = 'TITLE'; // 'TITLE' | 'WORLD_SELECT' | 'SERVER_SELECT' | 'PLAYIN
     const el=document.getElementById(id);
     if(el){ el.dataset.origDisplay=el.style.display||''; el.style.display='none'; }
   });
-  // Check if a save exists and enable Load button
-  if(localStorage.getItem('gow_save')){
+  const hasSave=!!localStorage.getItem('gow_saves')||!!localStorage.getItem('gow_save');
+  if(hasSave){
     const btn=document.getElementById('ts-load-btn');
     if(btn) btn.classList.remove('ts-disabled');
   }
 })();
 
 function _setHUDVisible(visible){
-  const hudIds=['hud','chat-wrap','ammo-wrap','minimap-wrap','gold-wrap',
-                'build-status','player-hp-wrap'];
+  const hudIds=['hud','chat-wrap','ammo-wrap','minimap-wrap','gold-wrap','build-status','player-hp-wrap'];
   hudIds.forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.style.display=visible?(el.dataset.origDisplay||''):'none';
@@ -3894,38 +4190,57 @@ function tsNav(sectionId){
   document.getElementById(sectionId).classList.add('ts-active');
 }
 
-function _doStartPlaying(){
-  gameState='PLAYING';
-  const ts=document.getElementById('title-screen');
-  ts.classList.add('ts-fade-out');
-  document.getElementById('game-canvas').classList.remove('menu-blur');
-  _setHUDVisible(true);
-  setTimeout(()=>{ ts.style.display='none'; }, 700);
-  // Resume audio context and lock pointer
-  if(audioCtx.state==='suspended') audioCtx.resume();
-  setHUD('WASD move | Mouse look | Click unit/fort to possess | F = unlock');
-}
-
-function tsCreateWorld(){
+// Called by control-mode picker cards
+function tsPickControl(mode){
+  controlMode=mode;
   _doStartPlaying();
 }
 
+// Populate save-slot list and navigate to load screen
 function tsLoadWorld(){
   const btn=document.getElementById('ts-load-btn');
-  if(btn && btn.classList.contains('ts-disabled')) return;
-  const raw=localStorage.getItem('gow_save');
-  if(!raw){ return; }
-  try {
+  if(btn&&btn.classList.contains('ts-disabled')) return;
+
+  const list=document.getElementById('ts-save-list');
+  list.innerHTML='';
+  const slots=JSON.parse(localStorage.getItem('gow_saves')||'[]');
+  // Include legacy single save if present
+  const legacy=localStorage.getItem('gow_save');
+  if(legacy&&!slots.find(s=>s.slot==='legacy')) slots.push({slot:'legacy',name:'Legacy Save',date:'—'});
+
+  if(!slots.length){
+    list.innerHTML='<div style="color:rgba(140,120,70,0.5);font-family:Courier New;font-size:11px;padding:8px 0">No saved worlds found.</div>';
+  } else {
+    slots.forEach(save=>{
+      const item=document.createElement('div');
+      item.className='ts-save-item';
+      item.innerHTML=`<span>${save.name||'World'}</span><span class="ts-save-date">${save.date||''}</span>`;
+      item.onclick=()=>tsLoadSlot(save.slot);
+      list.appendChild(item);
+    });
+  }
+  tsNav('ts-load-list');
+}
+
+function tsLoadSlot(slot){
+  let raw;
+  if(slot==='legacy'){
+    raw=localStorage.getItem('gow_save');
+  } else {
+    const saves=JSON.parse(localStorage.getItem('gow_saves')||'[]');
+    const entry=saves.find(s=>s.slot===slot);
+    raw=entry?JSON.stringify(entry):null;
+  }
+  if(!raw) return;
+  try{
     const save=JSON.parse(raw);
-    // Restore economy
     if(save.gold!=null){ playerGold=save.gold; updateGoldHUD(); }
     if(save.playerHP!=null){ playerHP=save.playerHP; updatePlayerHPBar(); }
-    // Restore unit positions/HP by type+player
     const typeFlag={
-      normal: u=>!u.isSpecial,
-      tnt:   u=>u.isTNT, wizard:u=>u.isWizard, cook:u=>u.isCook,
-      spy:   u=>u.isSpy, ranger:u=>u.isRanger, assassin:u=>u.isAssassin,
-      funnyMan:u=>u.isFunnyMan, builder:u=>u.isBuilder,
+      normal:u=>!(u.isTNT||u.isWizard||u.isCook||u.isSpy||u.isRanger||u.isAssassin||u.isFunny||u.isBuilder||u.isShieldMan||u.isMedic),
+      tnt:u=>u.isTNT, wizard:u=>u.isWizard, cook:u=>u.isCook,
+      spy:u=>u.isSpy, ranger:u=>u.isRanger, assassin:u=>u.isAssassin,
+      funnyMan:u=>u.isFunny, builder:u=>u.isBuilder,
       shieldMan:u=>u.isShieldMan, medic:u=>u.isMedic
     };
     const typed={};
@@ -3936,39 +4251,60 @@ function tsLoadWorld(){
     }
     const usedIdx={};
     for(const s of (save.units||[])){
-      const k=`${s.player}:${s.type}`, pool=typed[k]||[], idx=usedIdx[k]||0;
+      const k=`${s.player}:${s.type}`,pool=typed[k]||[],idx=usedIdx[k]||0;
       const u=pool[idx]; usedIdx[k]=idx+1;
-      if(u){ u.mesh.position.set(s.x, 0.4, s.z); u.hp=Math.max(1,Math.min(s.hp,u.maxHp||s.maxHp)); }
+      if(u){ u.mesh.position.set(s.x,0.4,s.z); u.hp=Math.max(1,Math.min(s.hp,u.maxHp||s.maxHp)); }
     }
-    // Restore minimap reveal
     if(save.revealed){
       save.revealed.forEach((row,r)=>row.forEach((v,c)=>{
         if(_revealed[r]&&c<_revealed[r].length) _revealed[r][c]=v;
       }));
     }
+    controlMode=save.controlMode||'keyboard';
   } catch(e){ console.warn('Save load error:',e); }
   _doStartPlaying();
 }
 
-// Save world to localStorage
+function _doStartPlaying(){
+  gameState='PLAYING';
+  const ts=document.getElementById('title-screen');
+  ts.classList.add('ts-fade-out');
+  document.getElementById('game-canvas').classList.remove('menu-blur');
+  _setHUDVisible(true);
+  setTimeout(()=>{ ts.style.display='none'; }, 700);
+  if(audioCtx.state==='suspended') audioCtx.resume();
+  if(controlMode==='touch'){
+    _initMobileControls();
+    setHUD('Joystick: move  |  Drag right: look  |  🎙 hold: radio');
+  } else {
+    setHUD('WASD move | Mouse look | Click unit/fort to possess | F = unlock');
+  }
+}
+
+// Save world — multi-slot with timestamp, keeps latest 5
 function saveWorld(){
   if(gameState!=='PLAYING') return;
-  const save={
+  const now=new Date();
+  const dateStr=now.toLocaleDateString()+' '+now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const saveData={
+    slot:'slot_'+Date.now(), name:'World', date:dateStr, controlMode,
     gold:playerGold, playerHP,
     units:units.map(u=>{
       let type='normal';
       if(u.isTNT) type='tnt'; else if(u.isWizard) type='wizard';
       else if(u.isCook) type='cook'; else if(u.isSpy) type='spy';
       else if(u.isRanger) type='ranger'; else if(u.isAssassin) type='assassin';
-      else if(u.isFunnyMan) type='funnyMan'; else if(u.isBuilder) type='builder';
+      else if(u.isFunny) type='funnyMan'; else if(u.isBuilder) type='builder';
       else if(u.isShieldMan) type='shieldMan'; else if(u.isMedic) type='medic';
-      return { player:u.player, x:u.mesh.position.x, z:u.mesh.position.z,
-               hp:u.hp, maxHp:u.maxHp, type };
+      return {player:u.player, x:u.mesh.position.x, z:u.mesh.position.z, hp:u.hp, maxHp:u.maxHp, type};
     }),
-    revealed:Array.from(_revealed, row=>Array.from(row))
+    revealed:Array.from(_revealed,row=>Array.from(row))
   };
-  localStorage.setItem('gow_save', JSON.stringify(save));
-  chatPrint('💾 World saved! (Ctrl+S)','sys');
+  let slots=JSON.parse(localStorage.getItem('gow_saves')||'[]');
+  slots.unshift(saveData); slots=slots.slice(0,5);
+  localStorage.setItem('gow_saves',JSON.stringify(slots));
+  localStorage.setItem('gow_save',JSON.stringify(saveData)); // legacy compat
+  chatPrint(`💾 World saved (${dateStr})`,'sys');
 }
 
 // ─── Animate ──────────────────────────────────────────────────
@@ -4044,5 +4380,16 @@ function animate(){
 }
 animate();
 </script>
+
+<!-- Mobile virtual joystick -->
+<div id="mobile-joy-wrap">
+  <div id="mjoy-outer">
+    <div id="mjoy-inner"></div>
+  </div>
+</div>
+<!-- Mobile radio / voice button -->
+<div id="mobile-radio-btn">🎙</div>
+<!-- Transparent right-half touch area for camera look -->
+<div id="mobile-look-area"></div>
 </body>
 </html>
