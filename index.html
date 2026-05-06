@@ -2890,44 +2890,10 @@ document.addEventListener('keyup', e=>{
 // ─── Mobile controls ──────────────────────────────────────────
 let controlMode = 'keyboard'; // set before _doStartPlaying is called
 
-function _initMobileControls(){
-  document.getElementById('mobile-joy-wrap').style.display = 'block';
-  document.getElementById('mobile-radio-btn').style.display = 'flex';
-  document.getElementById('mobile-look-area').style.display = 'block';
-  ghostLocked = true; // mobile doesn't need pointer lock
-}
-
-// Virtual joystick touch
-const _joyOuter = document.getElementById('mjoy-outer');
-const _joyInner = document.getElementById('mjoy-inner');
-let _joyTouchId = null, _joyCX = 0, _joyCY = 0;
-
-_joyOuter.addEventListener('touchstart', e=>{
-  e.preventDefault();
-  if(_joyTouchId != null) return;
-  const t = e.changedTouches[0];
-  _joyTouchId = t.identifier;
-  const r = _joyOuter.getBoundingClientRect();
-  _joyCX = r.left + r.width/2; _joyCY = r.top + r.height/2;
-  _applyJoy(t.clientX, t.clientY);
-},{passive:false});
-
-_joyOuter.addEventListener('touchmove', e=>{
-  e.preventDefault();
-  for(const t of e.changedTouches)
-    if(t.identifier===_joyTouchId) _applyJoy(t.clientX, t.clientY);
-},{passive:false});
-
-['touchend','touchcancel'].forEach(ev=>_joyOuter.addEventListener(ev, e=>{
-  e.preventDefault();
-  for(const t of e.changedTouches){
-    if(t.identifier===_joyTouchId){
-      _joyTouchId=null;
-      _joyInner.style.transform='translate(-50%,-50%)';
-      ghostKeys['KeyW']=ghostKeys['KeyS']=ghostKeys['KeyA']=ghostKeys['KeyD']=false;
-    }
-  }
-},{passive:false}));
+// Shared state for mobile touch handlers (assigned in _initMobileControls)
+let _joyOuter=null, _joyInner=null, _lookArea=null, _mobileRadioEl=null;
+let _joyTouchId=null, _joyCX=0, _joyCY=0;
+let _lookTouchId=null, _lookLX=0, _lookLY=0;
 
 function _applyJoy(cx, cy){
   const maxR = _joyOuter.getBoundingClientRect().width * 0.36;
@@ -2941,63 +2907,100 @@ function _applyJoy(cx, cy){
   ghostKeys['KeyA']=nx<-D; ghostKeys['KeyD']=nx>D;
 }
 
-// Right-half look area touch (camera rotation)
-const _lookArea = document.getElementById('mobile-look-area');
-let _lookTouchId=null, _lookLX=0, _lookLY=0;
+function _initMobileControls(){
+  document.getElementById('mobile-joy-wrap').style.display = 'block';
+  document.getElementById('mobile-radio-btn').style.display = 'flex';
+  document.getElementById('mobile-look-area').style.display = 'block';
+  ghostLocked = true; // mobile doesn't need pointer lock
 
-_lookArea.addEventListener('touchstart', e=>{
-  e.preventDefault();
-  if(_lookTouchId!=null) return;
-  const t=e.changedTouches[0]; _lookTouchId=t.identifier;
-  _lookLX=t.clientX; _lookLY=t.clientY;
-},{passive:false});
+  // Bind touch elements — elements exist in DOM by the time this is called
+  _joyOuter      = document.getElementById('mjoy-outer');
+  _joyInner      = document.getElementById('mjoy-inner');
+  _lookArea      = document.getElementById('mobile-look-area');
+  _mobileRadioEl = document.getElementById('mobile-radio-btn');
 
-_lookArea.addEventListener('touchmove', e=>{
-  e.preventDefault();
-  for(const t of e.changedTouches){
-    if(t.identifier!==_lookTouchId) continue;
-    const dx=t.clientX-_lookLX, dy=t.clientY-_lookLY;
+  // Virtual joystick
+  _joyOuter.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    if(_joyTouchId != null) return;
+    const t = e.changedTouches[0];
+    _joyTouchId = t.identifier;
+    const r = _joyOuter.getBoundingClientRect();
+    _joyCX = r.left + r.width/2; _joyCY = r.top + r.height/2;
+    _applyJoy(t.clientX, t.clientY);
+  },{passive:false});
+
+  _joyOuter.addEventListener('touchmove', e=>{
+    e.preventDefault();
+    for(const t of e.changedTouches)
+      if(t.identifier===_joyTouchId) _applyJoy(t.clientX, t.clientY);
+  },{passive:false});
+
+  ['touchend','touchcancel'].forEach(ev=>_joyOuter.addEventListener(ev, e=>{
+    e.preventDefault();
+    for(const t of e.changedTouches){
+      if(t.identifier===_joyTouchId){
+        _joyTouchId=null;
+        _joyInner.style.transform='translate(-50%,-50%)';
+        ghostKeys['KeyW']=ghostKeys['KeyS']=ghostKeys['KeyA']=ghostKeys['KeyD']=false;
+      }
+    }
+  },{passive:false}));
+
+  // Right-half look area
+  _lookArea.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    if(_lookTouchId!=null) return;
+    const t=e.changedTouches[0]; _lookTouchId=t.identifier;
     _lookLX=t.clientX; _lookLY=t.clientY;
-    const s=0.003;
-    if(cameraMode==='ghost'||cameraMode==='fort'){
-      _camYaw-=dx*s; _camPitch-=dy*s;
-      _camPitch=Math.max(-Math.PI/2+0.01,Math.min(Math.PI/2-0.01,_camPitch));
-      camera.quaternion.setFromEuler(new THREE.Euler(_camPitch,_camYaw,0,'YXZ'));
-    }
-    if(isPossessing&&possessedUnit){
-      possessedUnit.mesh.rotation.y-=dx*s;
-      possessPitch-=dy*s;
-      possessPitch=Math.max(-Math.PI/3,Math.min(Math.PI/3,possessPitch));
-      camera.rotation.x=possessPitch;
-    }
-  }
-},{passive:false});
+  },{passive:false});
 
-['touchend','touchcancel'].forEach(ev=>_lookArea.addEventListener(ev, e=>{
-  e.preventDefault();
-  for(const t of e.changedTouches)
-    if(t.identifier===_lookTouchId) _lookTouchId=null;
-},{passive:false}));
+  _lookArea.addEventListener('touchmove', e=>{
+    e.preventDefault();
+    for(const t of e.changedTouches){
+      if(t.identifier!==_lookTouchId) continue;
+      const dx=t.clientX-_lookLX, dy=t.clientY-_lookLY;
+      _lookLX=t.clientX; _lookLY=t.clientY;
+      const s=0.003;
+      if(cameraMode==='ghost'||cameraMode==='fort'){
+        _camYaw-=dx*s; _camPitch-=dy*s;
+        _camPitch=Math.max(-Math.PI/2+0.01,Math.min(Math.PI/2-0.01,_camPitch));
+        camera.quaternion.setFromEuler(new THREE.Euler(_camPitch,_camYaw,0,'YXZ'));
+      }
+      if(isPossessing&&possessedUnit){
+        possessedUnit.mesh.rotation.y-=dx*s;
+        possessPitch-=dy*s;
+        possessPitch=Math.max(-Math.PI/3,Math.min(Math.PI/3,possessPitch));
+        camera.rotation.x=possessPitch;
+      }
+    }
+  },{passive:false});
 
-// Mobile radio button
-const _mobileRadioEl = document.getElementById('mobile-radio-btn');
-_mobileRadioEl.addEventListener('touchstart', e=>{
-  e.preventDefault();
-  _mobileRadioEl.classList.add('radio-active');
-  if(cameraMode==='ghost'){
-    const nearby=villagers.find(v=>{
-      if(!v.mesh.visible) return false;
-      const dx=camera.position.x-v.mesh.position.x, dz=camera.position.z-v.mesh.position.z;
-      return dx*dx+dz*dz<(CS*1.8)*(CS*1.8);
-    });
-    if(nearby) _talkToVillager(nearby); else _voiceStart();
-  }
-},{passive:false});
-_mobileRadioEl.addEventListener('touchend', e=>{
-  e.preventDefault();
-  _mobileRadioEl.classList.remove('radio-active');
-  _voiceStop();
-},{passive:false});
+  ['touchend','touchcancel'].forEach(ev=>_lookArea.addEventListener(ev, e=>{
+    e.preventDefault();
+    for(const t of e.changedTouches)
+      if(t.identifier===_lookTouchId) _lookTouchId=null;
+  },{passive:false}));
+
+  // Mobile radio button
+  _mobileRadioEl.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    _mobileRadioEl.classList.add('radio-active');
+    if(cameraMode==='ghost'){
+      const nearby=villagers.find(v=>{
+        if(!v.mesh.visible) return false;
+        const dx=camera.position.x-v.mesh.position.x, dz=camera.position.z-v.mesh.position.z;
+        return dx*dx+dz*dz<(CS*1.8)*(CS*1.8);
+      });
+      if(nearby) _talkToVillager(nearby); else _voiceStart();
+    }
+  },{passive:false});
+  _mobileRadioEl.addEventListener('touchend', e=>{
+    e.preventDefault();
+    _mobileRadioEl.classList.remove('radio-active');
+    _voiceStop();
+  },{passive:false});
+}
 
 // ─── Mouse look ───────────────────────────────────────────────
 document.addEventListener('mousemove', e=>{
