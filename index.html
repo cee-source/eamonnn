@@ -593,6 +593,7 @@ const spikeTraps    = [];   // hidden ground spike traps
 const villagers     = [];   // NPC villagers with daily routines
 const houses        = [];   // shelter positions for nighttime
 const castles       = [];   // mega castle structures with HP
+const towers        = [];   // individual tower structures with HP
 let   _bellMeshRef  = null; // bell mesh for swing animation
 
 // ─── Gold economy ─────────────────────────────────────────────
@@ -620,16 +621,18 @@ function triggerGameOver(){
   document.getElementById('game-over').classList.add('go-active');
 }
 // Intel / Fog-of-War state (populated after ROWS/COLS are defined below)
-let _intelMap = null;   // Map<unit → {x,z,lastSeen,spotted}>
-let _revealed = null;   // Uint8Array[ROWS][COLS] — terrain seen by P1
+let _intelMap = null;      // Map<unit → {x,z,lastSeen,spotted}>
+let _revealedCells = null; // Set of "cx,cz" world-grid keys — terrain seen by P1
 
 // ─── Voice command API key ────────────────────────────────────
 const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY'; // ← paste your key here
 
 // ─── Grid constants ───────────────────────────────────────────
 const COLS = 14, ROWS = 10, CS = 3;
-_intelMap = new Map();
-_revealed = Array.from({length:ROWS}, ()=>new Uint8Array(COLS));
+const ENEMY_BASE_X = 1050, ENEMY_BASE_Z = 15; // ~1050 units east of P1 start
+const WORLD_BOUND  = 1400;                     // soft movement limit
+_intelMap      = new Map();
+_revealedCells = new Set();
 const T = { PLAIN:0, FOREST:1, WATER:2, MOUNTAIN:3, HQ:4 };
 
 const RAW_MAP = [
@@ -642,14 +645,14 @@ const RAW_MAP = [
     [0,0,0,1,0,0,0,0,0,0,1,0,0,0],
     [0,1,0,0,0,2,0,0,2,0,0,0,1,0],
     [0,0,0,0,0,0,2,2,0,0,0,0,0,0],
-    [0,0,0,0,0,0,3,3,0,0,0,0,4,0],
+    [0,0,0,0,0,0,3,3,0,0,0,0,0,0],
 ];
 function tileAt(c,r){ return RAW_MAP[r][c]; }
 
 // ─── Scene / Camera / Renderer ───────────────────────────────
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1a2840);
-scene.fog        = new THREE.FogExp2(0x1a2840, 0.045);
+scene.fog        = new THREE.FogExp2(0x1a2840, 0.115); // dense war fog — ~40 unit visibility
 
 const CX = COLS*CS/2, CZ = ROWS*CS/2;
 const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 200);
@@ -661,7 +664,8 @@ const audioListener = new THREE.AudioListener();
 camera.add(audioListener);
 const audioCtx = audioListener.context;
 ['click','keydown'].forEach(ev=>document.addEventListener(ev,()=>{
-  if(audioCtx.state==='suspended') audioCtx.resume();
+  if(audioCtx.state==='suspended') audioCtx.resume().then(_initWind);
+  else _initWind();
 },{once:true}));
 
 function _mkBuf(fn, dur){
@@ -693,6 +697,20 @@ const SND_SCOUT_PING = _mkBuf((t,p)=>
 // Unit acknowledgment: radio-style boop confirming received order
 const SND_UNIT_ACK = _mkBuf((t,p)=>
   (Math.sin(2*Math.PI*520*t)+Math.sin(2*Math.PI*660*t)*0.35) * Math.exp(-p*9) * 0.38, 0.18);
+
+// Wind howl: looping low-frequency isolation drone — volume tied to distance from town
+const SND_WIND = (function(){
+  const sr=audioCtx.sampleRate, dur=4.8, len=Math.floor(sr*dur);
+  const buf=audioCtx.createBuffer(1,len,sr), d=buf.getChannelData(0);
+  let lp=0, lp2=0;
+  for(let i=0;i<len;i++){
+    const n=(Math.random()-0.5)*2;
+    lp  = lp  * 0.990 + n   * 0.010;
+    lp2 = lp2 * 0.982 + lp  * 0.018;
+    d[i] = lp2 * (0.6 + Math.sin(2*Math.PI*0.18*i/sr)*0.4) * 4.2;
+  }
+  return buf;
+})();
 
 // Radio mic-open: 180ms white-noise burst with fast attack/decay (static hiss)
 const SND_RADIO_KEY = _mkBuf((t,p)=>{
@@ -773,6 +791,25 @@ function playUI(buffer){
   const src=audioCtx.createBufferSource();
   const gain=audioCtx.createGain(); gain.gain.value=0.9;
   src.buffer=buffer; src.connect(gain); gain.connect(audioCtx.destination); src.start();
+}
+
+// ─── Wind Ambience System ─────────────────────────────────────
+// Gets louder the further the camera travels from the player town.
+let _windSource=null, _windGain=null;
+function _initWind(){
+  if(_windGain) return;
+  _windGain = audioCtx.createGain(); _windGain.gain.value=0;
+  _windGain.connect(audioCtx.destination);
+  _windSource = audioCtx.createBufferSource();
+  _windSource.buffer=SND_WIND; _windSource.loop=true;
+  _windSource.connect(_windGain); _windSource.start();
+}
+function tickWind(){
+  if(!_windGain||gameState!=='PLAYING') return;
+  const dx=camera.position.x-KEEP_POS.x, dz=camera.position.z-KEEP_POS.z;
+  const dist=Math.sqrt(dx*dx+dz*dz);
+  const vol=Math.min(0.60, Math.max(0,(dist-30)/200)*0.60);
+  _windGain.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.8);
 }
 
 const renderer = new THREE.WebGLRenderer({ antialias:true });
@@ -1273,6 +1310,60 @@ function destroyCastle(castle){
   chatPrint(`💥 A ${castle.player===1?'P1':'P2'} castle has been destroyed!`,'sys');
 }
 
+// ─── Tower spawn + HP + death ─────────────────────────────────
+const TOWER_HP = 120;
+
+function _addTowerHPBar(tower){
+  const pivot=new THREE.Object3D(); scene.add(pivot);
+  const bgMat=new THREE.MeshBasicMaterial({color:0x111111,side:THREE.DoubleSide,depthTest:false});
+  const bg=new THREE.Mesh(new THREE.PlaneGeometry(2.5,0.32),bgMat);
+  bg.renderOrder=999; pivot.add(bg);
+  const fillMat=new THREE.MeshBasicMaterial({color:0xdd4411,side:THREE.DoubleSide,depthTest:false});
+  const fill=new THREE.Mesh(new THREE.PlaneGeometry(2.5,0.32),fillMat);
+  fill.renderOrder=1000; fill.position.z=0.01; pivot.add(fill);
+  tower._hpBar={pivot,fill,fillMat};
+}
+
+function spawnTower(fm, wx, wz, player){
+  const mesh=makeCastleTower(fm,wx,wz);
+  mesh.position.set(wx,0.4,wz); scene.add(mesh);
+  const tower={player,mesh,wx,wz,hp:TOWER_HP,maxHp:TOWER_HP,dead:false};
+  mesh.traverse(c=>{ c.userData.towerRef=tower; });
+  _addTowerHPBar(tower);
+  towers.push(tower);
+  return tower;
+}
+
+function destroyTower(tower){
+  if(tower.dead) return;
+  tower.dead=true;
+  scene.remove(tower.mesh);
+  if(tower._hpBar){ scene.remove(tower._hpBar.pivot); tower._hpBar=null; }
+  const rMat=new THREE.MeshStandardMaterial({color:0x666055,roughness:0.95,metalness:0.05});
+  const rubble=new THREE.Group();
+  [[1.8,1.0,1.6, 0.4,0.5,0.8, 0.3],[1.2,1.8,1.2,-0.5,0.9,0,-0.2],
+   [2.0,0.7,1.4, 0.2,0.35,-0.9,0.5],[0.9,1.5,0.9,-0.8,0.75,0.7,0.9]].forEach(([w,h,d,x,y,z,ry])=>{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),rMat);
+    m.position.set(x,y,z); m.rotation.y=ry; m.castShadow=m.receiveShadow=true; rubble.add(m);
+  });
+  rubble.position.set(tower.wx,0.4,tower.wz); scene.add(rubble);
+  spawnShockwave(new THREE.Vector3(tower.wx,4,tower.wz));
+  playAt(new THREE.Vector3(tower.wx,4,tower.wz),SND_CASTLE_FALL,15,1.5);
+  chatPrint(`💥 Tower destroyed at (${Math.round(tower.wx)}, ${Math.round(tower.wz)})!`,'sys');
+}
+
+function tickTowerHPBars(){
+  for(const t of towers){
+    if(t.dead||!t._hpBar) continue;
+    t._hpBar.pivot.position.set(t.wx, 11.5, t.wz);
+    t._hpBar.pivot.lookAt(camera.position);
+    const ratio=Math.max(0,t.hp/t.maxHp);
+    t._hpBar.fill.scale.x=Math.max(0.001,ratio);
+    t._hpBar.fill.position.x=-1.25*(1-ratio);
+    t._hpBar.fillMat.color.setRGB(1-ratio*0.5, ratio*0.7, 0);
+  }
+}
+
 // ─── Shield Man mesh ──────────────────────────────────────────
 function buildShieldManMesh(player){
   const col=player===1?0x8833aa:0x3388aa;
@@ -1668,23 +1759,24 @@ for(let row=0;row<ROWS;row++){
       snow.position.y=0.4+1.8*sc; snow.castShadow=true; cell.add(snow);
     }
     if(type===T.HQ){
-      const tower=makeCastleTower(col<COLS/2?BMAT.flagP1:BMAT.flagP2,wx,wz);
-      tower.position.y=0.4; cell.add(tower);
+      // Register P1 HQ tower with HP (only col 0,row 0 is the P1 HQ in RAW_MAP)
+      const fm=col<COLS/2?BMAT.flagP1:BMAT.flagP2;
+      const t=spawnTower(fm, wx, wz, col<COLS/2?1:2);
+      t.mesh.position.y=0.4;
     }
     envGroup.add(cell);
   }
 }
 
 // Mid-map fortresses
-[{col:2,row:4,fm:BMAT.flagP1},{col:11,row:4,fm:BMAT.flagP2}].forEach(({col,row,fm})=>{
+[{col:2,row:4,fm:BMAT.flagP1}].forEach(({col,row,fm})=>{
   const wx=col*CS+CS/2, wz=row*CS+CS/2;
   const fort=makeFortress(fm,wx,wz);
   fort.position.set(wx,0.4,wz); envGroup.add(fort);
 });
 
 // ─── Archer Forts ─────────────────────────────────────────────
-[{player:1,col:2,row:2},{player:1,col:2,row:8},
- {player:2,col:11,row:2},{player:2,col:11,row:8}].forEach(({player,col,row})=>{
+[{player:1,col:2,row:2},{player:1,col:2,row:8}].forEach(({player,col,row})=>{
   const wx=col*CS+CS/2, wz=row*CS+CS/2;
   const mesh=makeArcherFort(player,wx,wz);
   mesh.position.set(wx, 0.4, wz);
@@ -1693,6 +1785,29 @@ for(let row=0;row<ROWS;row++){
   mesh.traverse(c=>{ c.userData.fortRef=fort; });
   forts.push(fort);
 });
+
+// ─── Enemy Base (ENEMY_BASE_X, ENEMY_BASE_Z) — 1050 units east ──
+(function _buildEnemyBase(){
+  const bx=ENEMY_BASE_X, bz=ENEMY_BASE_Z;
+  // Main keep tower — tracked with HP
+  spawnTower(BMAT.flagP2,bx,bz,2);
+  // Flanking fortress
+  const efmt=makeFortress(BMAT.flagP2,bx+CS*3,bz+CS);
+  efmt.position.set(bx+CS*3,0.4,bz+CS); scene.add(efmt);
+  // Two archer forts
+  [{dx:-CS*4,dz:0},{dx:CS*5,dz:CS*2}].forEach(({dx,dz})=>{
+    const wx=bx+dx, wz=bz+dz;
+    const mesh=makeArcherFort(2,wx,wz);
+    mesh.position.set(wx,0.4,wz); scene.add(mesh);
+    const af={player:2,mesh,wx,wz,lastShot:Math.random()*2};
+    mesh.traverse(c=>{ c.userData.fortRef=af; });
+    forts.push(af);
+  });
+  // Wall perimeter in front
+  [-CS,0,CS,CS*2].forEach(dx=>{
+    const m=makeWall(bx+dx,bz-CS*3); m.position.set(bx+dx,0.4,bz-CS*3); scene.add(m);
+  });
+})();
 
 // ─── Town structures: houses + bell ───────────────────────────
 (function buildTown(){
@@ -2543,28 +2658,37 @@ chatIn.addEventListener('keydown', ev=>{
 chatIn.addEventListener('keyup',  ev=>ev.stopPropagation());
 chatIn.addEventListener('keydown',ev=>{ if(ev.code!=='Enter') ev.stopPropagation(); });
 
-// Spawn 5 units per player on open tiles
+// Spawn P1 near origin; P2 at the distant enemy base (~1050 units east)
+// Helper: place unit at exact world coords (bypasses col*CS offset maths)
+function _spawnAt(spawnFn, wx, wz, ...extra){
+  const u = spawnFn(extra[0]||1, 0, 0, ...extra.slice(1));
+  if(u) u.mesh.position.set(wx, 0.4, wz);
+  return u;
+}
+const E=ENEMY_BASE_X, EZ=ENEMY_BASE_Z; // short aliases
 const P1_SPAWNS = [[1,2],[2,3],[1,4],[3,5],[1,6]];
-const P2_SPAWNS = [[12,2],[11,3],[12,4],[10,5],[12,6]];
+// P2 spawn cols/rows are near enemy base world coords
+const P2_SPAWNS_WX = [E,    E+CS, E,    E+CS*2, E-CS];
+const P2_SPAWNS_WZ = [EZ-CS*2, EZ, EZ+CS, EZ-CS, EZ+CS*2];
 P1_SPAWNS.forEach(([c,r]) => spawnUnit(1,c,r));
-P2_SPAWNS.forEach(([c,r]) => spawnUnit(2,c,r));
+P2_SPAWNS_WX.forEach((wx,i)=>{ const u=spawnUnit(2,0,0); u.mesh.position.set(wx,0.4,P2_SPAWNS_WZ[i]); });
 // TNT units — 2 per player
 [[3,3],[2,7]].forEach(([c,r])=>spawnTNT(1,c,r));
-[[11,6],[10,7]].forEach(([c,r])=>spawnTNT(2,c,r));
-// Special units
-spawnWizard(1,1,1);   spawnWizard(2,12,1);
-spawnCook(1,1,8);     spawnCook(2,12,8);
-spawnSpy(1,3,1);      spawnSpy(2,10,1);
-spawnRanger(1,3,2);   spawnRanger(2,10,2);
-spawnAssassin(1,4,1); spawnAssassin(2,9,1);
-spawnFunnyMan(1,4,8); spawnFunnyMan(2,9,8);
-// Builders — 2 per player
+[0,1].forEach(i=>{ const u=spawnTNT(2,0,0); u.mesh.position.set(E+CS*(i*2+1),0.4,EZ+CS*2); });
+// Special units — P1 near origin, P2 near enemy base
+spawnWizard(1,1,1);   { const u=spawnWizard(2,0,0);   u.mesh.position.set(E+CS,  0.4,EZ-CS*3); }
+spawnCook(1,1,8);     { const u=spawnCook(2,0,0);     u.mesh.position.set(E-CS,  0.4,EZ+CS*2); }
+spawnSpy(1,3,1);      { const u=spawnSpy(2,0,0);      u.mesh.position.set(E+CS*2,0.4,EZ-CS);   }
+spawnRanger(1,3,2);   { const u=spawnRanger(2,0,0);   u.mesh.position.set(E+CS*2,0.4,EZ+CS);   }
+spawnAssassin(1,4,1); { const u=spawnAssassin(2,0,0); u.mesh.position.set(E-CS*2,0.4,EZ-CS*2); }
+spawnFunnyMan(1,4,8); { const u=spawnFunnyMan(2,0,0); u.mesh.position.set(E+CS*3,0.4,EZ);      }
+// Builders
 spawnBuilder(1,2,5);  spawnBuilder(1,3,6);
-spawnBuilder(2,11,4); spawnBuilder(2,10,6);
-// Shield Men — 1 per player (heavy, armored protectors)
-spawnShieldMan(1,2,1); spawnShieldMan(2,11,1);
-// Medics — 1 per player (field healers)
-spawnMedic(1,1,3); spawnMedic(2,12,3);
+[0,1].forEach(i=>{ const u=spawnBuilder(2,0,0); u.mesh.position.set(E+CS*(i-1),0.4,EZ+CS*3); });
+// Shield Men
+spawnShieldMan(1,2,1); { const u=spawnShieldMan(2,0,0); u.mesh.position.set(E,0.4,EZ-CS); }
+// Medics
+spawnMedic(1,1,3); { const u=spawnMedic(2,0,0); u.mesh.position.set(E+CS,0.4,EZ+CS*2); }
 // Villagers — 3 farmers, 2 craftsmen, 4 commoners
 spawnVillager('farmer',   0*CS+CS/2,      3*CS+CS/2);
 spawnVillager('farmer',   2*CS+CS/2,      3*CS+CS/2);
@@ -2589,6 +2713,9 @@ units.forEach(u=>{
   u._flashTimer  = 0;
   // Fog of War — enemy units start hidden
   if(u.player===2) u.mesh.visible = false;
+  // P2 units defend their home base
+  if(u.player===2) u.homePos = new THREE.Vector3(ENEMY_BASE_X, 0, ENEMY_BASE_Z);
+  u._resting = false;
   addHPBar(u);
   addStaminaBar(u);
 });
@@ -2709,9 +2836,14 @@ function tickPossess(dt){
   if(!isPossessing || !possessedUnit || !ghostLocked) return;
   const u = possessedUnit, mesh = u.mesh;
   const moving = ghostKeys['KeyW']||ghostKeys['KeyS']||ghostKeys['KeyA']||ghostKeys['KeyD'];
-  if(moving) u.stamina = Math.max(0, u.stamina - 12*dt);
-  else u.stamina = Math.min(u.maxStamina, u.stamina + 20*dt);
-  const speedMod = u.stamina > 0 ? 1 : 0.25;
+  if(moving && !u._resting){
+    u.stamina = Math.max(0, u.stamina - 15*dt);
+    if(u.stamina <= 0){ u._resting=true; }
+  } else {
+    u.stamina = Math.min(u.maxStamina, u.stamina + (u._resting?12:20)*dt);
+    if(u._resting && u.stamina>=50) u._resting=false;
+  }
+  const speedMod = u._resting ? 0 : 1;
   const spd = UNIT_SPD * dt * (u.isAssassin ? 2 : 1) * (u.isShieldMan ? 0.70 : 1) * (u.isMedic ? 0.85 : 1) * speedMod;
 
   if(ghostKeys['KeyW']) mesh.translateZ(-spd);
@@ -2719,8 +2851,8 @@ function tickPossess(dt){
   if(ghostKeys['KeyA']) mesh.translateX(-spd);
   if(ghostKeys['KeyD']) mesh.translateX( spd);
 
-  mesh.position.x = Math.max(0.5, Math.min(COLS*CS-0.5, mesh.position.x));
-  mesh.position.z = Math.max(0.5, Math.min(ROWS*CS-0.5, mesh.position.z));
+  mesh.position.x = Math.max(-WORLD_BOUND, Math.min(WORLD_BOUND, mesh.position.x));
+  mesh.position.z = Math.max(-WORLD_BOUND, Math.min(WORLD_BOUND, mesh.position.z));
   mesh.position.y = 0.4;
 
   selRing.position.set(mesh.position.x, 0.42, mesh.position.z);
@@ -3052,9 +3184,19 @@ function tickUnitMovement(dt){
   for(const unit of units){
     if(!unit.dest || unit === possessedUnit){
       // Regen stamina when idle
-      if(unit.stamina < unit.maxStamina)
+      if(unit._resting){
+        unit.stamina = Math.min(unit.maxStamina, unit.stamina + 12*dt);
+        if(unit.stamina >= 50) unit._resting = false;
+      } else if(unit.stamina < unit.maxStamina){
         unit.stamina = Math.min(unit.maxStamina, unit.stamina + 20*dt);
+      }
       continue;
+    }
+    // Forced rest: unit must stop until stamina recovers to 50
+    if(unit._resting){
+      unit.stamina = Math.min(unit.maxStamina, unit.stamina + 12*dt);
+      if(unit.stamina >= 50) unit._resting = false;
+      continue; // can't move while resting
     }
     const dx = unit.dest.x - unit.mesh.position.x;
     const dz = unit.dest.z - unit.mesh.position.z;
@@ -3068,11 +3210,11 @@ function tickUnitMovement(dt){
       }
       continue;
     }
-    // Drain stamina while moving; 25% speed when exhausted
-    unit.stamina = Math.max(0, unit.stamina - 12*dt);
-    const speedMod = unit.stamina > 0 ? 1 : 0.25;
+    // Drain stamina on the march — must stop and rest when depleted
+    unit.stamina = Math.max(0, unit.stamina - 15*dt);
+    if(unit.stamina <= 0){ unit._resting = true; continue; }
     const shieldSlowMod = unit.isShieldMan ? 0.70 : 1;
-    const move = Math.min(UNIT_SPD * speedMod * shieldSlowMod * dt, dist);
+    const move = Math.min(UNIT_SPD * shieldSlowMod * dt, dist);
     unit.mesh.position.x += (dx/dist) * move;
     unit.mesh.position.z += (dz/dist) * move;
     unit.mesh.rotation.y  = Math.atan2(-dx, -dz);
@@ -3358,6 +3500,23 @@ function tickPlayerShots(dt){
     }
     if(castleHit) continue;
 
+    // --- tower hit ---
+    let towerHit=false;
+    for(const t of towers){
+      if(t.dead) continue;
+      const ttargets=[]; t.mesh.traverse(ch=>{if(ch.isMesh)ttargets.push(ch);});
+      const thits=_shotRay.intersectObjects(ttargets,false);
+      if(thits.length){
+        t.hp=Math.max(0,t.hp-12);
+        playAt(new THREE.Vector3(t.wx,4,t.wz),SND_CASTLE_HIT,8,1.5);
+        if(t.hp<=0) destroyTower(t);
+        spawnSpark(thits[0].point);
+        scene.remove(s.mesh); s.mesh.material.dispose();
+        playerShots.splice(i,1); towerHit=true; break;
+      }
+    }
+    if(towerHit) continue;
+
     // --- terrain hit ---
     const tHits = _shotRay.intersectObjects([envGroup, ...chunks.values()], true);
     if(tHits.length){
@@ -3471,13 +3630,18 @@ function tickUnitCombat(dt){
     } else {
       u.combatTarget = null;
       // Patrol: enemy units wander when idle; friendlies just stop
-      if(u.player === 2 && (!u.dest ||
-          Math.hypot(u.dest.x-u.mesh.position.x, u.dest.z-u.mesh.position.z) < 1.5)){
-        const angle = Math.random()*Math.PI*2, dist = 4 + Math.random()*CS*4;
-        u.dest = new THREE.Vector3(
-          Math.max(0.5, Math.min(COLS*CS-0.5, u.mesh.position.x + Math.cos(angle)*dist)),
-          0,
-          Math.max(0.5, Math.min(ROWS*CS-0.5, u.mesh.position.z + Math.sin(angle)*dist)));
+      if(u.player === 2){
+        const home = u.homePos || new THREE.Vector3(ENEMY_BASE_X, 0, ENEMY_BASE_Z);
+        const hdx = u.mesh.position.x - home.x, hdz = u.mesh.position.z - home.z;
+        const homeDist2 = hdx*hdx + hdz*hdz;
+        if(homeDist2 > CS*CS*25){
+          // Too far from base — return home
+          u.dest = home.clone().add(new THREE.Vector3((Math.random()-0.5)*CS*3,0,(Math.random()-0.5)*CS*3));
+        } else if(!u.dest || Math.hypot(u.dest.x-u.mesh.position.x, u.dest.z-u.mesh.position.z)<1.5){
+          // Local patrol near base
+          const angle=Math.random()*Math.PI*2, dist=4+Math.random()*CS*4;
+          u.dest = new THREE.Vector3(home.x+Math.cos(angle)*dist, 0, home.z+Math.sin(angle)*dist);
+        }
       }
     }
   }
@@ -3550,6 +3714,20 @@ function tickUnitShots(dt){
     }
     if(unitCastleHit) continue;
 
+    // Tower hit from unit shots
+    let unitTowerHit=false;
+    for(const t of towers){
+      if(t.dead||t.player===s.ownerPlayer) continue;
+      const dx=s.mesh.position.x-t.wx, dz=s.mesh.position.z-t.wz;
+      if(dx*dx+dz*dz<9){
+        t.hp=Math.max(0,t.hp-3);
+        playAt(new THREE.Vector3(t.wx,4,t.wz),SND_CASTLE_HIT,6,1.5);
+        if(t.hp<=0) destroyTower(t);
+        scene.remove(s.mesh); s.mat.dispose(); unitShots.splice(i,1); unitTowerHit=true; break;
+      }
+    }
+    if(unitTowerHit) continue;
+
     if(s.traveled > s.maxDist){
       scene.remove(s.mesh); s.mat.dispose(); unitShots.splice(i,1);
     }
@@ -3620,7 +3798,7 @@ function completeBuilding(ghost){
   const p=ghost.pos;
   let built;
   switch(ghost.type){
-    case 'tower':    built=makeCastleTower(BMAT.flagP1,p.x,p.z); break;
+    case 'tower':    spawnTower(BMAT.flagP1,p.x,p.z,1); return; // registered, early-out
     case 'wall':     built=makeWall(p.x,p.z); break;
     case 'barracks': built=makeBarracks(p.x,p.z); break;
     case 'cauldron':{
@@ -3742,7 +3920,7 @@ function tickSpikeTraps(){
 // ═══════════════════════════════════════════════════════════════
 // FOG OF WAR
 // ═══════════════════════════════════════════════════════════════
-const FOG_RANGE = 25; // world units — sight radius for P1 units + camera
+const FOG_RANGE = 20; // world units — sight radius for P1 units + camera
 function tickFogOfWar(){
   for(const u of units){
     if(u.player===1) continue;
@@ -3790,19 +3968,23 @@ function tickIntel(){
 }
 
 // ═══════════════════════════════════════════════════════════════
-// TERRAIN REVEAL — P1 units + camera uncover tiles on mini-map
+// TERRAIN REVEAL — P1 units + camera uncover world-space cells
+// Grid resolution: REVEAL_CELL world units per cell
 // ═══════════════════════════════════════════════════════════════
-const REVEAL_R = 2;
-function tickTerrainReveal(){
-  function reveal(wx,wz){
-    const col=Math.floor(wx/CS), row=Math.floor(wz/CS);
-    for(let dr=-REVEAL_R;dr<=REVEAL_R;dr++) for(let dc=-REVEAL_R;dc<=REVEAL_R;dc++){
-      const r=row+dr, c=col+dc;
-      if(r>=0&&r<ROWS&&c>=0&&c<COLS) _revealed[r][c]=1;
-    }
+const REVEAL_CELL = 10; // world units per reveal-grid cell
+const REVEAL_R    = 3;  // cells revealed around each unit/camera
+
+function _revealAt(wx, wz){
+  const cx0=Math.floor(wx/REVEAL_CELL), cz0=Math.floor(wz/REVEAL_CELL);
+  for(let dr=-REVEAL_R;dr<=REVEAL_R;dr++) for(let dc=-REVEAL_R;dc<=REVEAL_R;dc++){
+    if(dr*dr+dc*dc > REVEAL_R*REVEAL_R+1) continue;
+    _revealedCells.add(`${cx0+dc},${cz0+dr}`);
   }
-  reveal(camera.position.x, camera.position.z);
-  for(const u of units){ if(u.player===1) reveal(u.mesh.position.x, u.mesh.position.z); }
+}
+
+function tickTerrainReveal(){
+  _revealAt(camera.position.x, camera.position.z);
+  for(const u of units){ if(u.player===1) _revealAt(u.mesh.position.x, u.mesh.position.z); }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3836,8 +4018,8 @@ function tickStaminaBars(){
 // ═══════════════════════════════════════════════════════════════
 const _miniCtx  = document.getElementById('minimap').getContext('2d');
 const _MINI_W   = 120, _MINI_H = 120;
-const _TILE_W   = _MINI_W / COLS, _TILE_H = _MINI_H / ROWS;
-const _TILE_COLS = ['#1b3a1b','#0d4a0d','#1a2e5c','#3a3030','#7a6000'];
+// Dynamic minimap: VIEW_RANGE world units shown across the minimap width
+const MINI_VIEW = 300; // world units across minimap (150 each side of camera)
 
 // 5-second delayed intelligence buffer
 const _MINI_DELAY = 5;
@@ -3863,14 +4045,24 @@ function tickMiniSnap(dt){
 // Drag-to-move via minimap
 const _miniCanvas = document.getElementById('minimap');
 let _miniDragUnit = null;
+// Convert world position → minimap pixel (camera-centred dynamic view)
+function _w2m(wx, wz, camX, camZ){
+  return {
+    px: (wx - camX) / MINI_VIEW * _MINI_W + _MINI_W/2,
+    pz: (wz - camZ) / MINI_VIEW * _MINI_H + _MINI_H/2
+  };
+}
+
 _miniCanvas.addEventListener('mousedown', e=>{
   if(gameState !== 'PLAYING') return;
   const r=_miniCanvas.getBoundingClientRect();
-  const mx=(e.clientX-r.left)/r.width, mz=(e.clientY-r.top)/r.height;
+  const mx=(e.clientX-r.left)/_MINI_W, mz=(e.clientY-r.top)/_MINI_H;
+  const camX=camera.position.x, camZ=camera.position.z;
   let best=null, bestD2=(0.07*0.07);
   for(const u of units){
     if(u.player!==1||u===possessedUnit) continue;
-    const nx=u.mesh.position.x/(COLS*CS), nz=u.mesh.position.z/(ROWS*CS);
+    const {px,pz}=_w2m(u.mesh.position.x,u.mesh.position.z,camX,camZ);
+    const nx=px/_MINI_W, nz=pz/_MINI_H;
     const d2=(nx-mx)*(nx-mx)+(nz-mz)*(nz-mz);
     if(d2<bestD2){ bestD2=d2; best=u; }
   }
@@ -3879,8 +4071,10 @@ _miniCanvas.addEventListener('mousedown', e=>{
 _miniCanvas.addEventListener('mouseup', e=>{
   if(!_miniDragUnit) return;
   const r=_miniCanvas.getBoundingClientRect();
-  const mx=(e.clientX-r.left)/r.width, mz=(e.clientY-r.top)/r.height;
-  _miniDragUnit.dest=new THREE.Vector3(mx*COLS*CS,0,mz*ROWS*CS);
+  const fx=(e.clientX-r.left)/_MINI_W - 0.5, fz=(e.clientY-r.top)/_MINI_H - 0.5;
+  _miniDragUnit.dest=new THREE.Vector3(
+    camera.position.x + fx*MINI_VIEW, 0,
+    camera.position.z + fz*MINI_VIEW);
   _miniDragUnit.combatTarget=null;
   chatPrint(`📍 ${_miniDragUnit.unitName||'Unit'} → moving via map`,'sys');
   _miniDragUnit=null;
@@ -3890,61 +4084,72 @@ _miniCanvas.addEventListener('mouseleave', ()=>{ _miniDragUnit=null; });
 function drawMiniMap(){
   const ctx=_miniCtx, W=_MINI_W, H=_MINI_H;
   ctx.clearRect(0,0,W,H);
-
   ctx.save();
   ctx.beginPath(); ctx.arc(W/2,H/2,W/2,0,Math.PI*2); ctx.clip();
-
   ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
 
-  // Revealed terrain tiles
-  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
-    if(!_revealed[r][c]) continue;
-    ctx.fillStyle=_TILE_COLS[RAW_MAP[r][c]];
-    ctx.fillRect(c*_TILE_W, r*_TILE_H, _TILE_W+0.5, _TILE_H+0.5);
+  const camX=camera.position.x, camZ=camera.position.z;
+  const cellPx = W / (MINI_VIEW / REVEAL_CELL); // pixels per reveal-grid cell
+
+  // Revealed terrain cells (world-space, camera-centred)
+  const x0=Math.floor((camX-MINI_VIEW/2)/REVEAL_CELL);
+  const z0=Math.floor((camZ-MINI_VIEW/2)/REVEAL_CELL);
+  const x1=Math.ceil( (camX+MINI_VIEW/2)/REVEAL_CELL);
+  const z1=Math.ceil( (camZ+MINI_VIEW/2)/REVEAL_CELL);
+  for(let gcx=x0;gcx<=x1;gcx++) for(let gcz=z0;gcz<=z1;gcz++){
+    if(!_revealedCells.has(`${gcx},${gcz}`)) continue;
+    const wx=gcx*REVEAL_CELL, wz=gcz*REVEAL_CELL;
+    const px=(wx-camX)/MINI_VIEW*W+W/2;
+    const pz=(wz-camZ)/MINI_VIEW*H+H/2;
+    // Colour-code: P1 territory (west), neutral, enemy territory (east)
+    const ex=wx/(ENEMY_BASE_X+50);
+    ctx.fillStyle = ex>0.88 ? '#5a2a2a' : ex>0.15 ? '#2e4a35' : '#3a6a3a';
+    ctx.fillRect(px, pz, cellPx+0.5, cellPx+0.5);
   }
 
-  // Intel: red '?' at last-known enemy positions (45s memory)
+  // Intel: red '?' at last-known enemy positions (only if in revealed area)
   const now=performance.now()/1000;
   ctx.font='bold 9px monospace';
   for(const [,intel] of _intelMap){
     if(now-intel.lastSeen>INTEL_MEMORY) continue;
-    const px=(intel.x/(COLS*CS))*W, pz=(intel.z/(ROWS*CS))*H;
+    const key=`${Math.floor(intel.x/REVEAL_CELL)},${Math.floor(intel.z/REVEAL_CELL)}`;
+    if(!_revealedCells.has(key)) continue; // don't show '?' in unexplored fog
+    const {px,pz}=_w2m(intel.x,intel.z,camX,camZ);
     ctx.globalAlpha=Math.max(0.3,1-(now-intel.lastSeen)/INTEL_MEMORY*0.7);
     ctx.fillStyle='#ff3300'; ctx.fillText('?',px-4,pz+4);
   }
   ctx.globalAlpha=1;
 
   // Delayed P1 unit dots (5s behind reality)
-  const targetTs = now - _MINI_DELAY;
+  const targetTs=now-_MINI_DELAY;
   let snap=null;
   for(let i=_miniSnaps.length-1;i>=0;i--){
     if(_miniSnaps[i].ts<=targetTs){ snap=_miniSnaps[i]; break; }
   }
   const flk=(Date.now()%500)<250;
-  const dots = snap ? snap.dots : units.map(u=>({
+  const dots=snap?snap.dots:units.map(u=>({
     player:u.player, x:u.mesh.position.x, z:u.mesh.position.z,
     isWizard:!!u.isWizard, isFunny:!!(u.isFunny||u.isFunnyMan),
     inCombat:!!u.combatTarget, scouting:!!u.scouting
   }));
   for(const d of dots){
     if(d.player!==1) continue;
-    const px=(d.x/(COLS*CS))*W, pz=(d.z/(ROWS*CS))*H;
-    if(d.inCombat&&!flk) continue; // combat blink
+    const {px,pz}=_w2m(d.x,d.z,camX,camZ);
+    if(px<-4||px>W+4||pz<-4||pz>H+4) continue;
+    if(d.inCombat&&!flk) continue;
     let col;
-    if(d.isWizard)       col='#aa44ff'; // purple
-    else if(d.isFunny)   col='#ffdd00'; // yellow
-    else if(d.scouting)  col='#aaff22'; // lime
-    else if(d.inCombat)  col='#ff4422'; // red
-    else                 col='#22cc44'; // ally green
+    if(d.isWizard)      col='#aa44ff';
+    else if(d.isFunny)  col='#ffdd00';
+    else if(d.scouting) col='#aaff22';
+    else if(d.inCombat) col='#ff4422';
+    else                col='#22cc44';
     ctx.fillStyle=col;
     ctx.beginPath(); ctx.arc(px,pz,d.inCombat?3.5:2.5,0,Math.PI*2); ctx.fill();
   }
 
-  // Camera dot
-  const cpx=Math.max(2,Math.min(W-2,(camera.position.x/(COLS*CS))*W));
-  const cpz=Math.max(2,Math.min(H-2,(camera.position.z/(ROWS*CS))*H));
+  // Camera dot — always centre
   ctx.fillStyle='#fff';
-  ctx.beginPath(); ctx.arc(cpx,cpz,2.5,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(W/2,H/2,2.5,0,Math.PI*2); ctx.fill();
 
   ctx.restore();
   ctx.strokeStyle='#334'; ctx.lineWidth=2;
@@ -4353,10 +4558,8 @@ function tsLoadSlot(slot){
       const u=pool[idx]; usedIdx[k]=idx+1;
       if(u){ u.mesh.position.set(s.x,0.4,s.z); u.hp=Math.max(1,Math.min(s.hp,u.maxHp||s.maxHp)); }
     }
-    if(save.revealed){
-      save.revealed.forEach((row,r)=>row.forEach((v,c)=>{
-        if(_revealed[r]&&c<_revealed[r].length) _revealed[r][c]=v;
-      }));
+    if(save.revealed&&Array.isArray(save.revealed)){
+      save.revealed.forEach(k=>{ if(typeof k==='string') _revealedCells.add(k); });
     }
     controlMode=save.controlMode||'keyboard';
   } catch(e){ console.warn('Save load error:',e); }
@@ -4396,7 +4599,7 @@ function saveWorld(){
       else if(u.isShieldMan) type='shieldMan'; else if(u.isMedic) type='medic';
       return {player:u.player, x:u.mesh.position.x, z:u.mesh.position.z, hp:u.hp, maxHp:u.maxHp, type};
     }),
-    revealed:Array.from(_revealed,row=>Array.from(row))
+    revealed:[..._revealedCells]
   };
   let slots=JSON.parse(localStorage.getItem('gow_saves')||'[]');
   slots.unshift(saveData); slots=slots.slice(0,5);
@@ -4464,11 +4667,13 @@ function animate(){
   tickShieldMen(dt);
   tickMedics(dt);
   tickCastleHPBars();
+  tickTowerHPBars();
   tickFogOfWar();
   tickIntel();
   tickTerrainReveal();
   tickMiniSnap(dt);
   drawMiniMap();
+  tickWind();
   for(const u of units){ if(u.isWizard){ if(u.fireballCooldown>0) u.fireballCooldown-=dt; if(u.teleportCooldown>0) u.teleportCooldown-=dt; } }
   updateChunks();
   if(cameraMode==='ghost')        tickGhost(dt);
