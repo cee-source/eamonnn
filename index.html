@@ -1892,8 +1892,8 @@ function buildChunk(cx, cz){
         const base=new THREE.Mesh(new THREE.BoxGeometry(CS,colH,CS), isThick?MAT_BIOME.dense:MAT.grass);
         base.position.y=colH/2; base.receiveShadow=true; cell.add(base);
 
-        // Dense InstancedMesh cluster: 5–15 trees, randomised scale & rotation
-        const minT = isThick ? 9 : 5, maxT = isThick ? 15 : 11;
+        // Dense InstancedMesh cluster: 8–25 trees per tile (50+ per chunk guaranteed)
+        const minT = isThick ? 14 : 8, maxT = isThick ? 25 : 18;
         const cnt = minT + Math.floor(rand()*(maxT-minT+1));
         for(let i=0;i<cnt;i++){
           const sc=0.45+rand()*0.85, a=rand()*Math.PI*2, r=rand()*CS*0.52;
@@ -2586,6 +2586,7 @@ units.forEach(u=>{
   u.maxStamina   = 100;
   u.scouting     = false;
   u.scoutTimer   = 0;
+  u._flashTimer  = 0;
   // Fog of War — enemy units start hidden
   if(u.player===2) u.mesh.visible = false;
   addHPBar(u);
@@ -3381,9 +3382,10 @@ function tickSparks(dt){
 }
 
 // ─── Unit-vs-Unit Combat ──────────────────────────────────────
-const UNIT_ATTACK_RANGE = 10;
+const UNIT_ATTACK_RANGE = 10;  // melee/default attack range
 const UNIT_ATTACK_DMG   = 8;
-const UNIT_ATTACK_CD    = 2.0;
+const UNIT_ATTACK_CD    = 1.5; // seconds between shots
+const UNIT_HUNT_RANGE   = 40;  // detection + hunt radius
 const UNIT_SHOT_SPEED   = 18;
 const UNIT_SHOT_GEO     = new THREE.SphereGeometry(0.1, 5, 3);
 const _unitShotRay      = new THREE.Raycaster();
@@ -3428,12 +3430,15 @@ function spawnUnitShot(fromPos, toPos, ownerPlayer){
 }
 
 function tickUnitCombat(dt){
+  const huntR2 = UNIT_HUNT_RANGE * UNIT_HUNT_RANGE;
+  const atkR2  = UNIT_ATTACK_RANGE * UNIT_ATTACK_RANGE;
+
   for(const u of units){
-    if(u === possessedUnit) continue;   // player controls rotation while possessing
-    // Clear stale combat target (dead or out of range)
+    if(u === possessedUnit) continue;
     if(u.combatTarget && !units.includes(u.combatTarget)) u.combatTarget = null;
 
-    let nearest = null, nearestD2 = UNIT_ATTACK_RANGE * UNIT_ATTACK_RANGE;
+    // Find nearest enemy within hunt range
+    let nearest = null, nearestD2 = huntR2;
     for(const e of units){
       if(e.player === u.player) continue;
       const dx = e.mesh.position.x - u.mesh.position.x;
@@ -3444,15 +3449,47 @@ function tickUnitCombat(dt){
 
     if(nearest){
       u.combatTarget = nearest;
-      u.dest = null; // stop movement
       u.mesh.lookAt(nearest.mesh.position.x, u.mesh.position.y, nearest.mesh.position.z);
-      u.attackTimer = (u.attackTimer || 0) - dt;
-      if(u.attackTimer <= 0){
-        u.attackTimer = UNIT_ATTACK_CD;
-        spawnUnitShot(u.mesh.position, nearest.mesh.position, u.player);
+
+      if(nearestD2 <= atkR2){
+        // In attack range — stop and fire
+        u.dest = null;
+        u.attackTimer = (u.attackTimer||0) - dt;
+        if(u.attackTimer <= 0){
+          u.attackTimer = UNIT_ATTACK_CD;
+          spawnUnitShot(u.mesh.position, nearest.mesh.position, u.player);
+          u._flashTimer = 0.20; // scale-pulse on attack
+        }
+      } else {
+        // In hunt range but out of attack range — chase
+        const tp = nearest.mesh.position.clone(); tp.y = 0;
+        u.dest = tp;
       }
     } else {
       u.combatTarget = null;
+      // Patrol: enemy units wander when idle; friendlies just stop
+      if(u.player === 2 && (!u.dest ||
+          Math.hypot(u.dest.x-u.mesh.position.x, u.dest.z-u.mesh.position.z) < 1.5)){
+        const angle = Math.random()*Math.PI*2, dist = 4 + Math.random()*CS*4;
+        u.dest = new THREE.Vector3(
+          Math.max(0.5, Math.min(COLS*CS-0.5, u.mesh.position.x + Math.cos(angle)*dist)),
+          0,
+          Math.max(0.5, Math.min(ROWS*CS-0.5, u.mesh.position.z + Math.sin(angle)*dist)));
+      }
+    }
+  }
+}
+
+// Attack-flash: brief scale pulse when a unit fires
+function tickFlash(dt){
+  for(const u of units){
+    if(!(u._flashTimer > 0)) continue;
+    u._flashTimer -= dt;
+    if(u._flashTimer <= 0){
+      u.mesh.scale.setScalar(1); u._flashTimer = 0;
+    } else {
+      const p = 1 + Math.abs(Math.sin(u._flashTimer * 30)) * 0.30;
+      u.mesh.scale.setScalar(p);
     }
   }
 }
@@ -3799,18 +3836,64 @@ const _MINI_W   = 120, _MINI_H = 120;
 const _TILE_W   = _MINI_W / COLS, _TILE_H = _MINI_H / ROWS;
 const _TILE_COLS = ['#1b3a1b','#0d4a0d','#1a2e5c','#3a3030','#7a6000'];
 
+// 5-second delayed intelligence buffer
+const _MINI_DELAY = 5;
+const _miniSnaps  = []; // [{ts, dots:[{player,x,z,isWizard,isFunny,inCombat,scouting}]}]
+let _miniSnapT = 0;
+
+function tickMiniSnap(dt){
+  _miniSnapT -= dt;
+  if(_miniSnapT > 0) return;
+  _miniSnapT = 0.2;
+  _miniSnaps.push({
+    ts: performance.now()/1000,
+    dots: units.map(u=>({
+      player:u.player, x:u.mesh.position.x, z:u.mesh.position.z,
+      isWizard:!!u.isWizard, isFunny:!!(u.isFunny||u.isFunnyMan),
+      inCombat:!!u.combatTarget, scouting:!!u.scouting
+    }))
+  });
+  const cutoff = performance.now()/1000 - _MINI_DELAY - 1;
+  while(_miniSnaps.length && _miniSnaps[0].ts < cutoff) _miniSnaps.shift();
+}
+
+// Drag-to-move via minimap
+const _miniCanvas = document.getElementById('minimap');
+let _miniDragUnit = null;
+_miniCanvas.addEventListener('mousedown', e=>{
+  if(gameState !== 'PLAYING') return;
+  const r=_miniCanvas.getBoundingClientRect();
+  const mx=(e.clientX-r.left)/r.width, mz=(e.clientY-r.top)/r.height;
+  let best=null, bestD2=(0.07*0.07);
+  for(const u of units){
+    if(u.player!==1||u===possessedUnit) continue;
+    const nx=u.mesh.position.x/(COLS*CS), nz=u.mesh.position.z/(ROWS*CS);
+    const d2=(nx-mx)*(nx-mx)+(nz-mz)*(nz-mz);
+    if(d2<bestD2){ bestD2=d2; best=u; }
+  }
+  _miniDragUnit=best;
+});
+_miniCanvas.addEventListener('mouseup', e=>{
+  if(!_miniDragUnit) return;
+  const r=_miniCanvas.getBoundingClientRect();
+  const mx=(e.clientX-r.left)/r.width, mz=(e.clientY-r.top)/r.height;
+  _miniDragUnit.dest=new THREE.Vector3(mx*COLS*CS,0,mz*ROWS*CS);
+  _miniDragUnit.combatTarget=null;
+  chatPrint(`📍 ${_miniDragUnit.unitName||'Unit'} → moving via map`,'sys');
+  _miniDragUnit=null;
+});
+_miniCanvas.addEventListener('mouseleave', ()=>{ _miniDragUnit=null; });
+
 function drawMiniMap(){
   const ctx=_miniCtx, W=_MINI_W, H=_MINI_H;
   ctx.clearRect(0,0,W,H);
 
-  // Circular clip
   ctx.save();
   ctx.beginPath(); ctx.arc(W/2,H/2,W/2,0,Math.PI*2); ctx.clip();
 
-  // Black base (unexplored)
   ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
 
-  // Revealed terrain
+  // Revealed terrain tiles
   for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
     if(!_revealed[r][c]) continue;
     ctx.fillStyle=_TILE_COLS[RAW_MAP[r][c]];
@@ -3819,25 +3902,39 @@ function drawMiniMap(){
 
   // Intel: red '?' at last-known enemy positions (45s memory)
   const now=performance.now()/1000;
-  ctx.fillStyle='#ff3300'; ctx.font='bold 9px monospace';
+  ctx.font='bold 9px monospace';
   for(const [,intel] of _intelMap){
-    if(now-intel.lastSeen > INTEL_MEMORY) continue;
+    if(now-intel.lastSeen>INTEL_MEMORY) continue;
     const px=(intel.x/(COLS*CS))*W, pz=(intel.z/(ROWS*CS))*H;
-    const age = (now-intel.lastSeen)/INTEL_MEMORY;
-    ctx.globalAlpha = Math.max(0.3, 1-age*0.7);
-    ctx.fillText('?', px-4, pz+4);
+    ctx.globalAlpha=Math.max(0.3,1-(now-intel.lastSeen)/INTEL_MEMORY*0.7);
+    ctx.fillStyle='#ff3300'; ctx.fillText('?',px-4,pz+4);
   }
   ctx.globalAlpha=1;
 
-  // P1 friendly dots (always visible)
-  const flash=(Date.now()%500)<250;
-  for(const u of units){
-    if(u.player!==1) continue;
-    const px=(u.mesh.position.x/(COLS*CS))*W, pz=(u.mesh.position.z/(ROWS*CS))*H;
-    const inCombat=!!u.combatTarget;
-    if(inCombat&&!flash) continue;
-    ctx.fillStyle=u.scouting?'#aaff22':(inCombat?'#ff2200':'#4499ff');
-    ctx.beginPath(); ctx.arc(px,pz,inCombat?3.5:2.5,0,Math.PI*2); ctx.fill();
+  // Delayed P1 unit dots (5s behind reality)
+  const targetTs = now - _MINI_DELAY;
+  let snap=null;
+  for(let i=_miniSnaps.length-1;i>=0;i--){
+    if(_miniSnaps[i].ts<=targetTs){ snap=_miniSnaps[i]; break; }
+  }
+  const flk=(Date.now()%500)<250;
+  const dots = snap ? snap.dots : units.map(u=>({
+    player:u.player, x:u.mesh.position.x, z:u.mesh.position.z,
+    isWizard:!!u.isWizard, isFunny:!!(u.isFunny||u.isFunnyMan),
+    inCombat:!!u.combatTarget, scouting:!!u.scouting
+  }));
+  for(const d of dots){
+    if(d.player!==1) continue;
+    const px=(d.x/(COLS*CS))*W, pz=(d.z/(ROWS*CS))*H;
+    if(d.inCombat&&!flk) continue; // combat blink
+    let col;
+    if(d.isWizard)       col='#aa44ff'; // purple
+    else if(d.isFunny)   col='#ffdd00'; // yellow
+    else if(d.scouting)  col='#aaff22'; // lime
+    else if(d.inCombat)  col='#ff4422'; // red
+    else                 col='#22cc44'; // ally green
+    ctx.fillStyle=col;
+    ctx.beginPath(); ctx.arc(px,pz,d.inCombat?3.5:2.5,0,Math.PI*2); ctx.fill();
   }
 
   // Camera dot
@@ -3847,8 +3944,6 @@ function drawMiniMap(){
   ctx.beginPath(); ctx.arc(cpx,cpz,2.5,0,Math.PI*2); ctx.fill();
 
   ctx.restore();
-
-  // Circle border
   ctx.strokeStyle='#334'; ctx.lineWidth=2;
   ctx.beginPath(); ctx.arc(W/2,H/2,W/2-1,0,Math.PI*2); ctx.stroke();
 }
@@ -4133,7 +4228,7 @@ function execCmdMenu(n){
         const tx=Math.round(camera.position.x/CS), tz=Math.round(camera.position.z/CS);
         const nu=spawnUnit(1, Math.max(0,Math.min(COLS-1,tx)), Math.max(0,Math.min(ROWS-1,tz)));
         nu.unitName=pickName(); nu._warnTimer=Math.random()*5;
-        nu.maxHp=nu.hp=20; nu.attackTimer=Math.random()*2;
+        nu.maxHp=nu.hp=20; nu.attackTimer=Math.random()*2; nu._flashTimer=0;
         nu.stamina=100; nu.maxStamina=100; nu.scouting=false; nu.scoutTimer=0;
         addHPBar(nu); addStaminaBar(nu);
         chatPrint(`📡 ⚔ ${nu.unitName} trained and deployed!`,'sys'); }
@@ -4345,6 +4440,7 @@ function animate(){
   tickPlayerShots(dt);
   tickSparks(dt);
   tickUnitCombat(dt);
+  tickFlash(dt);
   tickUnitShots(dt);
   tickHPBars();
   tickStaminaBars();
@@ -4368,6 +4464,7 @@ function animate(){
   tickFogOfWar();
   tickIntel();
   tickTerrainReveal();
+  tickMiniSnap(dt);
   drawMiniMap();
   for(const u of units){ if(u.isWizard){ if(u.fireballCooldown>0) u.fireballCooldown-=dt; if(u.teleportCooldown>0) u.teleportCooldown-=dt; } }
   updateChunks();
