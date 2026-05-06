@@ -1283,7 +1283,7 @@ function buildShieldManMesh(player){
   // Pauldrons
   [-0.31,0.31].forEach(x=>{
     const p=new THREE.Mesh(new THREE.SphereGeometry(0.19,6,5),
-      new THREE.MeshLambertMaterial({color:0x999999,metalness:0.8}));
+      new THREE.MeshStandardMaterial({color:0x999999,metalness:0.8}));
     p.position.set(x,0.61,0); g.add(p);
   });
   const head=new THREE.Mesh(new THREE.SphereGeometry(0.22,10,10),
@@ -1291,7 +1291,7 @@ function buildShieldManMesh(player){
   head.position.y=0.91; g.add(head);
   // Full-face helmet
   const helm=new THREE.Mesh(new THREE.SphereGeometry(0.26,10,6,0,Math.PI*2,0,Math.PI*0.58),
-    new THREE.MeshLambertMaterial({color:0x777777,metalness:0.9,roughness:0.18}));
+    new THREE.MeshStandardMaterial({color:0x777777,metalness:0.9,roughness:0.18}));
   helm.position.y=0.91; g.add(helm);
   // Large rectangular shield mounted in front
   const shieldMat=new THREE.MeshStandardMaterial({color:0xb0b0b8,metalness:0.90,roughness:0.18});
@@ -1299,11 +1299,11 @@ function buildShieldManMesh(player){
   shield.position.set(0,0.52,0.46); shield.castShadow=true; g.add(shield);
   // Decorative gold rim
   const rim=new THREE.Mesh(new THREE.BoxGeometry(0.99,1.39,0.04),
-    new THREE.MeshLambertMaterial({color:0xddaa00,metalness:0.8}));
+    new THREE.MeshStandardMaterial({color:0xddaa00,metalness:0.8}));
   rim.position.set(0,0.52,0.41); g.add(rim);
   // Boss rivet
   const boss=new THREE.Mesh(new THREE.SphereGeometry(0.105,8,6),
-    new THREE.MeshLambertMaterial({color:0xffcc22,metalness:0.9}));
+    new THREE.MeshStandardMaterial({color:0xffcc22,metalness:0.9}));
   boss.position.set(0,0.52,0.52); g.add(boss);
   return g;
 }
