@@ -74,7 +74,7 @@
       display: block; text-align: center; color: #778899; font-size: 9px;
       font-family: monospace; letter-spacing: 2px; margin-bottom: 3px;
     }
-    #minimap { display: block; }
+    #minimap { display: block; pointer-events: auto; cursor: crosshair; }
 
     /* Gold economy HUD */
     #gold-wrap {
@@ -594,11 +594,16 @@ const villagers     = [];   // NPC villagers with daily routines
 const houses        = [];   // shelter positions for nighttime
 const castles       = [];   // mega castle structures with HP
 const towers        = [];   // individual tower structures with HP
+const craters       = [];   // scorched ground from TNT blasts
+const tents         = [];   // sleeping tents (P1 and P2 bases)
 let   _bellMeshRef  = null; // bell mesh for swing animation
 
 // ─── Gold economy ─────────────────────────────────────────────
 let playerGold = 200;
 const BLDG_COST = { tower:80, wall:30, barracks:100, cauldron:50, spike:20 };
+const AUTO_TRAIN_INTERVAL = 60;  // seconds between free unit spawns
+const AUTO_TRAIN_COST     = 30;  // gold per auto-trained soldier
+let   _autoTrainTimer     = AUTO_TRAIN_INTERVAL;
 function updateGoldHUD(){ document.getElementById('gold-num').textContent = playerGold; }
 
 // ─── Commander vitality ───────────────────────────────────────
@@ -629,8 +634,8 @@ const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY'; // ← paste your key here
 
 // ─── Grid constants ───────────────────────────────────────────
 const COLS = 14, ROWS = 10, CS = 3;
-const ENEMY_BASE_X = 1050, ENEMY_BASE_Z = 15; // ~1050 units east of P1 start
-const WORLD_BOUND  = 1400;                     // soft movement limit
+const ENEMY_BASE_X = 82, ENEMY_BASE_Z = 15;   // just out of view east of P1 start
+const WORLD_BOUND  = 300;                      // soft movement limit
 _intelMap      = new Map();
 _revealedCells = new Set();
 const T = { PLAIN:0, FOREST:1, WATER:2, MOUNTAIN:3, HQ:4 };
@@ -652,7 +657,7 @@ function tileAt(c,r){ return RAW_MAP[r][c]; }
 // ─── Scene / Camera / Renderer ───────────────────────────────
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1a2840);
-scene.fog        = new THREE.FogExp2(0x1a2840, 0.115); // dense war fog — ~40 unit visibility
+scene.fog        = new THREE.FogExp2(0x1a2840, 0.018); // war fog — ~60 unit day visibility
 
 const CX = COLS*CS/2, CZ = ROWS*CS/2;
 const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 200);
@@ -1626,6 +1631,26 @@ function makeHouseMesh(){
   return g;
 }
 
+// ─── Tent (sleeping shelter for units) ───────────────────────
+function makeTentMesh(col){
+  const g = new THREE.Group();
+  const fabCol = col||0x8b6914;
+  const mat = new THREE.MeshStandardMaterial({color:fabCol, roughness:0.92});
+  // Roof: elongated cone
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(1.0, 1.3, 4), mat);
+  roof.position.y = 0.65; roof.rotation.y = Math.PI/4;
+  roof.castShadow = true; g.add(roof);
+  // Pole
+  const poleMat = new THREE.MeshStandardMaterial({color:0x5a3a10, roughness:0.9});
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.5, 6), poleMat);
+  pole.position.y = 0.75; g.add(pole);
+  // Floor mat
+  const floorMat = new THREE.MeshStandardMaterial({color:0x4a3010, roughness:0.95});
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(0.9, 8), floorMat);
+  floor.rotation.x = -Math.PI/2; floor.position.y = 0.43; g.add(floor);
+  return g;
+}
+
 // ─── Bell tower ───────────────────────────────────────────────
 function makeBellMesh(){
   const g=new THREE.Group(); g.userData.isBell=true;
@@ -1828,11 +1853,33 @@ for(let row=0;row<ROWS;row++){
   _bellMeshRef=bellMesh;
 })();
 
+// ─── Sleeping Tents ───────────────────────────────────────────
+// P1 camp tents (green canvas)
+[[2,6],[3,7],[1,7],[2,8],[3,8]].forEach(([c,r],i)=>{
+  const wx=c*CS+CS/2, wz=r*CS+CS/2;
+  const tm=makeTentMesh(i%2===0?0x4a7a2a:0x6b8a3a);
+  tm.position.set(wx,0.4,wz);
+  tm.rotation.y=Math.random()*Math.PI;
+  scene.add(tm);
+  tents.push({player:1, pos:new THREE.Vector3(wx,0.4,wz), mesh:tm});
+  houses.push({wx,wz,pos:new THREE.Vector3(wx,0.4,wz)}); // villagers can shelter here too
+});
+// P2 enemy tents (dark red canvas) — placed near enemy base
+const _EBX=ENEMY_BASE_X, _EBZ=ENEMY_BASE_Z;
+[[-CS,CS*3],[CS,CS*3],[CS*2,CS*2],[0,CS*4],[-CS*2,CS*2]].forEach(([dx,dz],i)=>{
+  const wx=_EBX+dx, wz=_EBZ+dz;
+  const tm=makeTentMesh(i%2===0?0x7a2a2a:0x5a1a1a);
+  tm.position.set(wx,0.4,wz);
+  tm.rotation.y=Math.random()*Math.PI;
+  scene.add(tm);
+  tents.push({player:2, pos:new THREE.Vector3(wx,0.4,wz), mesh:tm});
+});
+
 // ─── Mega Castles ─────────────────────────────────────────────
 // P1 capital: just behind the HQ, visible from start
 spawnCastle(1, -5, -5);
-// P2 enemy stronghold: 500+ world units east — deep in fog, scouting mandatory
-spawnCastle(2, 522, 15);
+// P2 enemy stronghold: just east of view range — visible when you advance
+spawnCastle(2, 84, 12);
 
 // Bell state
 let _bellRinging=false, _bellTimer=0, _bellSwingT=0;
@@ -3393,6 +3440,17 @@ function explode(unit){
     }
   }
 
+  // Scorched crater — persistent burnt ground marking
+  const craterMat = new THREE.MeshStandardMaterial({
+    color:0x0d0500, roughness:0.98, metalness:0.0
+  });
+  const craterMesh = new THREE.Mesh(new THREE.CircleGeometry(BLAST_R, 20), craterMat);
+  craterMesh.rotation.x = -Math.PI/2;
+  craterMesh.position.set(pos.x, 0.44, pos.z);
+  craterMesh.receiveShadow = true;
+  scene.add(craterMesh);
+  craters.push(craterMesh);
+
   spawnShockwave(pos);
 }
 
@@ -3819,6 +3877,24 @@ function completeBuilding(ghost){
   playAt(p.clone(), SND_CMD, CS, 2);
 }
 
+// ─── Auto-Train — spawn a new P1 soldier every 60s for 30 gold ──
+function tickAutoTrain(dt){
+  _autoTrainTimer -= dt;
+  if(_autoTrainTimer > 0) return;
+  _autoTrainTimer = AUTO_TRAIN_INTERVAL;
+  if(playerGold < AUTO_TRAIN_COST) return;
+  playerGold -= AUTO_TRAIN_COST;
+  updateGoldHUD();
+  const tx=1+Math.floor(Math.random()*3), tz=1+Math.floor(Math.random()*5);
+  const nu=spawnUnit(1, tx, tz);
+  nu.unitName=pickName(); nu._warnTimer=Math.random()*5;
+  nu.maxHp=nu.hp=20; nu.attackTimer=Math.random()*2; nu._flashTimer=0;
+  nu.stamina=100; nu.maxStamina=100; nu.scouting=false; nu.scoutTimer=0;
+  nu.combatTarget=null; nu._resting=false; nu.mesh.visible=true;
+  addHPBar(nu); addStaminaBar(nu);
+  chatPrint(`⚔ ${nu.unitName} trained automatically (-${AUTO_TRAIN_COST}g)`,'sys');
+}
+
 function tickBuilders(dt){
   for(const u of units){
     if(!u.isBuilder || u.player!==1 || ghosts.length===0) continue;
@@ -4019,7 +4095,7 @@ function tickStaminaBars(){
 const _miniCtx  = document.getElementById('minimap').getContext('2d');
 const _MINI_W   = 120, _MINI_H = 120;
 // Dynamic minimap: VIEW_RANGE world units shown across the minimap width
-const MINI_VIEW = 300; // world units across minimap (150 each side of camera)
+const MINI_VIEW = 220; // world units across minimap (110 each side of camera)
 
 // 5-second delayed intelligence buffer
 const _MINI_DELAY = 5;
@@ -4151,6 +4227,26 @@ function drawMiniMap(){
   ctx.fillStyle='#fff';
   ctx.beginPath(); ctx.arc(W/2,H/2,2.5,0,Math.PI*2); ctx.fill();
 
+  // Enemy castles — ALWAYS visible on minimap regardless of fog
+  for(const c of castles){
+    if(c.player!==2||c.ruined) continue;
+    const {px,pz}=_w2m(c.wx,c.wz,camX,camZ);
+    ctx.fillStyle='#ff2200';
+    ctx.beginPath(); ctx.arc(px,pz,5,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#ff8800'; ctx.lineWidth=2; ctx.stroke();
+    // Label
+    ctx.fillStyle='#ff8800'; ctx.font='bold 8px monospace';
+    ctx.fillText('⚔',px-4,pz+3);
+  }
+  // P1 castle — always visible
+  for(const c of castles){
+    if(c.player!==1||c.ruined) continue;
+    const {px,pz}=_w2m(c.wx,c.wz,camX,camZ);
+    ctx.fillStyle='#22aaff';
+    ctx.beginPath(); ctx.arc(px,pz,5,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#88ddff'; ctx.lineWidth=2; ctx.stroke();
+  }
+
   ctx.restore();
   ctx.strokeStyle='#334'; ctx.lineWidth=2;
   ctx.beginPath(); ctx.arc(W/2,H/2,W/2-1,0,Math.PI*2); ctx.stroke();
@@ -4239,10 +4335,15 @@ function _voiceStop(){
 function tickDayNight(dt){
   _dayT=(_dayT+dt)%DAY_LENGTH;
   const n=nightness();
-  _ambLight.intensity = 0.55-n*0.40;
-  _ambLight.color.setRGB(0.40+(1-n)*0.22, 0.53+(1-n)*0.18, 0.73+(1-n)*0.04);
-  sun.intensity = 2.0-n*1.65;
-  scene.fog.density = 0.045+n*0.038;
+  // Day: bright blue-white sky; Night: pitch black
+  _ambLight.intensity = 1.4*(1-n*0.98);  // day=1.4, night≈0.028 (almost zero)
+  _ambLight.color.setRGB(0.60+(1-n)*0.40, 0.75+(1-n)*0.25, 1.0);
+  sun.intensity = 3.8*(1-n);             // day=3.8, night=0
+  scene.fog.density = 0.018 + n*0.085;  // day=0.018 (60+ unit vis), night=0.103 (pitch fog)
+  // Sky colour: bright blue at noon, near-black at midnight
+  const sr=0.42*(1-n), sg=0.60*(1-n), sb=0.82*(1-n)+0.02;
+  scene.background.setRGB(sr, sg, sb);
+  scene.fog.color.setRGB(sr, sg, sb);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -4250,6 +4351,28 @@ function tickDayNight(dt){
 // ═══════════════════════════════════════════════════════════════
 const VILLAGER_SPD        = 1.7;
 const VILLAGER_SPD_SPRINT = 4.5;
+
+// Units seek tents at night when not in combat
+function tickNightRest(dt){
+  const n=nightness();
+  const goRest=n>0.55;
+  for(const u of units){
+    if(u.player!==1) continue;
+    if(u.combatTarget||u.fuseActive||u.scouting) continue;
+    if(goRest && !u._tentDest){
+      // Find nearest P1 tent
+      let best=null, bd=Infinity;
+      for(const t of tents){
+        if(t.player!==1) continue;
+        const dx=t.pos.x-u.mesh.position.x, dz=t.pos.z-u.mesh.position.z;
+        const d=dx*dx+dz*dz; if(d<bd){bd=d;best=t;}
+      }
+      if(best){ u._tentDest=best.pos.clone(); u.dest=u._tentDest.clone(); }
+    } else if(!goRest && u._tentDest){
+      u._tentDest=null; // wake up — clear tent destination
+    }
+  }
+}
 
 function getCraftsmanBonus(){
   let bonus=0;
@@ -4659,10 +4782,12 @@ function animate(){
   tickFireballs(dt);
   tickSpecialUnits(dt);
   tickCombatAudio(dt);
+  tickAutoTrain(dt);
   tickBuilders(dt);
   tickOilCauldrons(dt);
   tickSpikeTraps();
   tickDayNight(dt);
+  tickNightRest(dt);
   tickVillagers(dt);
   tickShieldMen(dt);
   tickMedics(dt);
