@@ -619,6 +619,10 @@
 <script>
 'use strict';
 
+// DOM refs needed by chatPrint which is called from startup IIFEs
+const chatLog = document.getElementById('chat-log');
+const chatIn  = document.getElementById('chat-in');
+
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  GAME OF WAR  —  Single-file Three.js strategy/FPS hybrid   ║
 // ╠══════════════════════════════════════════════════════════════╣
@@ -3067,8 +3071,6 @@ function tickCombatAudio(dt){
 }
 
 // ─── Chat command system ──────────────────────────────────────
-const chatLog = document.getElementById('chat-log');
-const chatIn  = document.getElementById('chat-in');
 
 function chatPrint(msg, cls='sys'){
   const el=document.createElement('div');
