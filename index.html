@@ -619,9 +619,21 @@
 <script>
 'use strict';
 
-// ══════════════════════════════════════════════════════════════
-// GLOBAL ARRAYS — absolute top, no temporal dead zone possible
-// ══════════════════════════════════════════════════════════════
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  GAME OF WAR  —  Single-file Three.js strategy/FPS hybrid   ║
+// ╠══════════════════════════════════════════════════════════════╣
+// ║  PART 1  FOUNDATION  — state, scene, audio, materials        ║
+// ║  PART 2  WORLD       — terrain, chunks, buildings, town      ║
+// ║  PART 3  UNITS       — meshes, spawns, AI, combat, movement  ║
+// ║  PART 4  PLAYER      — camera, controls, commands, HUD       ║
+// ║  PART 5  SYSTEMS     — day/night, minimap, loop, save/load   ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+// ════════════════════════════════════════════════════════════════
+// PART 1 — FOUNDATION
+// Global state, scene, renderer, audio system, materials
+// ════════════════════════════════════════════════════════════════
+
 const units         = [];
 const destructibles = [];
 const enemyLastSeen = [];
@@ -1081,6 +1093,12 @@ function checkBuildingCollision(pos){
   }
   return false;
 }
+
+// ════════════════════════════════════════════════════════════════
+// PART 2 — WORLD
+// PRNG, noise, biomes, terrain chunks, all building meshes,
+// town/enemy-base initialisation, tents, sleeping tents
+// ════════════════════════════════════════════════════════════════
 
 // ─── PRNG ─────────────────────────────────────────────────────
 function seededRand(seed){
@@ -2176,6 +2194,13 @@ function makeBellMesh(){
   return g;
 }
 
+// ════════════════════════════════════════════════════════════════
+// PART 3 — UNITS
+// All unit mesh builders + spawn functions, villager AI,
+// combat (arrows, forts, unit shots), movement, special ticks,
+// catapult / boulders, enemy waves, kill/death
+// ════════════════════════════════════════════════════════════════
+
 // ─── Villager mesh ────────────────────────────────────────────
 const _VCOLS={
   farmer:    [0x6b4218, 0xb8860b],
@@ -2451,9 +2476,7 @@ function spawnVillager(type, wx, wz){
   return v;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// INFINITE CHUNK SYSTEM
-// ═══════════════════════════════════════════════════════════════
+// ─── Infinite chunk system ────────────────────────────────────
 const CHUNK_CELLS = 16, CHUNK_W = CHUNK_CELLS * CS; // 48 world units per chunk
 
 // ─── Layered biome system (chunk terrain only) ────────────────
@@ -2679,11 +2702,7 @@ function updateChunks(){
 }
 updateChunks(); // seed initial neighbours
 
-// ═══════════════════════════════════════════════════════════════
-// UNITS
-// ═══════════════════════════════════════════════════════════════
-
-// Unit body colours
+// ─── Unit body colours ────────────────────────────────────────
 const U_COL = { 1: 0xcc2222, 2: 0x2244cc };
 
 function buildUnitMesh(player){
@@ -3330,9 +3349,14 @@ scene.add(selStratRing);
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const _groundHit  = new THREE.Vector3();
 
-// ═══════════════════════════════════════════════════════════════
-// CAMERA MODES  'ghost' (ground walk) | 'possess' | 'fort'
-// ═══════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
+// PART 4 — PLAYER & CONTROLS
+// Camera modes (ghost/possess/fort), pointer-lock, keyboard +
+// mouse input, chat command parser, voice radio, build-ghost,
+// fog-of-war, intel, minimap, all HUD bars
+// ════════════════════════════════════════════════════════════════
+
+// ─── Camera mode state ────────────────────────────────────────
 let cameraMode    = 'ghost';
 let ghostLocked   = false;
 let possessedUnit = null;
@@ -4890,9 +4914,13 @@ function _voiceStop(){
   // onend callback cleans up state
 }
 
-// ═══════════════════════════════════════════════════════════════
-// DAY / NIGHT CYCLE
-// ═══════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
+// PART 5 — SYSTEMS & LOOP
+// Day/night cycle, villager AI, auto-train, enemy waves, mine,
+// command menu, grain overlay, save/load, title screen, animate
+// ════════════════════════════════════════════════════════════════
+
+// ─── Day / Night cycle ────────────────────────────────────────
 function tickDayNight(dt){
   _dayT=(_dayT+dt)%DAY_LENGTH;
   const n=nightness();
