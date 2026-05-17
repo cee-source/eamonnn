@@ -5404,6 +5404,13 @@ function animate(){
   renderer.render(scene, camera);
 }
 animate();
+
+// Expose title-screen functions to global/window scope for HTML onclick handlers.
+// Some environments (CodePen sandbox, strict-mode wrappers) don't auto-promote
+// top-level function declarations to window properties.
+window.tsNav          = tsNav;
+window.tsPickControl  = tsPickControl;
+window.tsLoadWorld    = tsLoadWorld;
 </script>
 
 <!-- Mobile virtual joystick -->
