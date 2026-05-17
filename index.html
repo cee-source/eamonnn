@@ -237,6 +237,37 @@
       0%,92%,100% { opacity: 1; } 93%,99% { opacity: 0.15; }
     }
 
+    /* ── Victory screen ─────────────────────────────────────────── */
+    #victory {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.88); z-index: 200;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(8px);
+    }
+    #victory.v-active { display: flex; }
+    .v-inner { text-align: center; }
+    .v-title {
+      color: #ffd700; font-size: 48px; letter-spacing: 10px;
+      font-family: 'Courier New', monospace;
+      animation: vGlow 1.8s ease-in-out infinite;
+    }
+    .v-sub {
+      color: #c8960a; font-size: 15px; margin-top: 14px;
+      font-family: 'Courier New', monospace; letter-spacing: 4px;
+    }
+    .v-stats { color: #8a6620; font-size: 11px; margin-top: 10px; letter-spacing: 2px; }
+    .v-restart {
+      margin-top: 36px; display: block; background: none;
+      border: 1px solid #ffd700; color: #ffd700;
+      font-family: 'Courier New', monospace; font-size: 13px;
+      letter-spacing: 3px; padding: 10px 28px; cursor: pointer;
+    }
+    .v-restart:hover { background: rgba(255,215,0,0.12); }
+    @keyframes vGlow {
+      0%,100% { text-shadow: 0 0 40px #ffaa00, 0 0 80px rgba(255,180,0,0.5); }
+      50%      { text-shadow: 0 0 70px #ffd700, 0 0 140px rgba(255,210,0,0.9); }
+    }
+
     /* ── Medic bandage supply bar ───────────────────────────────── */
     #medic-supply-wrap {
       position: fixed; bottom: 50px; right: 160px;
@@ -557,6 +588,16 @@
   </div>
 </div>
 
+<!-- Victory overlay -->
+<div id="victory">
+  <div class="v-inner">
+    <div class="v-title">VICTORY!</div>
+    <div class="v-sub">THE ENEMY STRONGHOLD HAS FALLEN.</div>
+    <div class="v-stats" id="v-stats"></div>
+    <button class="v-restart" onclick="location.reload()">PLAY AGAIN</button>
+  </div>
+</div>
+
 <!-- Medic bandage supply bar (visible when possessing a Medic) -->
 <div id="medic-supply-wrap">
   <span id="msp-label">✚ SUPPLIES</span>
@@ -596,11 +637,18 @@ const castles       = [];   // mega castle structures with HP
 const towers        = [];   // individual tower structures with HP
 const craters       = [];   // scorched ground from TNT blasts
 const tents         = [];   // sleeping tents (P1 and P2 bases)
+const catapults     = [];   // siege catapults (buildable)
+const boulders      = [];   // in-flight catapult boulders
 let   _bellMeshRef  = null; // bell mesh for swing animation
+
+// ─── Enemy wave spawning ──────────────────────────────────────
+let _waveTimer  = 90;   // seconds until first wave
+let _waveNumber = 0;
+let _waveWarned = false;
 
 // ─── Gold economy ─────────────────────────────────────────────
 let playerGold = 200;
-const BLDG_COST = { tower:80, wall:30, barracks:100, cauldron:50, spike:20 };
+const BLDG_COST = { tower:80, wall:30, barracks:100, cauldron:50, spike:20, catapult:150 };
 const AUTO_TRAIN_INTERVAL = 60;  // seconds between free unit spawns
 const AUTO_TRAIN_COST     = 30;  // gold per auto-trained soldier
 let   _autoTrainTimer     = AUTO_TRAIN_INTERVAL;
@@ -780,6 +828,32 @@ const SND_HEAL_CHIME = _mkBuf((t,p)=>(
   Math.sin(2*Math.PI*1320*t)*0.25 +
   Math.sin(2*Math.PI*1760*t)*0.12
 )*Math.exp(-p*3.5)*0.55, 0.9);
+// Victory fanfare: ascending triumphal chord sequence
+const SND_VICTORY = (function(){
+  const sr=audioCtx.sampleRate, dur=3.0, len=Math.floor(sr*dur);
+  const buf=audioCtx.createBuffer(1,len,sr), d=buf.getChannelData(0);
+  const notes=[523,659,784,1047]; // C5 E5 G5 C6
+  for(let i=0;i<len;i++){
+    const p=i/len, ni=Math.min(3,Math.floor(p*4)), np=(p*4)%1;
+    const env=np<0.08?np/0.08:Math.exp(-(np-0.08)*3.5);
+    d[i]=(Math.sin(2*Math.PI*notes[ni]*i/sr)*0.55
+        + Math.sin(2*Math.PI*notes[ni]*1.5*i/sr)*0.20
+        + Math.sin(2*Math.PI*notes[ni]*2*i/sr)*0.10)*env*0.75;
+  }
+  return buf;
+})();
+// Catapult launch: deep wood creak + release thud
+const SND_CATAPULT = _mkBuf((t,p)=>{
+  const thud  = Math.sin(2*Math.PI*48*t)*Math.exp(-p*4)*0.60;
+  const creak = Math.sin(2*Math.PI*(140+p*80)*t)*Math.exp(-p*7)*0.28;
+  const noise = (Math.random()-0.5)*Math.exp(-p*12)*0.22;
+  return thud+creak+noise;
+}, 0.8);
+// Boulder impact: stone explosion crunch
+const SND_BOULDER_HIT = _mkBuf((t,p)=>(
+  Math.sin(2*Math.PI*62*t)*0.55 + Math.sin(2*Math.PI*95*t)*0.30
+  + (Math.random()-0.5)*0.45
+)*Math.exp(-p*2.8)*0.80, 1.1);
 
 function playAt(worldPos, buffer, refDist=CS, rolloff=2.5){
   if(!buffer||audioCtx.state==='suspended') return;
@@ -1313,6 +1387,20 @@ function destroyCastle(castle){
   spawnShockwave(new THREE.Vector3(castle.wx,3,castle.wz));
   playUI(SND_CASTLE_FALL);
   chatPrint(`💥 A ${castle.player===1?'P1':'P2'} castle has been destroyed!`,'sys');
+  if(castle.player===2 && castles.every(c=>c.player!==2||c.ruined)) triggerVictory();
+  if(castle.player===1 && castles.every(c=>c.player!==1||c.ruined)) triggerGameOver();
+}
+
+function triggerVictory(){
+  if(_gameOver) return;
+  _gameOver = true;
+  setTimeout(()=>playUI(SND_VICTORY), 400);
+  chatPrint('🏆 VICTORY! The enemy stronghold has fallen!','sys');
+  const elapsed = Math.floor(clock.getElapsedTime());
+  const mins = Math.floor(elapsed/60), secs = elapsed%60;
+  document.getElementById('v-stats').textContent =
+    `TIME: ${mins}m ${secs}s  |  GOLD REMAINING: ${playerGold}`;
+  document.getElementById('victory').classList.add('v-active');
 }
 
 // ─── Tower spawn + HP + death ─────────────────────────────────
@@ -1611,6 +1699,236 @@ function tickMedics(dt){
   } else {
     msWrap.style.display='none';
   }
+}
+
+// ─── Catapult siege weapon ────────────────────────────────────
+function buildCatapultMesh(player){
+  const woodCol = player===1 ? 0x7a5230 : 0x4a1a1a;
+  const mat = new THREE.MeshStandardMaterial({color:woodCol, roughness:0.88, metalness:0.08});
+  const ironMat = new THREE.MeshStandardMaterial({color:0x555555, roughness:0.7, metalness:0.45});
+  const g = new THREE.Group();
+  // Wheeled base frame
+  const base = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.38, 1.05), mat);
+  base.position.y = 0.65; g.add(base);
+  // Axle rod
+  const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,1.3,7), ironMat);
+  axle.rotation.z = Math.PI/2; axle.position.set(0, 0.4, 0); g.add(axle);
+  // Wheels x4
+  const wMat = new THREE.MeshStandardMaterial({color:0x2e1800, roughness:0.92});
+  [[-1.05,-0.42],[1.05,-0.42],[-1.05,0.42],[1.05,0.42]].forEach(([x,z])=>{
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.30,0.30,0.16,10), wMat);
+    w.rotation.z = Math.PI/2; w.position.set(x, 0.32, z); g.add(w);
+    // Spokes
+    for(let k=0;k<5;k++){
+      const spoke = new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.56,4), mat);
+      spoke.rotation.x = k*Math.PI/5*2; spoke.position.set(x, 0.32, z); g.add(spoke);
+    }
+  });
+  // Upright struts
+  [-0.4,0.4].forEach(z=>{
+    const strut = new THREE.Mesh(new THREE.BoxGeometry(0.15,1.6,0.15), mat);
+    strut.position.set(0.1,1.2,z); g.add(strut);
+  });
+  // Pivot pin
+  const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.065,1.0,7), ironMat);
+  pin.rotation.z = Math.PI/2; pin.position.set(0.1,1.25,0); g.add(pin);
+  // Throwing arm (angled back, ready to fire)
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.4, 0.18), mat);
+  arm.position.set(0.1, 2.0, 0); arm.rotation.z = -0.7; g.add(arm);
+  // Sling cup at arm tip
+  const tipX = 0.1 + Math.sin(0.7)*2.0, tipY = 2.0 + Math.cos(0.7)*2.0;
+  const cup = new THREE.Mesh(new THREE.SphereGeometry(0.25,7,5), mat);
+  cup.position.set(tipX, tipY, 0); g.add(cup);
+  // Counterweight bucket on short end
+  const cwX = 0.1 - Math.sin(0.7)*0.7, cwY = 2.0 - Math.cos(0.7)*0.7;
+  const cw = new THREE.Mesh(new THREE.BoxGeometry(0.45,0.55,0.45), ironMat);
+  cw.position.set(cwX, cwY, 0); g.add(cw);
+  // Player colour banner on frame
+  const bannerCol = player===1 ? 0x2255cc : 0xcc2222;
+  const banner = new THREE.Mesh(new THREE.PlaneGeometry(0.3,0.45),
+    new THREE.MeshStandardMaterial({color:bannerCol, roughness:0.7, side:THREE.DoubleSide}));
+  banner.position.set(0.1, 2.85, 0); banner.rotation.y=Math.PI/2; g.add(banner);
+  g.traverse(c=>{ c.castShadow = c.receiveShadow = true; });
+  return g;
+}
+
+function spawnCatapult(player, wx, wz){
+  const mesh = buildCatapultMesh(player);
+  mesh.position.set(wx, 0.4, wz); scene.add(mesh);
+  const cat = {player, mesh, wx, wz, cooldown:6.0+Math.random()*3, range:70};
+  catapults.push(cat);
+  return cat;
+}
+
+function tickCatapults(dt){
+  for(const cat of catapults){
+    cat.cooldown -= dt;
+    if(cat.cooldown > 0) continue;
+    let target=null, td=cat.range*cat.range;
+    for(const c of castles){
+      if(c.ruined||c.player===cat.player) continue;
+      const dx=c.wx-cat.wx, dz=c.wz-cat.wz, d2=dx*dx+dz*dz;
+      if(d2<td){ td=d2; target={x:c.wx,z:c.wz,isCastle:true,obj:c}; }
+    }
+    for(const tw of towers){
+      if(tw.dead||tw.player===cat.player) continue;
+      const dx=tw.wx-cat.wx, dz=tw.wz-cat.wz, d2=dx*dx+dz*dz;
+      if(d2<td){ td=d2; target={x:tw.wx,z:tw.wz,isTower:true,obj:tw}; }
+    }
+    if(!target) continue;
+    cat.cooldown = 6.0 + Math.random()*3;
+    const origin = new THREE.Vector3(cat.wx, 2.8, cat.wz);
+    const dest = new THREE.Vector3(
+      target.x + (Math.random()-0.5)*2.5, 0.5,
+      target.z + (Math.random()-0.5)*2.5
+    );
+    const bMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.38,8,6),
+      new THREE.MeshStandardMaterial({color:0x5a5555, roughness:0.96, metalness:0.1})
+    );
+    bMesh.castShadow = true;
+    bMesh.position.copy(origin); scene.add(bMesh);
+    const dur = 0.8 + Math.hypot(target.x-cat.wx, target.z-cat.wz)/28;
+    boulders.push({mesh:bMesh, origin:origin.clone(), dest:dest.clone(), t:0, dur, owner:cat.player, targetRef:target});
+    playAt(new THREE.Vector3(cat.wx,1.5,cat.wz), SND_CATAPULT, 14, 2.0);
+  }
+}
+
+function tickBoulders(dt){
+  for(let i=boulders.length-1;i>=0;i--){
+    const b = boulders[i];
+    b.t += dt;
+    const p = Math.min(1, b.t / b.dur);
+    b.mesh.position.lerpVectors(b.origin, b.dest, p);
+    b.mesh.position.y = THREE.MathUtils.lerp(b.origin.y, b.dest.y, p) + Math.sin(p*Math.PI)*14;
+    b.mesh.rotation.x += dt*4;
+    if(p >= 1){
+      const imp = b.dest.clone();
+      const tr = b.targetRef;
+      if(tr.isCastle && !tr.obj.ruined){
+        tr.obj.hp = Math.max(0, tr.obj.hp-55);
+        playAt(imp, SND_BOULDER_HIT, 18, 1.4);
+        if(tr.obj.hp<=0) destroyCastle(tr.obj);
+        else chatPrint(`💥 Boulder hits enemy castle! (${Math.round(tr.obj.hp)} HP left)`,'sys');
+      } else if(tr.isTower && !tr.obj.dead){
+        tr.obj.hp = Math.max(0, tr.obj.hp-65);
+        playAt(imp, SND_BOULDER_HIT, 14, 1.5);
+        if(tr.obj.hp<=0) destroyTower(tr.obj);
+      }
+      for(const u of units){
+        if(u.player===b.owner) continue;
+        const dx=u.mesh.position.x-imp.x, dz=u.mesh.position.z-imp.z;
+        if(dx*dx+dz*dz<16){ u.hp-=30; if(u.hp<=0) killUnit(u); }
+      }
+      spawnShockwave(imp.clone().setY(0.5));
+      scene.remove(b.mesh); boulders.splice(i,1);
+    }
+  }
+}
+
+// ─── Enemy reinforcement waves ────────────────────────────────
+function tickEnemyWaves(dt){
+  if(_gameOver) return;
+  _waveTimer -= dt;
+  if(!_waveWarned && _waveTimer > 0 && _waveTimer < 12){
+    _waveWarned = true;
+    chatPrint('⚠ Enemy reinforcements incoming!','sys');
+    playUI(SND_WARN);
+  }
+  if(_waveTimer > 0) return;
+  _waveNumber++;
+  _waveWarned = false;
+  _waveTimer = 75 + Math.random()*25;
+  const count = 2 + Math.min(_waveNumber, 5);
+  for(let i=0;i<count;i++){
+    const wx = ENEMY_BASE_X + (Math.random()-0.5)*CS*5;
+    const wz = ENEMY_BASE_Z + (Math.random()-0.5)*CS*5;
+    const u = spawnUnit(2,0,0);
+    u.mesh.position.set(wx,0.4,wz);
+    u.mesh.visible = false;
+    u.unitName = pickName(); u._warnTimer = Math.random()*5;
+    u.maxHp = u.hp = 20+_waveNumber*2; u.attackTimer = Math.random()*2;
+    u._flashTimer=0; u.stamina=100; u.maxStamina=100;
+    u.scouting=false; u.scoutTimer=0; u.combatTarget=null; u._resting=false;
+    u.homePos = new THREE.Vector3(ENEMY_BASE_X,0,ENEMY_BASE_Z);
+    addHPBar(u); addStaminaBar(u);
+  }
+  chatPrint(`⚔ Wave ${_waveNumber}: ${count} enemy reinforcements!`,'sys');
+}
+
+// ─── Cavalry unit ─────────────────────────────────────────────
+function buildCavalryMesh(player){
+  const armorCol = player===1 ? 0x8b6914 : 0x6a1a1a;
+  const horseCol = player===1 ? 0x5c3318 : 0x2a1a10;
+  const mat  = new THREE.MeshStandardMaterial({color:armorCol, roughness:0.75, metalness:0.25});
+  const hmat = new THREE.MeshStandardMaterial({color:horseCol, roughness:0.90, metalness:0.05});
+  const g = new THREE.Group();
+  // Horse torso
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.65,0.48,1.25), hmat);
+  body.position.y = 0.78; g.add(body);
+  // Horse neck + head
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.18,0.44,7), hmat);
+  neck.position.set(0,1.05,0.52); neck.rotation.x=-0.5; g.add(neck);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.28,0.42), hmat);
+  head.position.set(0,1.28,0.72); g.add(head);
+  // Mane stripe
+  const maneMat = new THREE.MeshStandardMaterial({color:0x1a0d00, roughness:0.95});
+  const mane = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.22,0.55), maneMat);
+  mane.position.set(0,0.99,0.4); g.add(mane);
+  // Horse legs (slightly splayed for gallop feel)
+  [[0.22,0.30,0.38],[0.22,0.30,-0.42],[-0.22,0.30,0.38],[-0.22,0.30,-0.42]].forEach(([x,y,z])=>{
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.065,0.62,6), hmat);
+    leg.position.set(x,y,z); g.add(leg);
+    const hoof = new THREE.Mesh(new THREE.BoxGeometry(0.13,0.1,0.18),
+      new THREE.MeshStandardMaterial({color:0x111111,roughness:0.9}));
+    hoof.position.set(x,0.0,z); g.add(hoof);
+  });
+  // Tail
+  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.02,0.55,5), maneMat);
+  tail.position.set(0,0.88,-0.72); tail.rotation.x=0.7; g.add(tail);
+  // Saddle / rider torso
+  const saddle = new THREE.Mesh(new THREE.BoxGeometry(0.38,0.14,0.46), mat);
+  saddle.position.set(0,1.06,-0.06); g.add(saddle);
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.30,0.44,0.24), mat);
+  torso.position.y=1.38; g.add(torso);
+  // Helmet
+  const helm = new THREE.Mesh(new THREE.SphereGeometry(0.18,8,7), mat);
+  helm.position.y=1.73; g.add(helm);
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.20,0.07,0.12),
+    new THREE.MeshStandardMaterial({color:0x888888,roughness:0.4,metalness:0.8}));
+  visor.position.set(0,1.72,0.16); g.add(visor);
+  // Lance
+  const lanceMat = new THREE.MeshStandardMaterial({color:0xc8a832, roughness:0.55, metalness:0.45});
+  const lance = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.025,2.2,5), lanceMat);
+  lance.rotation.z=-Math.PI/5; lance.position.set(0.32,1.45,0.55); g.add(lance);
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.06,0.25,5), lanceMat);
+  tip.position.set(0.32+Math.sin(Math.PI/5)*2.2*0.5,
+    1.45+Math.cos(Math.PI/5)*2.2*0.5, 0.55); g.add(tip);
+  // Player banner pennant
+  const penMat = new THREE.MeshStandardMaterial({
+    color: player===1?0x2255cc:0xcc2222, roughness:0.7, side:THREE.DoubleSide});
+  const pen = new THREE.Mesh(new THREE.PlaneGeometry(0.18,0.30), penMat);
+  pen.position.set(0.44,1.95,0.35); pen.rotation.y=Math.PI/2; g.add(pen);
+  g.traverse(c=>{ c.castShadow = c.receiveShadow = true; });
+  return g;
+}
+
+function spawnCavalry(player, col, row){
+  const mesh = buildCavalryMesh(player);
+  const wx = col*CS+CS/2, wz = row*CS+CS/2;
+  mesh.position.set(wx, 0.4, wz); scene.add(mesh);
+  const u = {
+    player, mesh, hp:45, maxHp:45, isCavalry:true, speed:5.8,
+    dest:null, combatTarget:null, attackTimer:Math.random()*2,
+    stamina:100, maxStamina:100, scouting:false, scoutTimer:0,
+    _warnTimer:Math.random()*5, _flashTimer:0, _resting:false,
+  };
+  u.unitName = pickName();
+  if(player===2) u.homePos = new THREE.Vector3(ENEMY_BASE_X,0,ENEMY_BASE_Z);
+  mesh.traverse(c=>{ if(c.isMesh) c.userData.unitRef=u; });
+  units.push(u);
+  addHPBar(u); addStaminaBar(u);
+  return u;
 }
 
 // ─── House (villager shelter) ─────────────────────────────────
@@ -2564,11 +2882,12 @@ function parseCommand(raw){
 
   // ── Build command — "build [type] here" ─────────────────────────────────
   {
-    const bm=txt.match(/\b(?:build|construct|place|erect)\s+(tower|wall|barracks|oil\s*cauldron|cauldron|spike\s*trap|spike)/i);
+    const bm=txt.match(/\b(?:build|construct|place|erect)\s+(tower|wall|barracks|oil\s*cauldron|cauldron|spike\s*trap|spike|catapult|siege)/i);
     if(bm){
       let btype=bm[1].toLowerCase().replace(/\s+/g,'');
       if(btype==='oilcauldron') btype='cauldron';
       if(btype==='spiketrap')   btype='spike';
+      if(btype==='siege')       btype='catapult';
       // Must be possessing a Builder OR standing within 5 tiles of P1 HQ
       const nearHQ=(()=>{ const dx=camera.position.x-CS*0.5, dz=camera.position.z-CS*0.5; return dx*dx+dz*dz<(CS*5)*(CS*5); })();
       const hasBuilder=isPossessing&&possessedUnit?.isBuilder;
@@ -2729,6 +3048,9 @@ spawnSpy(1,3,1);      { const u=spawnSpy(2,0,0);      u.mesh.position.set(E+CS*2
 spawnRanger(1,3,2);   { const u=spawnRanger(2,0,0);   u.mesh.position.set(E+CS*2,0.4,EZ+CS);   }
 spawnAssassin(1,4,1); { const u=spawnAssassin(2,0,0); u.mesh.position.set(E-CS*2,0.4,EZ-CS*2); }
 spawnFunnyMan(1,4,8); { const u=spawnFunnyMan(2,0,0); u.mesh.position.set(E+CS*3,0.4,EZ);      }
+// Cavalry — one per side
+spawnCavalry(1,4,3);
+{ const uc=spawnCavalry(2,0,0); uc.mesh.position.set(E+CS*2,0.4,EZ+CS); }
 // Builders
 spawnBuilder(1,2,5);  spawnBuilder(1,3,6);
 [0,1].forEach(i=>{ const u=spawnBuilder(2,0,0); u.mesh.position.set(E+CS*(i-1),0.4,EZ+CS*3); });
@@ -2891,7 +3213,7 @@ function tickPossess(dt){
     if(u._resting && u.stamina>=50) u._resting=false;
   }
   const speedMod = u._resting ? 0 : 1;
-  const spd = UNIT_SPD * dt * (u.isAssassin ? 2 : 1) * (u.isShieldMan ? 0.70 : 1) * (u.isMedic ? 0.85 : 1) * speedMod;
+  const spd = UNIT_SPD * dt * (u.isAssassin ? 2 : 1) * (u.isCavalry ? 1.16 : 1) * (u.isShieldMan ? 0.70 : 1) * (u.isMedic ? 0.85 : 1) * speedMod;
 
   if(ghostKeys['KeyW']) mesh.translateZ(-spd);
   if(ghostKeys['KeyS']) mesh.translateZ( spd);
@@ -3261,7 +3583,8 @@ function tickUnitMovement(dt){
     unit.stamina = Math.max(0, unit.stamina - 15*dt);
     if(unit.stamina <= 0){ unit._resting = true; continue; }
     const shieldSlowMod = unit.isShieldMan ? 0.70 : 1;
-    const move = Math.min(UNIT_SPD * shieldSlowMod * dt, dist);
+    const cavalryMod   = unit.isCavalry   ? 1.16 : 1;
+    const move = Math.min(UNIT_SPD * shieldSlowMod * cavalryMod * dt, dist);
     unit.mesh.position.x += (dx/dist) * move;
     unit.mesh.position.z += (dz/dist) * move;
     unit.mesh.rotation.y  = Math.atan2(-dx, -dz);
@@ -3638,7 +3961,7 @@ function tickHPBars(){
   }
 }
 
-function spawnUnitShot(fromPos, toPos, ownerPlayer){
+function spawnUnitShot(fromPos, toPos, ownerPlayer, ownerIsCavalry){
   const origin = fromPos.clone(); origin.y += 0.8;
   const dir = toPos.clone(); dir.y += 0.8; dir.sub(origin).normalize();
   const col = ownerPlayer === 1 ? 0x4488ff : 0xff4444;
@@ -3646,7 +3969,7 @@ function spawnUnitShot(fromPos, toPos, ownerPlayer){
   const mesh = new THREE.Mesh(UNIT_SHOT_GEO, mat);
   mesh.position.copy(origin);
   scene.add(mesh);
-  unitShots.push({mesh, mat, dir, ownerPlayer, traveled:0, maxDist: UNIT_ATTACK_RANGE + 4});
+  unitShots.push({mesh, mat, dir, ownerPlayer, ownerIsCavalry:!!ownerIsCavalry, traveled:0, maxDist: UNIT_ATTACK_RANGE + 4});
 }
 
 function tickUnitCombat(dt){
@@ -3677,7 +4000,7 @@ function tickUnitCombat(dt){
         u.attackTimer = (u.attackTimer||0) - dt;
         if(u.attackTimer <= 0){
           u.attackTimer = UNIT_ATTACK_CD;
-          spawnUnitShot(u.mesh.position, nearest.mesh.position, u.player);
+          spawnUnitShot(u.mesh.position, nearest.mesh.position, u.player, u.isCavalry);
           u._flashTimer = 0.20; // scale-pulse on attack
         }
       } else {
@@ -3740,10 +4063,10 @@ function tickUnitShots(dt){
         const sm=units.find(ss=>ss.isShieldMan&&ss.player===unit.player&&ss!==unit&&
           Math.hypot(ss.mesh.position.x-unit.mesh.position.x,ss.mesh.position.z-unit.mesh.position.z)<2*CS);
         const target=sm||unit;
-        let dmg=UNIT_ATTACK_DMG;
+        let dmg = s.ownerIsCavalry ? Math.round(UNIT_ATTACK_DMG*1.75) : UNIT_ATTACK_DMG;
         if(sm){
           const smFwd=new THREE.Vector3(); sm.mesh.getWorldDirection(smFwd);
-          dmg=s.dir.dot(smFwd)>0 ? Math.ceil(UNIT_ATTACK_DMG*0.5) : UNIT_ATTACK_DMG;
+          dmg=s.dir.dot(smFwd)>0 ? Math.ceil(dmg*0.5) : dmg;
         }
         target.hp-=dmg;
         if(target.player===1) playAt(target.mesh.position.clone(),SND_HIT,CS,3);
@@ -3813,8 +4136,9 @@ function makeGhostMesh(type){
     case 'tower':    geo=new THREE.CylinderGeometry(0.85,1.0,9,12);     break;
     case 'wall':     geo=new THREE.BoxGeometry(CS,2.5,0.55);             break;
     case 'barracks': geo=new THREE.BoxGeometry(CS*0.9,2.2,CS*0.9);      break;
-    case 'cauldron': geo=new THREE.SphereGeometry(0.5,8,6);             break;
-    case 'spike':    geo=new THREE.CylinderGeometry(0.3,0.05,0.55,6);   break;
+    case 'cauldron':  geo=new THREE.SphereGeometry(0.5,8,6);             break;
+    case 'spike':     geo=new THREE.CylinderGeometry(0.3,0.05,0.55,6);  break;
+    case 'catapult':  geo=new THREE.BoxGeometry(2.4,2.2,1.1);           break;
   }
   const mesh=new THREE.Mesh(geo,mat);
   mesh.position.y=geo?1.0:0; g.add(mesh);
@@ -3869,6 +4193,11 @@ function completeBuilding(ghost){
       const sm=makeSpikeTrapMesh(); sm.position.set(p.x,0.4,p.z); scene.add(sm);
       spikeTraps.push({mesh:sm,pos:p.clone(),radius:CS*0.85});
       chatPrint(`🗡 Spike Trap set — invisible to enemies`,'sys');
+      return;
+    }
+    case 'catapult':{
+      spawnCatapult(1, p.x, p.z);
+      chatPrint(`🪨 Catapult built — auto-fires boulders at enemy structures!`,'sys');
       return;
     }
   }
@@ -4783,6 +5112,9 @@ function animate(){
   tickSpecialUnits(dt);
   tickCombatAudio(dt);
   tickAutoTrain(dt);
+  tickEnemyWaves(dt);
+  tickCatapults(dt);
+  tickBoulders(dt);
   tickBuilders(dt);
   tickOilCauldrons(dt);
   tickSpikeTraps();
