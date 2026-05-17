@@ -1931,6 +1931,196 @@ function spawnCavalry(player, col, row){
   return u;
 }
 
+// ─── Blacksmith building ──────────────────────────────────────
+function makeBlacksmithMesh(){
+  const g = new THREE.Group();
+  const stoneMat = BMAT.stone;
+  const woodMat  = BMAT.wood;
+  const darkMat  = BMAT.dark;
+  // Stone body
+  const body = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.0, 2.0), stoneMat);
+  body.position.y = 1.0; body.castShadow = body.receiveShadow = true; g.add(body);
+  // Wooden peaked roof
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(1.8, 1.4, 4), woodMat);
+  roof.position.y = 2.7; roof.rotation.y = Math.PI/4; roof.castShadow = true; g.add(roof);
+  // Door opening (dark box cut-out)
+  const door = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.0, 0.22), darkMat);
+  door.position.set(0, 0.5, 1.02); g.add(door);
+  // Two windows (glass-coloured planes)
+  const wMat = new THREE.MeshStandardMaterial({color:0xff8820,transparent:true,opacity:0.7,emissive:0xff6600,emissiveIntensity:0.8});
+  [-0.65, 0.65].forEach(x=>{
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.32), wMat);
+    win.position.set(x, 1.1, 1.02); g.add(win);
+  });
+  // Forge pit (flat dark circle)
+  const forgeMat = new THREE.MeshStandardMaterial({color:0xff4400,roughness:0.3,emissive:0xff2200,emissiveIntensity:1.5});
+  const forge = new THREE.Mesh(new THREE.CylinderGeometry(0.38,0.38,0.08,10), forgeMat);
+  forge.position.set(-0.55, 2.04, -0.3); g.add(forge);
+  // Anvil
+  const anvMat = new THREE.MeshStandardMaterial({color:0x222222,roughness:0.4,metalness:0.8});
+  const anvBase = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.32,0.30), anvMat);
+  anvBase.position.set(0.5,0.32+2.04,-0.2); g.add(anvBase);
+  const anvTop  = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.16,0.28), anvMat);
+  anvTop.position.set(0.5,0.54+2.04,-0.2); g.add(anvTop);
+  // Chimney
+  const chim = new THREE.Mesh(new THREE.BoxGeometry(0.5,1.2,0.5), stoneMat);
+  chim.position.set(-0.55, 3.5, -0.3); g.add(chim);
+  // Glowing forge point light
+  const light = new THREE.PointLight(0xff6600, 3.0, 8.0);
+  light.position.set(-0.55, 2.5, -0.3); g.add(light);
+  g.traverse(c=>{ c.castShadow = c.receiveShadow = true; });
+  return g;
+}
+
+// ─── Mine entrance ────────────────────────────────────────────
+let _mineTimer = 30;   // seconds until first gold yield
+let _mineActive = false;
+function makeMineEntrance(){
+  const g = new THREE.Group();
+  const stoneMat = BMAT.stone;
+  const woodMat  = BMAT.wood;
+  const darkMat  = BMAT.dark;
+  // Stone portal arch pillars
+  [-1.1, 1.1].forEach(x=>{
+    const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.55,3.4,0.55), stoneMat);
+    pillar.position.set(x,1.7,0); pillar.castShadow=true; g.add(pillar);
+  });
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(2.8,0.5,0.55), stoneMat);
+  lintel.position.set(0,3.65,0); lintel.castShadow=true; g.add(lintel);
+  // Dark tunnel interior
+  const tunnel = new THREE.Mesh(new THREE.BoxGeometry(2.0,2.8,1.8), darkMat);
+  tunnel.position.set(0,1.4,-0.5); g.add(tunnel);
+  // Wooden support beams inside (visible as X frame)
+  [[-0.6,0.0],[0.6,0.0]].forEach(([x])=>{
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.15,3.2,0.15), woodMat);
+    beam.position.set(x,1.6,-0.3); g.add(beam);
+    const cross = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,1.2), woodMat);
+    cross.position.set(x,2.0,-0.3); g.add(cross);
+  });
+  const crossBeam = new THREE.Mesh(new THREE.BoxGeometry(1.5,0.18,0.18), woodMat);
+  crossBeam.position.set(0,2.5,-0.3); g.add(crossBeam);
+  // Mine cart on rails
+  const cartMat = new THREE.MeshStandardMaterial({color:0x4a3010,roughness:0.85});
+  const cart = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.45,0.45), cartMat);
+  cart.position.set(0.2, 0.32, 0.6); g.add(cart);
+  const wMat = new THREE.MeshStandardMaterial({color:0x111111,roughness:0.6,metalness:0.7});
+  [[0.25,0.5],[0.25,-0.5],[0.25,0.5],[0.25,-0.5]].forEach(([r,z],i)=>{
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.08,8),wMat);
+    w.rotation.z=Math.PI/2; w.position.set(i<2?0.5:0.9,0.1,z+0.6+Math.floor(i/2)*0.05); g.add(w);
+  });
+  // Gold ore glint inside
+  const oreMat = new THREE.MeshStandardMaterial({color:0xffcc00,roughness:0.2,metalness:0.9,emissive:0x885500,emissiveIntensity:0.5});
+  const ore = new THREE.Mesh(new THREE.DodecahedronGeometry(0.22,0), oreMat);
+  ore.position.set(-0.5, 1.0, -0.8); g.add(ore);
+  // Dim lantern light
+  const lant = new THREE.PointLight(0xffaa22, 1.5, 5.0);
+  lant.position.set(0, 2.0, -0.5); g.add(lant);
+  g.traverse(c=>{ c.castShadow = c.receiveShadow = true; });
+  return g;
+}
+
+function tickMine(dt){
+  if(!_mineActive||_gameOver) return;
+  _mineTimer -= dt;
+  if(_mineTimer > 0) return;
+  _mineTimer = 35 + Math.random()*15;
+  const yield_ = 8 + Math.floor(Math.random()*8);
+  playerGold += yield_;
+  updateGoldHUD();
+  chatPrint(`⛏ Mine yields ${yield_} gold! (+${yield_}g)`,'sys');
+}
+
+// ─── Village wall + gatehouse ─────────────────────────────────
+let _gateOpen    = true;   // gate starts open
+let _gateDoor    = null;   // portcullis Group mesh
+let _gateWx      = 7.5;    // world X of gatehouse centre
+let _gateWz      = 15.5;   // world Z of gatehouse centre
+
+function makeGatehouseMesh(){
+  const g = new THREE.Group();
+  // Two flanking towers
+  [-2.4, 2.4].forEach(dx=>{
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.78,0.92,5.2,9), BMAT.stone);
+    tower.position.set(dx, 2.6, 0); tower.castShadow=true; g.add(tower);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.98,0.98,0.42,9), BMAT.dark);
+    cap.position.set(dx, 5.41, 0); g.add(cap);
+    for(let k=0;k<6;k++){
+      const a=k/6*Math.PI*2;
+      const merl = new THREE.Mesh(new THREE.BoxGeometry(0.32,0.44,0.32), BMAT.stone);
+      merl.position.set(dx+Math.cos(a)*0.88, 5.82, Math.sin(a)*0.88); g.add(merl);
+    }
+    const arrowSlit = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.65,0.18), BMAT.dark);
+    arrowSlit.position.set(dx, 3.0, 0.85); g.add(arrowSlit);
+  });
+  // Keystone arch over the gate opening (3 units wide, 3 units tall)
+  const archLintel = new THREE.Mesh(new THREE.BoxGeometry(4.8,0.65,0.88), BMAT.stone);
+  archLintel.position.set(0, 4.0, 0); archLintel.castShadow=true; g.add(archLintel);
+  const archCrown  = new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.5,0.88,12,1,false,0,Math.PI), BMAT.stone);
+  archCrown.rotation.x = Math.PI/2; archCrown.position.set(0,4.33,0); g.add(archCrown);
+  // Portcullis (the closeable gate)
+  const doorGroup = new THREE.Group();
+  const dMat = new THREE.MeshStandardMaterial({color:0x3a2000,roughness:0.88});
+  for(let i=0;i<7;i++){
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.14,3.6,0.12), dMat);
+    bar.position.x = -1.8 + i*0.6; doorGroup.add(bar);
+  }
+  [0.5,1.8,3.0].forEach(y=>{
+    const cb = new THREE.Mesh(new THREE.BoxGeometry(3.7,0.12,0.12), dMat);
+    cb.position.y = y - 1.8; doorGroup.add(cb);
+  });
+  doorGroup.position.set(0, 2.0, 0);
+  g.add(doorGroup);
+  _gateDoor = doorGroup;
+  // Wall parapet connecting to main walls on each side
+  [-1.8, 1.8].forEach(dx=>{
+    const seg = new THREE.Mesh(new THREE.BoxGeometry(1.0,2.5,0.55), BMAT.stone);
+    seg.position.set(dx*2+dx*0.4, 1.25, 0); g.add(seg);
+  });
+  g.traverse(c=>{ c.castShadow = c.receiveShadow = true; });
+  return g;
+}
+
+function buildVillageWalls(){
+  const gx = _gateWx, gz = _gateWz;
+  const xMin=-1.5, xMax=16.5, zMin=-1.5, zMax=gz;
+  // North wall segments (z = zMin)
+  for(let x=xMin; x<xMax; x+=CS){
+    const m=makeWall(x+CS/2, zMin); m.position.set(x+CS/2, 0.4, zMin); scene.add(m);
+  }
+  // West wall (rotated 90°)
+  for(let z=zMin+CS; z<zMax-CS; z+=CS){
+    const m=makeWall(xMin, z+CS/2); m.rotation.y=Math.PI/2; m.position.set(xMin,0.4,z+CS/2); scene.add(m);
+  }
+  // East wall (rotated 90°)
+  for(let z=zMin+CS; z<zMax-CS; z+=CS){
+    const m=makeWall(xMax, z+CS/2); m.rotation.y=Math.PI/2; m.position.set(xMax,0.4,z+CS/2); scene.add(m);
+  }
+  // South wall — left of gate
+  for(let x=xMin; x<gx-2.5; x+=CS){
+    const m=makeWall(x+CS/2, zMax); m.position.set(x+CS/2,0.4,zMax); scene.add(m);
+  }
+  // South wall — right of gate
+  for(let x=gx+2.5; x<xMax; x+=CS){
+    const m=makeWall(x+CS/2, zMax); m.position.set(x+CS/2,0.4,zMax); scene.add(m);
+  }
+  // Gatehouse at (gx, gz)
+  const gate = makeGatehouseMesh();
+  gate.position.set(gx, 0.4, gz); scene.add(gate);
+  // Collision for gatehouse towers
+  collidables.push({wx:gx-2.4, wz:gz, radius:1.1});
+  collidables.push({wx:gx+2.4, wz:gz, radius:1.1});
+  chatPrint('🏰 Town walls built — "open gate" / "close gate" to control access','sys');
+}
+
+function setGate(open){
+  _gateOpen = open;
+  if(!_gateDoor) return;
+  // Portcullis raised = open (y+4), lowered = closed (y default)
+  _gateDoor.position.y = open ? 4.5 : 2.0;
+  chatPrint(open ? '🔓 Gatehouse opened' : '🔒 Gatehouse closed','sys');
+  playUI(SND_CMD);
+}
+
 // ─── House (villager shelter) ─────────────────────────────────
 function makeHouseMesh(){
   const g=new THREE.Group();
@@ -2152,7 +2342,7 @@ for(let row=0;row<ROWS;row++){
   });
 })();
 
-// ─── Town structures: houses + bell ───────────────────────────
+// ─── Town structures: houses + bell + blacksmith + mine + walls ─
 (function buildTown(){
   // Three houses near P1 HQ on plain tiles
   [[0,1,0],[2,0,0.3],[3,0,0]].forEach(([c,r,ry])=>{
@@ -2169,6 +2359,27 @@ for(let row=0;row<ROWS;row++){
   bellMesh.position.set(bx, 0.4, bz);
   scene.add(bellMesh);
   _bellMeshRef=bellMesh;
+
+  // Blacksmith — bright forge glow, anvil, chimney
+  const smith = makeBlacksmithMesh();
+  smith.position.set(2*CS+CS/2, 0.4, 2*CS+CS/2);
+  smith.rotation.y = -Math.PI/4;
+  scene.add(smith);
+  collidables.push({wx:2*CS+CS/2, wz:2*CS+CS/2, radius:1.5});
+  houses.push({wx:2*CS+CS/2, wz:2*CS+CS/2, pos:new THREE.Vector3(2*CS+CS/2,0.4,2*CS+CS/2)});
+
+  // Mine entrance — near the mountain tiles at col=6,row=0
+  const mineX = 6*CS+CS/2 - CS, mineZ = 0*CS + CS/2;
+  const mine = makeMineEntrance();
+  mine.position.set(mineX, 0.4, mineZ);
+  mine.rotation.y = -Math.PI/2;   // faces west toward town
+  scene.add(mine);
+  _mineActive = true;
+  collidables.push({wx:mineX, wz:mineZ, radius:1.8});
+  chatPrint(`⛏ Gold mine active — yields gold every ~35s`,'sys');
+
+  // Village walls + gatehouse around the core town area
+  buildVillageWalls();
 })();
 
 // ─── Sleeping Tents ───────────────────────────────────────────
@@ -2372,8 +2583,8 @@ function buildChunk(cx, cz){
         const base=new THREE.Mesh(new THREE.BoxGeometry(CS,colH,CS), isThick?MAT_BIOME.dense:MAT.grass);
         base.position.y=colH/2; base.receiveShadow=true; cell.add(base);
 
-        // Dense InstancedMesh cluster: 8–25 trees per tile (50+ per chunk guaranteed)
-        const minT = isThick ? 14 : 8, maxT = isThick ? 25 : 18;
+        // Dense InstancedMesh cluster: 20–40 trees per tile (100+ per chunk guaranteed)
+        const minT = isThick ? 22 : 14, maxT = isThick ? 40 : 28;
         const cnt = minT + Math.floor(rand()*(maxT-minT+1));
         for(let i=0;i<cnt;i++){
           const sc=0.45+rand()*0.85, a=rand()*Math.PI*2, r=rand()*CS*0.52;
@@ -2870,6 +3081,14 @@ function parseCommand(raw){
     ringBell(); return {bell:true};
   }
 
+  // ── Gate commands ───────────────────────────────────────────────────────
+  if(/\bopen\s+gate\b|\bopen\s+door\b|\bopen\s+gatehouse\b|\braise\s+gate\b/i.test(txt)){
+    setGate(true); return {gate:'open'};
+  }
+  if(/\bclose\s+gate\b|\bshut\s+gate\b|\bclose\s+door\b|\blower\s+gate\b/i.test(txt)){
+    setGate(false); return {gate:'close'};
+  }
+
   // ── Shield Me command ───────────────────────────────────────────────────
   if(/\bshield\s+me\b|\bprotect\s+me\b|\bguard\s+me\b/i.test(txt)){
     const sm=units.find(u=>u.isShieldMan&&u.player===1);
@@ -3158,13 +3377,26 @@ function tickGhost(dt){
   if(_flatFwd.lengthSq() < 0.0001) _flatFwd.set(0,0,-1);
   _flatFwd.normalize();
   _right.crossVectors(_flatFwd, _up).normalize();
+  const yBefore = getGroundY(camera.position.x, camera.position.z);
+  const moving = ghostKeys['KeyW']||ghostKeys['KeyS']||ghostKeys['KeyA']||ghostKeys['KeyD'];
   const spd = GHOST_SPD * dt;
   if(ghostKeys['KeyW']) camera.position.addScaledVector(_flatFwd,  spd);
   if(ghostKeys['KeyS']) camera.position.addScaledVector(_flatFwd, -spd);
   if(ghostKeys['KeyA']) camera.position.addScaledVector(_right,   -spd);
   if(ghostKeys['KeyD']) camera.position.addScaledVector(_right,    spd);
   // Lock Y to terrain height + eye level — no flying
-  camera.position.y = getGroundY(camera.position.x, camera.position.z) + 1.6;
+  const yAfter = getGroundY(camera.position.x, camera.position.z);
+  camera.position.y = yAfter + 1.6;
+  // Slope climb: steep uphill drains commander stamina 3× faster and slows movement
+  if(moving){
+    const rise = yAfter - yBefore;
+    if(rise > 0.08){
+      const slopeMul = Math.min(3.0, 1 + rise/0.06);
+      playerHP = Math.max(1, playerHP - 0.6 * slopeMul * dt); // stamina-as-HP drain climbing
+      updatePlayerHPBar();
+      if(slopeMul > 2 && Math.random()<0.02) chatPrint('⛰ Steep climb — slow going!','sys');
+    }
+  }
 }
 
 // ─── Possession ───────────────────────────────────────────────
@@ -4668,7 +4900,7 @@ function tickDayNight(dt){
   _ambLight.intensity = 1.4*(1-n*0.98);  // day=1.4, night≈0.028 (almost zero)
   _ambLight.color.setRGB(0.60+(1-n)*0.40, 0.75+(1-n)*0.25, 1.0);
   sun.intensity = 3.8*(1-n);             // day=3.8, night=0
-  scene.fog.density = 0.018 + n*0.085;  // day=0.018 (60+ unit vis), night=0.103 (pitch fog)
+  scene.fog.density = 0.025 + n*0.078;  // day=0.025 (~40 unit vis), night=0.103 (pitch fog)
   // Sky colour: bright blue at noon, near-black at midnight
   const sr=0.42*(1-n), sg=0.60*(1-n), sb=0.82*(1-n)+0.02;
   scene.background.setRGB(sr, sg, sb);
@@ -5115,6 +5347,7 @@ function animate(){
   tickEnemyWaves(dt);
   tickCatapults(dt);
   tickBoulders(dt);
+  tickMine(dt);
   tickBuilders(dt);
   tickOilCauldrons(dt);
   tickSpikeTraps();
