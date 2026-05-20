@@ -14,32 +14,17 @@ from gpiozero import MotionSensor
 PIR_PIN = 17
 FOLDER = os.path.dirname(os.path.abspath(__file__))
 
-SOUNDS = [
-    os.path.join(FOLDER, "cat1.wav"),
-    os.path.join(FOLDER, "cat2.wav"),
-    os.path.join(FOLDER, "cat3.wav"),
-    os.path.join(FOLDER, "cat4.wav"),
-]
-
-WEIGHTS = [50, 17, 17, 16]  # cat1 = 50%, others share the rest
+SOUND = os.path.join(FOLDER, "cat1.wav")
 
 current_sound = None
-last_played = None
 
 
 def play_meow():
-    global current_sound, last_played
+    global current_sound
     if current_sound and current_sound.poll() is None:
-        return  # already playing, don't overlap
-    available = [(s, w) for s, w in zip(SOUNDS, WEIGHTS)
-                 if os.path.exists(s) and s != last_played]
-    if not available:
         return
-    sounds, weights = zip(*available)
-    sound = random.choices(sounds, weights=weights, k=1)[0]
-    last_played = sound
-    print(f"Playing {os.path.basename(sound)}")
-    current_sound = subprocess.Popen(["paplay", sound])
+    print("Playing cat1.wav")
+    current_sound = subprocess.Popen(["paplay", SOUND])
 
 
 pir = MotionSensor(PIR_PIN)
