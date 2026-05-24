@@ -41,7 +41,7 @@ void setup() {
   lcd.print("Distance:");    // fixed label on top row, never changes
 }
 
-long getDistance() {
+long getDistanceInches() {
   // Send a 10-microsecond trigger pulse
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
@@ -52,18 +52,22 @@ long getDistance() {
   // Measure how long the echo takes to return
   long duration = pulseIn(echoPin, HIGH);
 
-  // Convert microseconds to centimetres (speed of sound ÷ 2 round-trip)
-  long distance = duration / 58;
+  // Convert microseconds to inches (148 µs per inch, round-trip)
+  long inches = duration / 148;
 
-  return distance;
+  return inches;
 }
 
 void loop() {
-  long distance = getDistance();
+  long totalInches = getDistanceInches();
+  long feet        = totalInches / 12;
+  long inches      = totalInches % 12;  // remainder after pulling out full feet
 
-  lcd.setCursor(0, 1);       // jump to start of second row
-  lcd.print(distance);
-  lcd.print(" cm      ");    // trailing spaces wipe leftover digits (e.g. "100" → "5")
+  lcd.setCursor(0, 1);
+  lcd.print(feet);
+  lcd.print(" ft ");
+  lcd.print(inches);
+  lcd.print(" in      ");  // trailing spaces wipe leftover characters
 
-  delay(200);                // update 5 times per second
+  delay(200);
 }
