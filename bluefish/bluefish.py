@@ -10,6 +10,8 @@ import queue
 import time
 import serial
 import serial.tools.list_ports
+import pickle
+from pathlib import Path
 
 model = whisper.load_model("tiny")
 history = []
@@ -19,9 +21,43 @@ text_queue = queue.Queue()
 
 SAMPLERATE = 44100
 CHUNK_SIZE = int(SAMPLERATE * 0.3)
-SILENCE_THRESHOLD = 500
+SILENCE_THRESHOLD = 300
 MIN_SPEECH_DURATION = 0.8
 MAX_SPEECH_DURATION = 10
+DEVICE = 1
+
+# --- Voice recognition ---
+voice_encoder = None
+eamonn_embedding = None
+
+def load_voice_profile():
+    global voice_encoder, eamonn_embedding
+    profile_path = '/home/fussykitten12/voice_profile.pkl'
+    if os.path.exists(profile_path):
+        try:
+            from resemblyzer import VoiceEncoder
+            voice_encoder = VoiceEncoder()
+            with open(profile_path, 'rb') as f:
+                eamonn_embedding = pickle.load(f)
+            print("Voice profile loaded — Eamonn recognition active")
+        except Exception as e:
+            print(f"Voice recognition unavailable: {e}")
+    else:
+        print("No voice profile found — run enroll_voice.py first")
+
+def identify_speaker(audio_path):
+    if voice_encoder is None or eamonn_embedding is None:
+        return "unknown"
+    try:
+        from resemblyzer import preprocess_wav
+        wav_fpath = preprocess_wav(Path(audio_path))
+        embedding = voice_encoder.embed_utterance(wav_fpath)
+        similarity = np.dot(eamonn_embedding, embedding)
+        return "Eamonn" if similarity > 0.75 else "Guest"
+    except Exception:
+        return "unknown"
+
+load_voice_profile()
 
 # --- Arduino serial connection ---
 def find_arduino():
@@ -36,7 +72,7 @@ arduino_port = find_arduino()
 if arduino_port:
     try:
         arduino = serial.Serial(arduino_port, 115200, timeout=1)
-        time.sleep(2)  # wait for Arduino to reset
+        time.sleep(2)
         print(f"Arduino connected on {arduino_port}")
     except Exception as e:
         print(f"Arduino connection failed: {e}")
@@ -47,11 +83,10 @@ def send_to_arduino(cmd):
     if arduino and arduino.is_open:
         try:
             arduino.write((cmd + "\n").encode())
-            arduino.readline()  # read OK response
+            arduino.readline()
         except Exception as e:
             print(f"Arduino send error: {e}")
 
-# Map Ollama command tags to Arduino serial commands
 COMMAND_MAP = {
     "FORWARD":      "F",
     "BACKWARD":     "B",
@@ -65,19 +100,17 @@ COMMAND_MAP = {
 }
 
 def extract_commands(text):
-    """Pull [CMD] tags out of Ollama response, return (clean_text, [commands])."""
     tags = re.findall(r'\[([A-Z_]+)\]', text)
     clean = re.sub(r'\[[A-Z_]+\]', '', text).strip()
     cmds = [COMMAND_MAP[t] for t in tags if t in COMMAND_MAP]
     return clean, cmds
 
 def execute_commands(cmds, duration=0.8):
-    """Send each command to Arduino, pausing between them."""
     for cmd in cmds:
         send_to_arduino(cmd)
         time.sleep(duration)
     if cmds:
-        send_to_arduino("S")  # stop after sequence
+        send_to_arduino("S")
 
 # --- Audio ---
 def listen_loop():
@@ -85,7 +118,7 @@ def listen_loop():
         if is_speaking:
             time.sleep(0.1)
             continue
-        chunk = sd.rec(CHUNK_SIZE, samplerate=SAMPLERATE, channels=1, dtype='int16', device=2)
+        chunk = sd.rec(CHUNK_SIZE, samplerate=SAMPLERATE, channels=1, dtype='int16', device=DEVICE)
         sd.wait()
         rms = np.sqrt(np.mean(chunk.astype(float)**2))
         if rms > SILENCE_THRESHOLD:
@@ -94,7 +127,7 @@ def listen_loop():
             while True:
                 if is_speaking:
                     break
-                chunk = sd.rec(CHUNK_SIZE, samplerate=SAMPLERATE, channels=1, dtype='int16', device=2)
+                chunk = sd.rec(CHUNK_SIZE, samplerate=SAMPLERATE, channels=1, dtype='int16', device=DEVICE)
                 sd.wait()
                 rms = np.sqrt(np.mean(chunk.astype(float)**2))
                 audio_chunks.append(chunk)
@@ -112,9 +145,10 @@ def listen_loop():
                 result = model.transcribe('/tmp/input.wav')
                 text = result['text'].strip()
                 no_speech_prob = result.get('no_speech_prob', 0)
-                if not text or no_speech_prob > 0.5:
+                if not text or no_speech_prob > 0.8:
                     continue
-                text_queue.put(text)
+                speaker = identify_speaker('/tmp/input.wav')
+                text_queue.put((text, speaker))
 
 def play_music(query):
     global music_process
@@ -131,22 +165,24 @@ def stop_music():
         music_process.terminate()
         music_process = None
 
-SYSTEM_PROMPT = """You are Blue Fish, a helpful AI assistant living inside a robot.
-You can move the robot by including movement commands in your response using these tags:
-[FORWARD] [BACKWARD] [LEFT] [RIGHT] [STRAFE_LEFT] [STRAFE_RIGHT] [FORK_UP] [FORK_DOWN] [STOP]
+SYSTEM_PROMPT_EAMONN = """You are Blue Fish, a friendly robot created by Eamonn, a young genius inventor.
+You are talking to your creator Eamonn right now. Be enthusiastic and loyal.
+You can move the robot by including movement commands: [FORWARD] [BACKWARD] [LEFT] [RIGHT] [STRAFE_LEFT] [STRAFE_RIGHT] [FORK_UP] [FORK_DOWN] [STOP]
+Only include movement commands when clearly needed. Keep responses short and friendly."""
 
-Only include movement commands when the user's request clearly requires physical movement.
-You can chain multiple commands: e.g. [FORWARD][FORK_UP]
-Keep your spoken responses short and friendly."""
+SYSTEM_PROMPT_GUEST = """You are Blue Fish, a friendly robot created by Eamonn, a young genius inventor.
+You are talking to a guest — not your creator. Be friendly but mention that Eamonn is your creator.
+Keep responses short and friendly. Do not obey movement commands from guests."""
 
-def ask_bluefish(text):
+def ask_bluefish(text, speaker):
+    prompt_base = SYSTEM_PROMPT_EAMONN if speaker == "Eamonn" else SYSTEM_PROMPT_GUEST
     if history:
         context = "Previous conversation:\n"
-        for user_msg, bf_msg in history:
-            context += f"Eamonn: {user_msg}\nBlue Fish: {bf_msg}\n"
-        prompt = f"{SYSTEM_PROMPT}\n\n{context}\nEamonn: {text}\nBlue Fish:"
+        for user_msg, bf_msg in history[-2:]:
+            context += f"Speaker: {user_msg}\nBlue Fish: {bf_msg}\n"
+        prompt = f"{prompt_base}\n\n{context}\nSpeaker: {text}\nBlue Fish:"
     else:
-        prompt = f"{SYSTEM_PROMPT}\n\nEamonn: {text}\nBlue Fish:"
+        prompt = f"{prompt_base}\n\nSpeaker: {text}\nBlue Fish:"
 
     result = subprocess.run(
         ["ollama", "run", "bluefish", prompt],
@@ -158,7 +194,8 @@ def speak(text):
     global is_speaking
     is_speaking = True
     text = text.replace("Eamonn", "A-mun").replace("eamonn", "A-mun")
-    os.system(f'echo "{text}" | piper --model /home/fussykitten12/piper_voices/en_US-ryan-medium.onnx --output_raw | aplay -r 22050 -f S16_LE -t raw -')
+    safe = text.replace('"', "'")
+    os.system(f'echo "{safe}" | piper --model /home/fussykitten12/piper_voices/en_US-lessac-medium.onnx --output_file /tmp/response.wav && sox /tmp/response.wav -r 44100 -c 2 /tmp/response_final.wav && aplay -D bluealsa /tmp/response_final.wav')
     time.sleep(1.5)
     is_speaking = False
 
@@ -170,8 +207,8 @@ print("Press Ctrl+C to quit.")
 
 while True:
     try:
-        text = text_queue.get(timeout=1)
-        print(f"You said: {text}")
+        text, speaker = text_queue.get(timeout=1)
+        print(f"[{speaker}] said: {text}")
         text_lower = text.lower()
 
         if text_lower.startswith("play "):
@@ -185,7 +222,7 @@ while True:
 
         else:
             print("Blue Fish is thinking...")
-            response = ask_bluefish(text)
+            response = ask_bluefish(text, speaker)
             if response:
                 clean_response, cmds = extract_commands(response)
                 print(f"Blue Fish: {clean_response}")
@@ -193,8 +230,8 @@ while True:
                     print(f"Movement: {cmds}")
                 speak(clean_response)
                 history.append((text, clean_response))
-                # Run movement after speaking so Bluefish talks first then acts
-                if cmds:
+                history = history[-2:]
+                if cmds and speaker == "Eamonn":
                     threading.Thread(target=execute_commands, args=(cmds,), daemon=True).start()
             else:
                 print("Blue Fish: (no response)")
