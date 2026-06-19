@@ -619,12 +619,6 @@
 <script>
 'use strict';
 
-// Hoist title-screen handlers to window immediately — function declarations
-// are hoisted so these assignments are safe even before the definitions below.
-window.tsNav         = function(s){ tsNav(s); };
-window.tsPickControl = function(m){ tsPickControl(m); };
-window.tsLoadWorld   = function(){  tsLoadWorld(); };
-
 // DOM refs needed by chatPrint which is called from startup IIFEs
 const chatLog = document.getElementById('chat-log');
 const chatIn  = document.getElementById('chat-in');
