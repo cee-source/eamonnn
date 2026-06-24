@@ -533,8 +533,11 @@ button{cursor:pointer;}button:hover{background:#0f0;color:#111;}
 </style></head>
 <body>
 <h2>Blue Fish Camera</h2>
-<img id="f" src="/frame">
-<div id="fps" style="color:#555;font-size:12px;">loading...</div>
+<div id="fps" style="color:#555;font-size:12px;">frames: 0</div>
+<img id="f" src="/frame"
+  onload="frameCount++;document.getElementById('fps').textContent='frames: '+frameCount;setTimeout(function(){document.getElementById('f').src='/frame?t='+Date.now();},100);"
+  onerror="setTimeout(function(){document.getElementById('f').src='/frame?t='+Date.now();},400);">
+<script>var frameCount=0;</script>
 
 <div class="section">
   <b>Enroll a New Person</b><br>
@@ -552,23 +555,6 @@ button{cursor:pointer;}button:hover{background:#0f0;color:#111;}
 </div>
 
 <script>
-var frameCount=0;
-function refresh(){
-  fetch('/frame?t='+Date.now(),{cache:'no-store'})
-  .then(function(r){return r.blob();})
-  .then(function(blob){
-    var url=URL.createObjectURL(blob);
-    var img=document.getElementById('f');
-    var old=img.src;
-    img.src=url;
-    if(old.startsWith('blob:'))URL.revokeObjectURL(old);
-    frameCount++;
-    document.getElementById('fps').textContent='frames: '+frameCount;
-  })
-  .catch(function(){})
-  .finally(function(){setTimeout(refresh,150);});
-}
-refresh();
 
 var polling=null;
 
