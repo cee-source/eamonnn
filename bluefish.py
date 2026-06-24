@@ -50,8 +50,13 @@ enrolling         = False
 enroll_name       = ""
 enroll_samples    = []
 enroll_done       = False
+enroll_level      = 3           # level chosen in browser for current enrollment
 enroll_lock       = threading.Lock()
 ENROLL_NEEDED     = 10
+
+STRANGER_LEVEL    = 99          # strangers: read-only (questions only)
+commander_level   = STRANGER_LEVEL   # level of whoever gave the last command
+commander_lock    = threading.Lock()
 
 learn_mode        = False
 knowledge         = {"facts": []}
@@ -60,13 +65,21 @@ serial_conn       = None
 conversation_log  = []          # list of {when, who, said, replied}
 
 # ── Face profiles ─────────────────────────────────────────────────────────────
+def _normalise(v):
+    """Ensure profile value is always {enc, level} dict."""
+    if isinstance(v, dict) and "enc" in v:
+        return v
+    return {"enc": v, "level": 1}   # old plain-array format → assume owner
+
 def load_face_profiles():
     global face_profiles
     if os.path.exists(FACE_PROFILES_DB):
         try:
             with open(FACE_PROFILES_DB, "rb") as f:
-                face_profiles = pickle.load(f)
-            print(f"[Faces] Loaded {len(face_profiles)} profile(s): {list(face_profiles.keys())}")
+                raw = pickle.load(f)
+            face_profiles = {n: _normalise(v) for n, v in raw.items()}
+            print(f"[Faces] Loaded {len(face_profiles)} profile(s): "
+                  + ", ".join(f"{n}(L{v['level']})" for n,v in face_profiles.items()))
             return
         except Exception:
             pass
@@ -75,9 +88,9 @@ def load_face_profiles():
         try:
             with open(FACE_PROFILE_OLD, "rb") as f:
                 enc = pickle.load(f)
-            face_profiles = {"Eamonn": enc}
+            face_profiles = {"Eamonn": {"enc": enc, "level": 1}}
             save_face_profiles()
-            print("[Faces] Migrated legacy face_profile.pkl → Eamonn")
+            print("[Faces] Migrated legacy face_profile.pkl → Eamonn (level 1)")
         except Exception:
             pass
 
@@ -216,12 +229,13 @@ def analyze_face(frame):
             with enroll_lock:
                 enroll_samples.append(encodings[0])
                 count = len(enroll_samples)
+                lvl   = enroll_level
             print(f"[Enroll] {current_name}: {count}/{ENROLL_NEEDED} samples")
             if count >= ENROLL_NEEDED:
                 with enroll_lock:
                     avg = np.mean(enroll_samples, axis=0)
                 with face_profiles_lock:
-                    face_profiles[current_name] = avg
+                    face_profiles[current_name] = {"enc": avg, "level": lvl}
                 save_face_profiles()
                 with enroll_lock:
                     enrolling = False
@@ -243,12 +257,16 @@ def analyze_face(frame):
 
         for (top, right, bottom, left), enc in zip(locations, encodings):
             name = "Stranger"
+            face_level = STRANGER_LEVEL
             if profiles_snapshot:
-                names = list(profiles_snapshot.keys())
-                known_encs = list(profiles_snapshot.values())
-                matches = face_recognition.compare_faces(known_encs, enc, tolerance=0.5)
+                pnames = list(profiles_snapshot.keys())
+                pencs  = [v["enc"] for v in profiles_snapshot.values()]
+                plvls  = [v["level"] for v in profiles_snapshot.values()]
+                matches = face_recognition.compare_faces(pencs, enc, tolerance=0.5)
                 if True in matches:
-                    name = names[matches.index(True)]
+                    idx = matches.index(True)
+                    name = pnames[idx]
+                    face_level = plvls[idx]
 
             face_is_known = (name != "Stranger")
             color = (0, 200, 0) if name != "Stranger" else (0, 140, 255)
@@ -299,8 +317,9 @@ def analyze_face(frame):
                     pass
 
             new_overlays.append({"box": (left,top,right,bottom), "name": name,
-                                  "color": color, "head": head_label, "gaze": gaze_label})
-            print(f"[Face] {name}")
+                                  "level": face_level, "color": color,
+                                  "head": head_label, "gaze": gaze_label})
+            print(f"[Face] {name} (level {face_level})")
 
         with face_overlay_lock:
             face_overlays = new_overlays
@@ -356,10 +375,11 @@ def camera_loop():
                         name = o["name"]
                         cv2.rectangle(display, (l,t), (r,b2), col, 2)
                         ly = max(t-10, 20)
-                        (tw, th), _ = cv2.getTextSize(name, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
+                        label = name + " L" + str(o.get("level", "?"))
+                        (tw,th),_ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
                         cx = (l+r)//2
-                        cv2.rectangle(display, (cx-tw//2-4, ly-th-6), (cx+tw//2+4, ly+2), col, -1)
-                        cv2.putText(display, name, (cx-tw//2, ly), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255,255,255), 2)
+                        cv2.rectangle(display,(cx-tw//2-4,ly-th-6),(cx+tw//2+4,ly+2),col,-1)
+                        cv2.putText(display,label,(cx-tw//2,ly),cv2.FONT_HERSHEY_SIMPLEX,0.8,(255,255,255),2)
                         if o["head"]:
                             cv2.putText(display, o["head"], (l, b2+20), cv2.FONT_HERSHEY_SIMPLEX, 0.55, col, 1)
                         if o["gaze"]:
@@ -465,8 +485,9 @@ class StreamHandler(BaseHTTPRequestHandler):
 
         elif path == "/profiles":
             with face_profiles_lock:
-                names = list(face_profiles.keys())
-            body = json.dumps({"names": names}).encode()
+                people = [{"name": n, "level": v.get("level", 1)}
+                          for n, v in face_profiles.items()]
+            body = json.dumps({"people": people}).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
@@ -485,17 +506,19 @@ class StreamHandler(BaseHTTPRequestHandler):
 
         if path == "/enroll":
             name = params.get("name", [""])[0].strip()
+            lvl  = int(params.get("level", ["3"])[0])
             if not name:
                 self._json_response({"error": "no name"}, 400)
                 return
             with enroll_lock:
-                global enrolling, enroll_name, enroll_samples, enroll_done
+                global enrolling, enroll_name, enroll_samples, enroll_done, enroll_level
                 enrolling      = True
                 enroll_name    = name
+                enroll_level   = lvl
                 enroll_samples = []
                 enroll_done    = False
-            print(f"[Enroll] Starting enrollment for: {name}")
-            self._json_response({"started": True, "name": name})
+            print(f"[Enroll] Starting enrollment for: {name} (level {lvl})")
+            self._json_response({"started": True, "name": name, "level": lvl})
 
         elif path == "/forget":
             name = params.get("name", [""])[0].strip()
@@ -542,6 +565,13 @@ button{cursor:pointer;}button:hover{background:#0f0;color:#111;}
 <div class="section">
   <b>Enroll a New Person</b><br>
   <input id="ename" placeholder="Enter name" maxlength="30">
+  <select id="elevel">
+    <option value="1">Level 1 - Owner (me!)</option>
+    <option value="2">Level 2 - Family</option>
+    <option value="3" selected>Level 3 - Friend</option>
+    <option value="4">Level 4 - Guest</option>
+    <option value="5">Level 5 - Basic</option>
+  </select>
   <button onclick="startEnroll()">Enroll</button>
   <div id="status"></div>
   <div id="bar" style="height:8px;background:#222;border:1px solid #0f0;border-radius:4px;margin:6px 0;display:none;">
@@ -568,8 +598,9 @@ function xhr(method,url,body,cb){
 
 function startEnroll(){
   var name=document.getElementById('ename').value.trim();
+  var level=document.getElementById('elevel').value;
   if(!name){alert('Enter a name first!');return;}
-  xhr('POST','/enroll','name='+encodeURIComponent(name),function(d){
+  xhr('POST','/enroll','name='+encodeURIComponent(name)+'&level='+level,function(d){
     document.getElementById('status').textContent='Look at the camera, '+name+'!';
     document.getElementById('bar').style.display='block';
     if(polling)clearInterval(polling);
@@ -590,10 +621,14 @@ function pollEnroll(){
 
 function loadProfiles(){
   xhr('GET','/profiles',null,function(d){
-    if(!d.names.length){document.getElementById('profiles').textContent='No one enrolled yet.';return;}
+    if(!d.people.length){document.getElementById('profiles').textContent='No one enrolled yet.';return;}
     var html='';
-    d.names.forEach(function(n){
-      html+='<span style="margin:0 8px;">'+n+' <button onclick="forget(\''+n+'\')">forget</button></span>';
+    d.people.forEach(function(p){
+      var badge='L'+p.level;
+      var col=p.level==1?'#0f0':p.level<=2?'#af0':p.level<=3?'#fa0':'#f80';
+      html+='<span style="margin:4px;display:inline-block;">'+
+        '<b style="color:'+col+';">['+badge+']</b> '+p.name+
+        ' <button onclick="forget(\''+p.name+'\')">forget</button></span>';
     });
     document.getElementById('profiles').innerHTML=html;
   });
@@ -706,10 +741,34 @@ def navigate_to(destination):
     speak(f"I've tried to reach {destination}.")
 
 # ── Command handler ───────────────────────────────────────────────────────────
+def get_speaker_level():
+    """Return the trust level of the highest-priority visible person."""
+    with face_overlay_lock:
+        levels = [o.get("level", STRANGER_LEVEL) for o in face_overlays]
+    return min(levels) if levels else STRANGER_LEVEL
+
+MOVEMENT_COMMANDS = [
+    "move forward","go forward","move backward","go backward",
+    "turn left","turn right","lift up","raise fork","lift down","lower fork",
+    "go to","navigate to","stop",
+]
+
 def handle_command(text, speaker):
-    global learn_mode, knowledge
+    global learn_mode, knowledge, commander_level
 
     print(f"[CMD] {speaker}: {text}")
+
+    # ── Trust level check ─────────────────────────────────────────────────────
+    my_level = get_speaker_level()
+    is_movement = any(cmd in text for cmd in MOVEMENT_COMMANDS)
+
+    with commander_lock:
+        if my_level > commander_level:
+            # A higher-priority person is already in control
+            speak(f"Sorry, someone with a higher level is in control right now.")
+            return
+        # Take control
+        commander_level = my_level
     reply = None
 
     if "learn mode on" in text:
@@ -814,6 +873,9 @@ def handle_command(text, speaker):
     reply = ask_ollama(prompt)
     speak(reply)
     save_conversation(speaker, text, reply)
+
+    with commander_lock:
+        commander_level = STRANGER_LEVEL   # release control after command done
 
 # ── Microphone listener ───────────────────────────────────────────────────────
 audio_queue = queue.Queue()
