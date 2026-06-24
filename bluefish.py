@@ -558,43 +558,42 @@ button{cursor:pointer;}button:hover{background:#0f0;color:#111;}
 
 var polling=null;
 
+function xhr(method,url,body,cb){
+  var r=new XMLHttpRequest();
+  r.open(method,url,true);
+  if(body)r.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+  r.onload=function(){if(r.status<400)cb(JSON.parse(r.responseText));};
+  r.send(body||null);
+}
+
 function startEnroll(){
   var name=document.getElementById('ename').value.trim();
   if(!name){alert('Enter a name first!');return;}
-  fetch('/enroll',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body:'name='+encodeURIComponent(name)})
-  .then(r=>r.json()).then(function(d){
+  xhr('POST','/enroll','name='+encodeURIComponent(name),function(d){
     document.getElementById('status').textContent='Look at the camera, '+name+'!';
     document.getElementById('bar').style.display='block';
-    if(polling) clearInterval(polling);
+    if(polling)clearInterval(polling);
     polling=setInterval(pollEnroll,500);
   });
 }
 
 function pollEnroll(){
-  fetch('/enroll_status').then(r=>r.json()).then(function(d){
+  xhr('GET','/enroll_status',null,function(d){
     var pct=Math.round(d.samples/d.needed*100);
     document.getElementById('fill').style.width=pct+'%';
     document.getElementById('status').textContent=
-      d.done ? 'Done! '+d.name+' enrolled!' :
-      (d.enrolling ? 'Capturing... '+d.samples+'/'+d.needed : '');
-    if(d.done){
-      clearInterval(polling);
-      document.getElementById('ename').value='';
-      loadProfiles();
-    }
+      d.done?'Done! '+d.name+' enrolled!':
+      (d.enrolling?'Capturing... '+d.samples+'/'+d.needed:'');
+    if(d.done){clearInterval(polling);document.getElementById('ename').value='';loadProfiles();}
   });
 }
 
 function loadProfiles(){
-  fetch('/profiles').then(r=>r.json()).then(function(d){
-    if(!d.names.length){
-      document.getElementById('profiles').textContent='No one enrolled yet.';return;
-    }
+  xhr('GET','/profiles',null,function(d){
+    if(!d.names.length){document.getElementById('profiles').textContent='No one enrolled yet.';return;}
     var html='';
     d.names.forEach(function(n){
-      html+='<span style="margin:0 8px;">'+n+
-        ' <button onclick="forget(\''+n+'\')">forget</button></span>';
+      html+='<span style="margin:0 8px;">'+n+' <button onclick="forget(\''+n+'\')">forget</button></span>';
     });
     document.getElementById('profiles').innerHTML=html;
   });
@@ -602,9 +601,7 @@ function loadProfiles(){
 
 function forget(name){
   if(!confirm('Forget '+name+'?'))return;
-  fetch('/forget',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body:'name='+encodeURIComponent(name)})
-  .then(r=>r.json()).then(loadProfiles);
+  xhr('POST','/forget','name='+encodeURIComponent(name),function(){loadProfiles();});
 }
 
 loadProfiles();
