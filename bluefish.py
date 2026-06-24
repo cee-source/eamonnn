@@ -405,23 +405,25 @@ class StreamHandler(BaseHTTPRequestHandler):
         path   = parsed.path
 
         if path == "/stream":
-            # MJPEG push — one connection, frames pushed continuously
-            self.send_response(200)
-            self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=bf")
-            self.send_header("Cache-Control", "no-cache")
-            self.send_header("Connection", "close")
-            self.end_headers()
+            # Write raw HTTP — bypasses BaseHTTPRequestHandler's Connection:close
+            header = (
+                b"HTTP/1.1 200 OK\r\n"
+                b"Content-Type: multipart/x-mixed-replace; boundary=bf\r\n"
+                b"Cache-Control: no-cache\r\n"
+                b"Connection: keep-alive\r\n\r\n"
+            )
+            self.connection.sendall(header)
             try:
-                last = b""
+                last = None
                 while True:
                     with stream_lock:
                         data = stream_frame
                     if data and data is not last:
-                        self.wfile.write(
+                        chunk = (
                             b"--bf\r\nContent-Type: image/jpeg\r\nContent-Length: " +
                             str(len(data)).encode() + b"\r\n\r\n" + data + b"\r\n"
                         )
-                        self.wfile.flush()
+                        self.connection.sendall(chunk)
                         last = data
                     time.sleep(0.05)
             except Exception:
@@ -531,7 +533,7 @@ button{cursor:pointer;}button:hover{background:#0f0;color:#111;}
 </style></head>
 <body>
 <h2>Blue Fish Camera</h2>
-<img id="f" src="/stream">
+<img id="f" src="/frame">
 
 <div class="section">
   <b>Enroll a New Person</b><br>
@@ -549,6 +551,13 @@ button{cursor:pointer;}button:hover{background:#0f0;color:#111;}
 </div>
 
 <script>
+// Chained loading: wait for each frame to finish before requesting next
+(function next(){
+  var t=new Image();
+  t.onload=function(){document.getElementById('f').src=t.src;next();};
+  t.onerror=function(){setTimeout(next,300);};
+  t.src='/frame?t='+Date.now();
+})();
 
 var polling=null;
 
