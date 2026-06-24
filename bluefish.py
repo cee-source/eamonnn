@@ -262,10 +262,12 @@ def camera_loop():
     ]
     proc = None
     face_counter = 0
+    print("[Camera] thread started")
 
     while True:
+        print("[Camera] launching rpicam-vid")
         try:
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=0)
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
             buf = b""
             while True:
                 chunk = proc.stdout.read(4096)
@@ -293,14 +295,21 @@ def camera_loop():
                     with stream_lock:
                         stream_frame = raw_buf.tobytes()
 
-                    # Run face analysis every 15 frames in background
                     face_counter += 1
+                    if face_counter % 30 == 0:
+                        print(f"[Camera] {face_counter} frames captured")
                     if face_counter % 15 == 0:
                         t = threading.Thread(target=analyze_face, args=(frame.copy(),), daemon=True)
                         t.start()
 
         except Exception as e:
-            print(f"[Camera] {e}")
+            err = b""
+            if proc:
+                try:
+                    err = proc.stderr.read(300)
+                except Exception:
+                    pass
+            print(f"[Camera] error: {e} stderr: {err}")
         finally:
             if proc:
                 try:
@@ -312,37 +321,42 @@ def camera_loop():
 # ── HTTP stream server ────────────────────────────────────────────────────────
 class StreamHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
-        pass  # suppress access logs
+        pass
 
     def do_GET(self):
-        if self.path == "/frame":
-            with stream_lock:
-                data = stream_frame
-            if data:
-                self.send_response(200)
-                self.send_header("Content-Type", "image/jpeg")
-                self.send_header("Content-Length", str(len(data)))
-                self.send_header("Cache-Control", "no-cache")
-                self.end_headers()
-                self.wfile.write(data)
-            else:
-                self.send_response(503)
-                self.end_headers()
+        if self.path == "/stream":
+            # Proper MJPEG stream — browser keeps connection open, no flickering
+            self.send_response(200)
+            self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=bf")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            try:
+                while True:
+                    with stream_lock:
+                        data = stream_frame
+                    if data:
+                        self.wfile.write(
+                            b"--bf\r\nContent-Type: image/jpeg\r\nContent-Length: " +
+                            str(len(data)).encode() + b"\r\n\r\n" + data + b"\r\n"
+                        )
+                        self.wfile.flush()
+                    time.sleep(0.1)
+            except Exception:
+                pass
         else:
-            # Main page with auto-refreshing image
-            html = """<!DOCTYPE html>
+            html = b"""<!DOCTYPE html>
 <html><head><title>Blue Fish Camera</title>
 <style>body{background:#111;color:#0f0;font-family:monospace;text-align:center;}
 img{max-width:100%;border:2px solid #0f0;}</style>
-<meta http-equiv="refresh" content="0.2">
 </head><body>
 <h2>Blue Fish Camera Feed</h2>
-<img src="/frame">
+<img src="/stream">
 </body></html>"""
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(html)))
             self.end_headers()
-            self.wfile.write(html.encode())
+            self.wfile.write(html)
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
