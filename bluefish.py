@@ -534,6 +534,7 @@ button{cursor:pointer;}button:hover{background:#0f0;color:#111;}
 <body>
 <h2>Blue Fish Camera</h2>
 <img id="f" src="/frame">
+<div id="fps" style="color:#555;font-size:12px;">loading...</div>
 
 <div class="section">
   <b>Enroll a New Person</b><br>
@@ -551,13 +552,23 @@ button{cursor:pointer;}button:hover{background:#0f0;color:#111;}
 </div>
 
 <script>
-// Chained loading: wait for each frame to finish before requesting next
-(function next(){
-  var t=new Image();
-  t.onload=function(){document.getElementById('f').src=t.src;next();};
-  t.onerror=function(){setTimeout(next,300);};
-  t.src='/frame?t='+Date.now();
-})();
+var frameCount=0;
+function refresh(){
+  fetch('/frame?t='+Date.now(),{cache:'no-store'})
+  .then(function(r){return r.blob();})
+  .then(function(blob){
+    var url=URL.createObjectURL(blob);
+    var img=document.getElementById('f');
+    var old=img.src;
+    img.src=url;
+    if(old.startsWith('blob:'))URL.revokeObjectURL(old);
+    frameCount++;
+    document.getElementById('fps').textContent='frames: '+frameCount;
+  })
+  .catch(function(){})
+  .finally(function(){setTimeout(refresh,150);});
+}
+refresh();
 
 var polling=null;
 
