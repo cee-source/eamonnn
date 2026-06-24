@@ -526,11 +526,8 @@ button{cursor:pointer;}button:hover{background:#0f0;color:#111;}
 
 <script>
 setInterval(function(){
-  var img=document.getElementById('f');
-  var tmp=new Image();
-  tmp.onload=function(){img.src=tmp.src;};
-  tmp.src='/frame?'+Date.now();
-},150);
+  document.getElementById('f').src='/frame?t='+Date.now();
+},200);
 
 var polling=null;
 
