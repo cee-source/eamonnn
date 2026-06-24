@@ -324,33 +324,36 @@ class StreamHandler(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
-        if self.path == "/stream":
-            # Proper MJPEG stream — browser keeps connection open, no flickering
-            self.send_response(200)
-            self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=bf")
-            self.send_header("Cache-Control", "no-cache")
-            self.end_headers()
-            try:
-                while True:
-                    with stream_lock:
-                        data = stream_frame
-                    if data:
-                        self.wfile.write(
-                            b"--bf\r\nContent-Type: image/jpeg\r\nContent-Length: " +
-                            str(len(data)).encode() + b"\r\n\r\n" + data + b"\r\n"
-                        )
-                        self.wfile.flush()
-                    time.sleep(0.1)
-            except Exception:
-                pass
+        if self.path.startswith("/frame"):
+            with stream_lock:
+                data = stream_frame
+            if data:
+                self.send_response(200)
+                self.send_header("Content-Type", "image/jpeg")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(data)
+            else:
+                self.send_response(503)
+                self.end_headers()
         else:
             html = b"""<!DOCTYPE html>
 <html><head><title>Blue Fish Camera</title>
 <style>body{background:#111;color:#0f0;font-family:monospace;text-align:center;}
-img{max-width:100%;border:2px solid #0f0;}</style>
+img{max-width:100%;border:2px solid #0f0;display:block;margin:auto;}</style>
 </head><body>
 <h2>Blue Fish Camera Feed</h2>
-<img src="/stream">
+<img id="f" src="/frame">
+<script>
+setInterval(function(){
+  var img = document.getElementById('f');
+  var src = '/frame?' + Date.now();
+  var tmp = new Image();
+  tmp.onload = function(){ img.src = tmp.src; };
+  tmp.src = src;
+}, 150);
+</script>
 </body></html>"""
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
