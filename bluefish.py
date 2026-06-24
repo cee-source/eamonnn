@@ -404,7 +404,31 @@ class StreamHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path   = parsed.path
 
-        if path.startswith("/frame"):
+        if path == "/stream":
+            # MJPEG push — one connection, frames pushed continuously
+            self.send_response(200)
+            self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=bf")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            try:
+                last = b""
+                while True:
+                    with stream_lock:
+                        data = stream_frame
+                    if data and data is not last:
+                        self.wfile.write(
+                            b"--bf\r\nContent-Type: image/jpeg\r\nContent-Length: " +
+                            str(len(data)).encode() + b"\r\n\r\n" + data + b"\r\n"
+                        )
+                        self.wfile.flush()
+                        last = data
+                    time.sleep(0.05)
+            except Exception:
+                pass
+            return
+
+        elif path.startswith("/frame"):
             with stream_lock:
                 data = stream_frame
             if data:
@@ -507,7 +531,7 @@ button{cursor:pointer;}button:hover{background:#0f0;color:#111;}
 </style></head>
 <body>
 <h2>Blue Fish Camera</h2>
-<img id="f" src="/frame">
+<img id="f" src="/stream">
 
 <div class="section">
   <b>Enroll a New Person</b><br>
@@ -525,9 +549,6 @@ button{cursor:pointer;}button:hover{background:#0f0;color:#111;}
 </div>
 
 <script>
-setInterval(function(){
-  document.getElementById('f').src='/frame?t='+Date.now();
-},200);
 
 var polling=null;
 
