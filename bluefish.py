@@ -35,6 +35,8 @@ face_in_view    = False
 face_is_eamonn  = False
 face_direction  = "center"
 gaze_direction  = "center"
+face_overlays   = []   # list of dicts drawn on every frame by camera_loop
+face_overlay_lock = threading.Lock()
 
 learn_mode    = False
 knowledge     = {"facts": []}
@@ -106,7 +108,7 @@ def send_motor(cmd, duration=0.5):
 
 # ── Face analysis ─────────────────────────────────────────────────────────────
 def analyze_face(frame):
-    global face_in_view, face_is_eamonn, face_direction, gaze_direction, stream_frame
+    global face_in_view, face_is_eamonn, face_direction, gaze_direction, face_overlays
 
     try:
         import cv2
@@ -116,13 +118,11 @@ def analyze_face(frame):
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         locations = face_recognition.face_locations(rgb, number_of_times_to_upsample=2, model="hog")
 
-        annotated = frame.copy()
         face_in_view = len(locations) > 0
 
         if not face_in_view:
-            _, buf = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 70])
-            with stream_lock:
-                stream_frame = buf.tobytes()
+            with face_overlay_lock:
+                face_overlays = []
             return
 
         # Load known face
@@ -138,27 +138,22 @@ def analyze_face(frame):
         predictor = None
         if os.path.exists(SHAPE_MODEL):
             try:
-                detector  = dlib.get_frontal_face_detector()
                 predictor = dlib.shape_predictor(SHAPE_MODEL)
             except Exception:
                 pass
 
         encodings = face_recognition.face_encodings(rgb, locations)
+        new_overlays = []
 
         for (top, right, bottom, left), enc in zip(locations, encodings):
-            # Identity check
             name = "Stranger"
             if known_enc is not None:
                 match = face_recognition.compare_faces([known_enc], enc, tolerance=0.5)
                 if match[0]:
                     name = "Eamonn"
             face_is_eamonn = (name == "Eamonn")
-
-            # Box colour
             color = (0, 200, 0) if name == "Eamonn" else (0, 140, 255)
-            cv2.rectangle(annotated, (left, top), (right, bottom), color, 2)
 
-            # Head pose + eye gaze via dlib landmarks
             head_label = ""
             gaze_label = ""
             if predictor is not None:
@@ -168,7 +163,6 @@ def analyze_face(frame):
                 shape = predictor(gray, rect)
                 pts  = np.array([[shape.part(i).x, shape.part(i).y] for i in range(68)], dtype=np.float32)
 
-                # 3D model points for solvePnP
                 model_pts = np.array([
                     (0.0,   0.0,    0.0),
                     (0.0,  -330.0, -65.0),
@@ -177,71 +171,49 @@ def analyze_face(frame):
                     (-150.0,-150.0, -125.0),
                     (150.0, -150.0, -125.0),
                 ], dtype=np.float64)
-
-                image_pts = np.array([
-                    pts[30], pts[8], pts[36], pts[45], pts[48], pts[54]
-                ], dtype=np.float64)
-
+                image_pts = np.array(
+                    [pts[30], pts[8], pts[36], pts[45], pts[48], pts[54]],
+                    dtype=np.float64
+                )
                 focal = w
-                cam_mat = np.array([[focal, 0, w/2],
-                                    [0, focal, h/2],
-                                    [0, 0, 1]], dtype=np.float64)
-                dist_coeffs = np.zeros((4, 1))
-
-                ok, rvec, tvec = cv2.solvePnP(model_pts, image_pts, cam_mat, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
+                cam_mat = np.array([[focal, 0, w/2], [0, focal, h/2], [0, 0, 1]], dtype=np.float64)
+                ok, rvec, _ = cv2.solvePnP(model_pts, image_pts, cam_mat, np.zeros((4,1)), flags=cv2.SOLVEPNP_ITERATIVE)
                 if ok:
                     rot_mat, _ = cv2.Rodrigues(rvec)
-                    angles, _, _, _, _, _ = cv2.RQDecomp3x3(rot_mat)
-                    yaw   = angles[1]
-                    pitch = angles[0]
+                    angles, *_ = cv2.RQDecomp3x3(rot_mat)
+                    yaw = angles[1]
                     if   yaw < -15: face_direction = "left"
                     elif yaw >  15: face_direction = "right"
                     else:           face_direction = "center"
                     head_label = f"Head: {face_direction}"
 
-                # Eye gaze
                 def eye_ratio(idxs):
                     eye = pts[idxs].astype(int)
                     ex, ey, ew, eh = cv2.boundingRect(eye)
-                    if ew < 2 or eh < 2:
-                        return 0.5
+                    if ew < 2 or eh < 2: return 0.5
                     roi = gray[ey:ey+eh, ex:ex+ew]
-                    if roi.size == 0:
-                        return 0.5
+                    if roi.size == 0: return 0.5
                     _, thr = cv2.threshold(roi, 70, 255, cv2.THRESH_BINARY_INV)
-                    left_half  = thr[:, :ew//2].sum()
-                    right_half = thr[:, ew//2:].sum()
-                    total = left_half + right_half
-                    return left_half / total if total > 0 else 0.5
+                    lh = thr[:, :ew//2].sum(); rh = thr[:, ew//2:].sum()
+                    return lh / (lh + rh) if (lh + rh) > 0 else 0.5
 
-                l_ratio = eye_ratio(list(range(36, 42)))
-                r_ratio = eye_ratio(list(range(42, 48)))
-                ratio   = (l_ratio + r_ratio) / 2
+                ratio = (eye_ratio(list(range(36,42))) + eye_ratio(list(range(42,48)))) / 2
                 if   ratio > 0.6: gaze_direction = "left"
                 elif ratio < 0.4: gaze_direction = "right"
                 else:             gaze_direction = "center"
                 gaze_label = f"Gaze: {gaze_direction}"
 
-            # Floating name label above box
-            label_y = max(top - 10, 20)
-            (tw, th), _ = cv2.getTextSize(name, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
-            cx = (left + right) // 2
-            cv2.rectangle(annotated, (cx - tw//2 - 4, label_y - th - 6),
-                          (cx + tw//2 + 4, label_y + 2), color, -1)
-            cv2.putText(annotated, name, (cx - tw//2, label_y),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+            new_overlays.append({
+                "box": (left, top, right, bottom),
+                "name": name,
+                "color": color,
+                "head": head_label,
+                "gaze": gaze_label,
+            })
+            print(f"[Face] detected: {name}")
 
-            # Head/gaze info below box
-            if head_label:
-                cv2.putText(annotated, head_label, (left, bottom + 20),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 1)
-            if gaze_label:
-                cv2.putText(annotated, gaze_label, (left, bottom + 40),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 1)
-
-        _, buf = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 70])
-        with stream_lock:
-            stream_frame = buf.tobytes()
+        with face_overlay_lock:
+            face_overlays = new_overlays
 
     except Exception as e:
         print(f"[Face] {e}")
@@ -290,8 +262,26 @@ def camera_loop():
                     with camera_lock:
                         latest_camera_frame = frame.copy()
 
-                    # Always update stream_frame with latest raw frame
-                    _, raw_buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                    # Draw stored face overlays on every frame
+                    display = frame.copy()
+                    with face_overlay_lock:
+                        overlays = list(face_overlays)
+                    for o in overlays:
+                        left, top, right, bottom = o["box"]
+                        color = o["color"]
+                        name  = o["name"]
+                        cv2.rectangle(display, (left, top), (right, bottom), color, 2)
+                        label_y = max(top - 10, 20)
+                        (tw, th), _ = cv2.getTextSize(name, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
+                        cx = (left + right) // 2
+                        cv2.rectangle(display, (cx-tw//2-4, label_y-th-6), (cx+tw//2+4, label_y+2), color, -1)
+                        cv2.putText(display, name, (cx-tw//2, label_y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255,255,255), 2)
+                        if o["head"]:
+                            cv2.putText(display, o["head"], (left, bottom+20), cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 1)
+                        if o["gaze"]:
+                            cv2.putText(display, o["gaze"], (left, bottom+40), cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 1)
+
+                    _, raw_buf = cv2.imencode(".jpg", display, [cv2.IMWRITE_JPEG_QUALITY, 70])
                     with stream_lock:
                         stream_frame = raw_buf.tobytes()
 
