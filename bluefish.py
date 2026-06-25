@@ -95,9 +95,8 @@ def load_face_profiles():
             pass
 
 def save_face_profiles():
-    with face_profiles_lock:
-        with open(FACE_PROFILES_DB, "wb") as f:
-            pickle.dump(face_profiles, f)
+    with open(FACE_PROFILES_DB, "wb") as f:
+        pickle.dump(face_profiles, f)
 
 # ── Knowledge base ────────────────────────────────────────────────────────────
 def load_knowledge():
@@ -236,7 +235,7 @@ def analyze_face(frame):
                     avg = np.mean(enroll_samples, axis=0)
                 with face_profiles_lock:
                     face_profiles[current_name] = {"enc": avg, "level": lvl}
-                save_face_profiles()
+                    save_face_profiles()
                 with enroll_lock:
                     enrolling = False
                     enroll_done = True
