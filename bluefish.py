@@ -52,7 +52,7 @@ enroll_samples    = []
 enroll_done       = False
 enroll_level      = 3           # level chosen in browser for current enrollment
 enroll_lock       = threading.Lock()
-ENROLL_NEEDED     = 10
+ENROLL_NEEDED     = 100
 
 STRANGER_LEVEL    = 99          # strangers: read-only (questions only)
 commander_level   = STRANGER_LEVEL   # level of whoever gave the last command
@@ -531,6 +531,15 @@ class StreamHandler(BaseHTTPRequestHandler):
             self.send_header("Location", "/")
             self.send_header("Content-Length", "0")
             self.end_headers()
+
+        elif path == "/forget_all":
+            with face_profiles_lock:
+                face_profiles.clear()
+                save_face_profiles()
+            self.send_response(302)
+            self.send_header("Location", "/")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
         else:
             self.send_response(404)
             self.send_header("Content-Length", "0")
@@ -555,6 +564,13 @@ class StreamHandler(BaseHTTPRequestHandler):
             )
         if not people_html:
             people_html = "No one enrolled yet."
+        elif people:
+            people_html += (
+                '<br><form method="POST" action="/forget_all" style="display:inline;margin-top:6px;"'
+                ' onsubmit="return confirm(\'Delete ALL profiles?\');">'
+                '<button type="submit" style="background:#600;color:#fff;margin-top:6px;">forget everyone</button>'
+                '</form>'
+            )
 
         # Check enrollment status for banner
         with enroll_lock:
