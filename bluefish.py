@@ -507,18 +507,19 @@ class StreamHandler(BaseHTTPRequestHandler):
         if path == "/enroll":
             name = params.get("name", [""])[0].strip()
             lvl  = int(params.get("level", ["3"])[0])
-            if not name:
-                self._json_response({"error": "no name"}, 400)
-                return
-            with enroll_lock:
-                global enrolling, enroll_name, enroll_samples, enroll_done, enroll_level
-                enrolling      = True
-                enroll_name    = name
-                enroll_level   = lvl
-                enroll_samples = []
-                enroll_done    = False
-            print(f"[Enroll] Starting enrollment for: {name} (level {lvl})")
-            self._json_response({"started": True, "name": name, "level": lvl})
+            if name:
+                with enroll_lock:
+                    global enrolling, enroll_name, enroll_samples, enroll_done, enroll_level
+                    enrolling      = True
+                    enroll_name    = name
+                    enroll_level   = lvl
+                    enroll_samples = []
+                    enroll_done    = False
+                print(f"[Enroll] Starting: {name} level {lvl}")
+            self.send_response(302)
+            self.send_header("Location", "/")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
 
         elif path == "/forget":
             name = params.get("name", [""])[0].strip()
@@ -526,127 +527,96 @@ class StreamHandler(BaseHTTPRequestHandler):
                 if name in face_profiles:
                     del face_profiles[name]
                     save_face_profiles()
-                    self._json_response({"deleted": True, "name": name})
-                else:
-                    self._json_response({"error": "not found"}, 404)
+            self.send_response(302)
+            self.send_header("Location", "/")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
         else:
             self.send_response(404)
+            self.send_header("Content-Length", "0")
             self.end_headers()
 
-    def _json_response(self, data, code=200):
-        body = json.dumps(data).encode()
-        self.send_response(code)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
     def _serve_page(self):
-        html = b"""<!DOCTYPE html>
+        # Build profiles section server-side — no AJAX needed
+        with face_profiles_lock:
+            people = [(n, v.get("level", 1)) for n, v in face_profiles.items()]
+
+        people_html = ""
+        for name, level in people:
+            col = "#0f0" if level == 1 else "#af0" if level <= 2 else "#fa0" if level <= 3 else "#f80"
+            safe = name.replace("'", "&#39;").replace('"', "&quot;")
+            people_html += (
+                f'<span style="margin:4px;display:inline-block;">'
+                f'<b style="color:{col};">[L{level}]</b> {safe} '
+                f'<form method="POST" action="/forget" style="display:inline;"'
+                f' onsubmit="return confirm(\'Forget {safe}?\');">'
+                f'<input type="hidden" name="name" value="{safe}">'
+                f'<button type="submit">forget</button></form></span>'
+            )
+        if not people_html:
+            people_html = "No one enrolled yet."
+
+        # Check enrollment status for banner
+        with enroll_lock:
+            busy  = enrolling
+            ename = enroll_name
+            esamp = len(enroll_samples)
+            edone = enroll_done
+
+        banner = ""
+        if edone:
+            banner = f'<div style="color:#0f0;font-weight:bold;">✓ {ename} enrolled!</div>'
+        elif busy:
+            banner = f'<div style="color:#ff0;">Enrolling {ename}... look at the camera! ({esamp}/{ENROLL_NEEDED})</div>'
+
+        html = f"""<!DOCTYPE html>
 <html><head><title>Blue Fish</title>
+<meta http-equiv="refresh" content="3">
 <style>
-body{background:#111;color:#0f0;font-family:monospace;text-align:center;margin:0;padding:20px;}
-img{max-width:100%;border:2px solid #0f0;display:block;margin:auto;}
-input,button,select{background:#222;color:#0f0;border:1px solid #0f0;padding:6px 12px;
-  font-family:monospace;font-size:14px;margin:4px;border-radius:4px;}
-button{cursor:pointer;}button:hover{background:#0f0;color:#111;}
-#status{color:#ff0;margin:8px 0;min-height:24px;}
-#profiles{color:#0af;margin:8px 0;}
-.section{border:1px solid #0f0;padding:12px;margin:12px auto;max-width:500px;border-radius:8px;}
+body{{background:#111;color:#0f0;font-family:monospace;text-align:center;margin:0;padding:20px;}}
+img{{max-width:100%;border:2px solid #0f0;display:block;margin:auto;}}
+input,button,select{{background:#222;color:#0f0;border:1px solid #0f0;padding:6px 12px;
+  font-family:monospace;font-size:14px;margin:4px;border-radius:4px;}}
+button{{cursor:pointer;}}button:hover{{background:#0f0;color:#111;}}
+.section{{border:1px solid #0f0;padding:12px;margin:12px auto;max-width:500px;border-radius:8px;}}
 </style></head>
 <body>
 <h2>Blue Fish Camera</h2>
 <div id="fps" style="color:#555;font-size:12px;">frames: 0</div>
 <img id="f" src="/frame"
-  onload="frameCount++;document.getElementById('fps').textContent='frames: '+frameCount;setTimeout(function(){document.getElementById('f').src='/frame?t='+Date.now();},100);"
-  onerror="setTimeout(function(){document.getElementById('f').src='/frame?t='+Date.now();},400);">
+  onload="frameCount++;document.getElementById('fps').textContent='frames: '+frameCount;setTimeout(function(){{document.getElementById('f').src='/frame?t='+Date.now();}},100);"
+  onerror="setTimeout(function(){{document.getElementById('f').src='/frame?t='+Date.now();}},400);">
 <script>var frameCount=0;</script>
+
+{banner}
 
 <div class="section">
   <b>Enroll a New Person</b><br>
-  <input id="ename" placeholder="Enter name" maxlength="30">
-  <select id="elevel">
-    <option value="1">Level 1 - Owner (me!)</option>
-    <option value="2">Level 2 - Family</option>
-    <option value="3" selected>Level 3 - Friend</option>
-    <option value="4">Level 4 - Guest</option>
-    <option value="5">Level 5 - Basic</option>
-  </select>
-  <button onclick="startEnroll()">Enroll</button>
-  <div id="status"></div>
-  <div id="bar" style="height:8px;background:#222;border:1px solid #0f0;border-radius:4px;margin:6px 0;display:none;">
-    <div id="fill" style="height:100%;background:#0f0;width:0%;border-radius:4px;transition:width 0.3s;"></div>
-  </div>
+  <form method="POST" action="/enroll">
+    <input name="name" placeholder="Enter name" maxlength="30" required>
+    <select name="level">
+      <option value="1">Level 1 - Owner (me!)</option>
+      <option value="2">Level 2 - Family</option>
+      <option value="3" selected>Level 3 - Friend</option>
+      <option value="4">Level 4 - Guest</option>
+      <option value="5">Level 5 - Basic</option>
+    </select>
+    <button type="submit">Enroll</button>
+  </form>
+  <div style="color:#888;font-size:12px;">After clicking Enroll, look at the camera. Progress shows on the video feed.</div>
 </div>
 
 <div class="section">
-  <b>Known People</b>
-  <div id="profiles">Loading...</div>
+  <b>Known People</b><br>
+  {people_html}
 </div>
-
-<script>
-
-var polling=null;
-
-function xhr(method,url,body,cb){
-  var r=new XMLHttpRequest();
-  r.open(method,url,true);
-  if(body)r.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
-  r.onload=function(){if(r.status<400)cb(JSON.parse(r.responseText));};
-  r.send(body||null);
-}
-
-function startEnroll(){
-  var name=document.getElementById('ename').value.trim();
-  var level=document.getElementById('elevel').value;
-  if(!name){alert('Enter a name first!');return;}
-  xhr('POST','/enroll','name='+encodeURIComponent(name)+'&level='+level,function(d){
-    document.getElementById('status').textContent='Look at the camera, '+name+'!';
-    document.getElementById('bar').style.display='block';
-    if(polling)clearInterval(polling);
-    polling=setInterval(pollEnroll,500);
-  });
-}
-
-function pollEnroll(){
-  xhr('GET','/enroll_status',null,function(d){
-    var pct=Math.round(d.samples/d.needed*100);
-    document.getElementById('fill').style.width=pct+'%';
-    document.getElementById('status').textContent=
-      d.done?'Done! '+d.name+' enrolled!':
-      (d.enrolling?'Capturing... '+d.samples+'/'+d.needed:'');
-    if(d.done){clearInterval(polling);document.getElementById('ename').value='';loadProfiles();}
-  });
-}
-
-function loadProfiles(){
-  xhr('GET','/profiles',null,function(d){
-    if(!d.people.length){document.getElementById('profiles').textContent='No one enrolled yet.';return;}
-    var html='';
-    d.people.forEach(function(p){
-      var badge='L'+p.level;
-      var col=p.level==1?'#0f0':p.level<=2?'#af0':p.level<=3?'#fa0':'#f80';
-      html+='<span style="margin:4px;display:inline-block;">'+
-        '<b style="color:'+col+';">['+badge+']</b> '+p.name+
-        ' <button onclick="forget(\''+p.name+'\')">forget</button></span>';
-    });
-    document.getElementById('profiles').innerHTML=html;
-  });
-}
-
-function forget(name){
-  if(!confirm('Forget '+name+'?'))return;
-  xhr('POST','/forget','name='+encodeURIComponent(name),function(){loadProfiles();});
-}
-
-loadProfiles();
-</script>
 </body></html>"""
+        body = html.encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/html")
-        self.send_header("Content-Length", str(len(html)))
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(html)
+        self.wfile.write(body)
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
