@@ -571,7 +571,6 @@ class StreamHandler(BaseHTTPRequestHandler):
 
         html = f"""<!DOCTYPE html>
 <html><head><title>Blue Fish</title>
-<meta http-equiv="refresh" content="3">
 <style>
 body{{background:#111;color:#0f0;font-family:monospace;text-align:center;margin:0;padding:20px;}}
 img{{max-width:100%;border:2px solid #0f0;display:block;margin:auto;}}
