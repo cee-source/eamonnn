@@ -262,11 +262,11 @@ def analyze_face(frame):
                 pnames = list(profiles_snapshot.keys())
                 pencs  = [v["enc"] for v in profiles_snapshot.values()]
                 plvls  = [v["level"] for v in profiles_snapshot.values()]
-                matches = face_recognition.compare_faces(pencs, enc, tolerance=0.5)
-                if True in matches:
-                    idx = matches.index(True)
-                    name = pnames[idx]
-                    face_level = plvls[idx]
+                distances = face_recognition.face_distance(pencs, enc)
+                best_idx = int(np.argmin(distances))
+                if distances[best_idx] < 0.45:
+                    name = pnames[best_idx]
+                    face_level = plvls[best_idx]
 
             face_is_known = (name != "Stranger")
             color = (0, 200, 0) if name != "Stranger" else (0, 140, 255)
