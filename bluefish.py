@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Blue Fish - AI robot brain for Raspberry Pi 5 / CrunchLabs Omnibot"""
 
-import os, sys, time, json, queue, threading, subprocess, pickle, datetime
+import os, sys, time, json, queue, threading, subprocess, pickle, datetime, math
 import numpy as np
 import sounddevice as sd
 import whisper
@@ -27,6 +27,13 @@ FACE_PROFILE_OLD = f"{HOME}/face_profile.pkl"    # legacy single-person file
 KNOWLEDGE_DB     = f"{HOME}/knowledge.json"
 SHAPE_MODEL      = f"{HOME}/shape_predictor_68_face_landmarks.dat"
 CONVO_LOG        = f"{HOME}/conversation_log.json"
+
+# ── Sonar config ─────────────────────────────────────────────────────────────
+SONAR_TRIG     = 23          # GPIO BCM pin for HC-SR04 trigger
+SONAR_ECHO     = 24          # GPIO BCM pin for HC-SR04 echo
+SONAR_MAX_CM   = 300         # anything beyond this is "open"
+SCAN_STEPS     = 8           # readings per 360° sweep (every 45°)
+SCAN_ROT_TIME  = 0.45        # seconds of "R" motor per 45° — tune on your bot
 
 # ── Global state ──────────────────────────────────────────────────────────────
 stream_frame      = b""
@@ -64,6 +71,13 @@ speaking          = False
 serial_conn       = None
 conversation_log  = []          # list of {when, who, said, replied}
 
+# Sonar state
+sonar_distance    = None        # float cm, or None if no reading
+sonar_map         = []          # list of [angle_deg, dist_cm] from last scan
+sonar_scanning    = False
+sonar_lock        = threading.Lock()
+_sonar_sensor     = None        # gpiozero DistanceSensor instance
+
 # ── Face profiles ─────────────────────────────────────────────────────────────
 def _normalise(v):
     """Ensure profile value is always {enc, level} dict."""
@@ -97,6 +111,102 @@ def load_face_profiles():
 def save_face_profiles():
     with open(FACE_PROFILES_DB, "wb") as f:
         pickle.dump(face_profiles, f)
+
+# ── Sonar ─────────────────────────────────────────────────────────────────────
+def init_sonar():
+    global _sonar_sensor
+    try:
+        from gpiozero import DistanceSensor
+        _sonar_sensor = DistanceSensor(echo=SONAR_ECHO, trigger=SONAR_TRIG,
+                                       max_distance=SONAR_MAX_CM / 100)
+        print(f"[Sonar] HC-SR04 ready on TRIG={SONAR_TRIG} ECHO={SONAR_ECHO}")
+    except Exception as e:
+        _sonar_sensor = None
+        print(f"[Sonar] Not available: {e}")
+
+def sonar_read_cm():
+    """Return distance in cm, or None on error."""
+    if _sonar_sensor is None:
+        return None
+    try:
+        d = _sonar_sensor.distance * 100
+        return round(d, 1) if d < SONAR_MAX_CM else None
+    except Exception:
+        return None
+
+def sonar_loop():
+    """Background thread: refresh sonar_distance every 0.2 s."""
+    global sonar_distance
+    while True:
+        d = sonar_read_cm()
+        with sonar_lock:
+            sonar_distance = d
+        time.sleep(0.2)
+
+def do_scan():
+    """Rotate 360° in SCAN_STEPS steps and build a polar map."""
+    global sonar_map, sonar_scanning
+    with sonar_lock:
+        sonar_scanning = True
+    pts = []
+    deg_per_step = 360 // SCAN_STEPS
+    for i in range(SCAN_STEPS):
+        angle = i * deg_per_step
+        d = sonar_read_cm() or SONAR_MAX_CM
+        pts.append([angle, d])
+        print(f"[Sonar] scan {angle}°: {d} cm")
+        send_motor("R", SCAN_ROT_TIME)
+        time.sleep(SCAN_ROT_TIME + 0.25)   # wait for rotation + settle
+    with sonar_lock:
+        sonar_map = pts
+        sonar_scanning = False
+    speak("Scan complete.")
+
+def make_sonar_image():
+    """Render the current sonar map as a 300×300 PNG bytes."""
+    import cv2
+    SIZE = 300
+    img = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
+    cx, cy, r = SIZE // 2, SIZE // 2, SIZE // 2 - 12
+
+    # Grid rings
+    for frac in [0.25, 0.5, 0.75, 1.0]:
+        cv2.circle(img, (cx, cy), int(r * frac), (0, 55, 0), 1)
+    # Cross-hairs
+    cv2.line(img, (cx, cy - r - 8), (cx, cy + r + 8), (0, 55, 0), 1)
+    cv2.line(img, (cx - r - 8, cy), (cx + r + 8, cy), (0, 55, 0), 1)
+
+    # Axis labels
+    cv2.putText(img, "0", (cx - 5, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 120, 0), 1)
+    cv2.putText(img, str(SONAR_MAX_CM) + "cm", (2, cy - 2),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 80, 0), 1)
+
+    with sonar_lock:
+        pts = list(sonar_map)
+        d_now = sonar_distance
+        scanning = sonar_scanning
+
+    # Plot scan points
+    for angle_deg, dist in pts:
+        ratio = min(dist / SONAR_MAX_CM, 1.0)
+        rad = math.radians(angle_deg - 90)   # 0° = up (forward)
+        px = int(cx + math.cos(rad) * r * ratio)
+        py = int(cy + math.sin(rad) * r * ratio)
+        cv2.circle(img, (px, py), 6, (0, 220, 0), -1)
+        cv2.line(img, (cx, cy), (px, py), (0, 70, 0), 1)
+
+    # Current forward distance indicator (thin yellow line)
+    if d_now is not None:
+        ratio = min(d_now / SONAR_MAX_CM, 1.0)
+        py2 = int(cy - r * ratio)
+        cv2.line(img, (cx, cy), (cx, py2), (0, 200, 200), 2)
+
+    # Status text
+    label = f"SCANNING..." if scanning else (f"{d_now:.0f} cm" if d_now else "---")
+    cv2.putText(img, label, (5, SIZE - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+
+    _, buf = cv2.imencode(".png", img)
+    return buf.tobytes()
 
 # ── Knowledge base ────────────────────────────────────────────────────────────
 def load_knowledge():
@@ -493,6 +603,19 @@ class StreamHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
 
+        elif path == "/sonar_map":
+            if _sonar_sensor is None:
+                # Return a placeholder image when sensor isn't wired up
+                data = make_sonar_image()
+            else:
+                data = make_sonar_image()
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(data)
+
         else:
             self._serve_page()
 
@@ -535,6 +658,14 @@ class StreamHandler(BaseHTTPRequestHandler):
             with face_profiles_lock:
                 face_profiles.clear()
                 save_face_profiles()
+            self.send_response(302)
+            self.send_header("Location", "/")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        elif path == "/scan":
+            if not sonar_scanning:
+                threading.Thread(target=do_scan, daemon=True).start()
             self.send_response(302)
             self.send_header("Location", "/")
             self.send_header("Content-Length", "0")
@@ -584,6 +715,13 @@ class StreamHandler(BaseHTTPRequestHandler):
         elif busy:
             banner = f'<div style="color:#ff0;">Enrolling {ename}... look at the camera! ({esamp}/{ENROLL_NEEDED})</div>'
 
+        with sonar_lock:
+            _sd = sonar_distance
+            _scanning = sonar_scanning
+        sonar_label  = f"{_sd:.0f} cm" if _sd is not None else ("scanning..." if _scanning else "no sensor")
+        scan_status  = "scanning now..." if _scanning else "last scan: " + (f"{len(sonar_map)} pts" if sonar_map else "none")
+        scan_busy    = "true" if _scanning else "false"
+
         html = f"""<!DOCTYPE html>
 <html><head><title>Blue Fish</title>
 <style>
@@ -623,6 +761,22 @@ button{{cursor:pointer;}}button:hover{{background:#0f0;color:#111;}}
 <div class="section">
   <b>Known People</b><br>
   {people_html}
+</div>
+
+<div class="section">
+  <b>Sonar Map</b>
+  <div style="color:#888;font-size:11px;">live distance: {sonar_label} &nbsp;|&nbsp; {scan_status}</div>
+  <img id="sm" src="/sonar_map"
+    onload="setTimeout(function(){{document.getElementById('sm').src='/sonar_map?t='+Date.now();}},400);"
+    onerror="setTimeout(function(){{document.getElementById('sm').src='/sonar_map?t='+Date.now();}},800);"
+    style="width:300px;height:300px;image-rendering:pixelated;">
+  <br>
+  <form method="POST" action="/scan" style="display:inline;"
+    onsubmit="return !{scan_busy};">
+    <button type="submit" {'disabled' if sonar_scanning else ''}>360° Scan</button>
+  </form>
+  <div style="color:#555;font-size:11px;">Green dots = obstacles. Yellow line = current distance forward.<br>
+    Tune SCAN_ROT_TIME in bluefish.py if the map looks rotated wrong.</div>
 </div>
 </body></html>"""
         body = html.encode()
@@ -829,6 +983,28 @@ def handle_command(text, speaker):
         send_motor("S", 0); reply = "Stopping."; speak(reply)
         save_conversation(speaker, text, reply); return
 
+    if any(w in text for w in ("scan the room", "scan room", "do a scan", "map the room")):
+        if sonar_scanning:
+            reply = "I'm already scanning, hang on!"
+        elif _sonar_sensor is None:
+            reply = "My sonar sensor isn't connected yet."
+        else:
+            reply = "Scanning the room now — stay still!"
+            speak(reply)
+            threading.Thread(target=do_scan, daemon=True).start()
+            save_conversation(speaker, text, reply)
+        speak(reply); return
+
+    if any(w in text for w in ("how far", "what's in front", "whats in front",
+                                "distance to", "how close")):
+        with sonar_lock:
+            d = sonar_distance
+        if d is None:
+            reply = "My sonar sensor isn't connected, so I can't tell."
+        else:
+            reply = f"There's something about {d:.0f} centimetres in front of me."
+        speak(reply); save_conversation(speaker, text, reply); return
+
     if learn_mode:
         knowledge.setdefault("facts", []).append(text)
         save_knowledge()
@@ -910,8 +1086,10 @@ def main():
     load_conversation_log()
     init_serial()
 
+    init_sonar()
     threading.Thread(target=start_stream, daemon=True).start()
     threading.Thread(target=camera_loop, daemon=True).start()
+    threading.Thread(target=sonar_loop, daemon=True).start()
 
     time.sleep(2)
     speak("Blue Fish online. I'm ready to help, Eamonn!")
