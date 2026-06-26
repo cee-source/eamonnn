@@ -29,7 +29,7 @@ SHAPE_MODEL      = f"{HOME}/shape_predictor_68_face_landmarks.dat"
 CONVO_LOG        = f"{HOME}/conversation_log.json"
 
 # ── Auth config ──────────────────────────────────────────────────────────────
-OWNER_EMAIL    = "cee@ceemcdermott.com"
+OWNER_EMAIL    = "ehmcdermott77@gmail.com"
 OWNER_PASSWORD = "bluefish2025"      # change this to whatever you want
 
 valid_sessions  = set()
