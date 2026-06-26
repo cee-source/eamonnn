@@ -163,47 +163,76 @@ def do_scan():
     speak("Scan complete.")
 
 def make_sonar_image():
-    """Render the current sonar map as a 300×300 PNG bytes."""
+    """Render the current sonar map as a 400×400 PNG bytes — blue radar style."""
     import cv2
-    SIZE = 300
+    SIZE = 400
     img = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
-    cx, cy, r = SIZE // 2, SIZE // 2, SIZE // 2 - 12
+    cx, cy, r = SIZE // 2, SIZE // 2, SIZE // 2 - 16
 
-    # Grid rings
-    for frac in [0.25, 0.5, 0.75, 1.0]:
-        cv2.circle(img, (cx, cy), int(r * frac), (0, 55, 0), 1)
-    # Cross-hairs
-    cv2.line(img, (cx, cy - r - 8), (cx, cy + r + 8), (0, 55, 0), 1)
-    cv2.line(img, (cx - r - 8, cy), (cx + r + 8, cy), (0, 55, 0), 1)
+    # Deep blue background tint
+    img[:] = (18, 6, 0)   # very dark navy
 
-    # Axis labels
-    cv2.putText(img, "0", (cx - 5, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 120, 0), 1)
-    cv2.putText(img, str(SONAR_MAX_CM) + "cm", (2, cy - 2),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 80, 0), 1)
+    # Concentric range rings — bright inner → dim outer
+    ring_colors = [(180, 60, 0), (140, 45, 0), (100, 30, 0), (60, 18, 0)]
+    ring_labels = ["75", "150", "225", str(SONAR_MAX_CM)]
+    for i, frac in enumerate([0.25, 0.5, 0.75, 1.0]):
+        rr = int(r * frac)
+        cv2.circle(img, (cx, cy), rr, ring_colors[i], 1, cv2.LINE_AA)
+        cv2.putText(img, ring_labels[i] + "cm", (cx + rr + 2, cy - 2),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.28, ring_colors[i], 1, cv2.LINE_AA)
+
+    # Diagonal spokes at 45° intervals — dim
+    for deg in range(0, 360, 45):
+        rad = math.radians(deg - 90)
+        ex = int(cx + math.cos(rad) * r)
+        ey = int(cy + math.sin(rad) * r)
+        cv2.line(img, (cx, cy), (ex, ey), (50, 16, 0), 1, cv2.LINE_AA)
+
+    # Cardinal labels
+    cv2.putText(img, "FWD", (cx - 14, 10),   cv2.FONT_HERSHEY_SIMPLEX, 0.35, (200, 90, 0), 1, cv2.LINE_AA)
+    cv2.putText(img, "BCK", (cx - 14, SIZE - 3), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (120, 50, 0), 1, cv2.LINE_AA)
+    cv2.putText(img, "L",   (3, cy + 4),      cv2.FONT_HERSHEY_SIMPLEX, 0.35, (120, 50, 0), 1, cv2.LINE_AA)
+    cv2.putText(img, "R",   (SIZE - 14, cy + 4), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (120, 50, 0), 1, cv2.LINE_AA)
 
     with sonar_lock:
         pts = list(sonar_map)
         d_now = sonar_distance
         scanning = sonar_scanning
 
-    # Plot scan points
+    # Plot scan rays — bright blue line + glowing dot at obstacle
     for angle_deg, dist in pts:
         ratio = min(dist / SONAR_MAX_CM, 1.0)
-        rad = math.radians(angle_deg - 90)   # 0° = up (forward)
+        rad = math.radians(angle_deg - 90)
         px = int(cx + math.cos(rad) * r * ratio)
         py = int(cy + math.sin(rad) * r * ratio)
-        cv2.circle(img, (px, py), 6, (0, 220, 0), -1)
-        cv2.line(img, (cx, cy), (px, py), (0, 70, 0), 1)
+        # Faint ray from centre to obstacle
+        cv2.line(img, (cx, cy), (px, py), (130, 40, 0), 1, cv2.LINE_AA)
+        # Bright dot with soft glow
+        cv2.circle(img, (px, py), 8,  (200, 80,  0), -1, cv2.LINE_AA)
+        cv2.circle(img, (px, py), 5,  (255, 160, 0), -1, cv2.LINE_AA)
+        cv2.circle(img, (px, py), 2,  (255, 255, 200), -1, cv2.LINE_AA)
 
-    # Current forward distance indicator (thin yellow line)
+    # Live forward-distance sweep line — bright cyan-blue
     if d_now is not None:
         ratio = min(d_now / SONAR_MAX_CM, 1.0)
         py2 = int(cy - r * ratio)
-        cv2.line(img, (cx, cy), (cx, py2), (0, 200, 200), 2)
+        cv2.line(img, (cx, cy), (cx, py2), (255, 200, 0), 2, cv2.LINE_AA)
+        cv2.circle(img, (cx, py2), 4, (255, 255, 0), -1, cv2.LINE_AA)
 
-    # Status text
-    label = f"SCANNING..." if scanning else (f"{d_now:.0f} cm" if d_now else "---")
-    cv2.putText(img, label, (5, SIZE - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+    # Centre dot
+    cv2.circle(img, (cx, cy), 4, (180, 100, 0), -1, cv2.LINE_AA)
+
+    # Status text bottom-left
+    if scanning:
+        label = "SCANNING..."
+        col = (100, 220, 255)
+    elif d_now is not None:
+        label = f"{d_now:.0f} cm ahead"
+        col = (160, 220, 255)
+    else:
+        label = "no sensor"
+        col = (80, 80, 120)
+    cv2.putText(img, label, (6, SIZE - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.45, col, 1, cv2.LINE_AA)
 
     _, buf = cv2.imencode(".png", img)
     return buf.tobytes()
@@ -769,7 +798,7 @@ button{{cursor:pointer;}}button:hover{{background:#0f0;color:#111;}}
   <img id="sm" src="/sonar_map"
     onload="setTimeout(function(){{document.getElementById('sm').src='/sonar_map?t='+Date.now();}},400);"
     onerror="setTimeout(function(){{document.getElementById('sm').src='/sonar_map?t='+Date.now();}},800);"
-    style="width:300px;height:300px;image-rendering:pixelated;">
+    style="width:400px;height:400px;image-rendering:pixelated;">
   <br>
   <form method="POST" action="/scan" style="display:inline;"
     onsubmit="return !{scan_busy};">
