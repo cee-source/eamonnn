@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Blue Fish - AI robot brain for Raspberry Pi 5 / CrunchLabs Omnibot"""
 
-import os, sys, time, json, queue, threading, subprocess, pickle, datetime, math
+import os, sys, time, json, queue, threading, subprocess, pickle, datetime, math, secrets
 import numpy as np
 import sounddevice as sd
 import whisper
@@ -27,6 +27,13 @@ FACE_PROFILE_OLD = f"{HOME}/face_profile.pkl"    # legacy single-person file
 KNOWLEDGE_DB     = f"{HOME}/knowledge.json"
 SHAPE_MODEL      = f"{HOME}/shape_predictor_68_face_landmarks.dat"
 CONVO_LOG        = f"{HOME}/conversation_log.json"
+
+# ── Auth config ──────────────────────────────────────────────────────────────
+OWNER_EMAIL    = "cee@ceemcdermott.com"
+OWNER_PASSWORD = "bluefish2025"      # change this to whatever you want
+
+valid_sessions  = set()
+sessions_lock   = threading.Lock()
 
 # ── Sonar config ─────────────────────────────────────────────────────────────
 SONAR_TRIG     = 23          # GPIO BCM pin for HC-SR04 trigger
@@ -558,9 +565,70 @@ class StreamHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass
 
+    def _check_session(self):
+        cookie = self.headers.get("Cookie", "")
+        for part in cookie.split(";"):
+            k, _, v = part.strip().partition("=")
+            if k.strip() == "bf_session":
+                with sessions_lock:
+                    return v.strip() in valid_sessions
+        return False
+
+    def _serve_locked_page(self, error=False):
+        err_msg = '<p style="color:#c00;font-size:13px;">Wrong email or password.</p>' if error else ""
+        html = f"""<!DOCTYPE html>
+<html><head><title> </title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box;}}
+body{{background:#fff;}}
+#corner{{position:fixed;top:0;right:0;width:60px;height:60px;
+  background:transparent;border:none;cursor:default;z-index:10;}}
+#box{{display:none;position:fixed;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  background:#0a0a0a;border:1px solid #1a5fa8;border-radius:10px;
+  padding:32px 36px;min-width:280px;text-align:center;
+  box-shadow:0 0 40px rgba(30,100,255,0.25);}}
+h3{{color:#4a9eff;font-family:monospace;letter-spacing:2px;margin-bottom:18px;}}
+input{{display:block;width:100%;background:#111;color:#cde;
+  border:1px solid #1a5fa8;border-radius:5px;padding:9px 12px;
+  font-size:14px;margin-bottom:12px;font-family:monospace;outline:none;}}
+input:focus{{border-color:#4a9eff;}}
+button[type=submit]{{width:100%;background:#1a5fa8;color:#fff;
+  border:none;border-radius:5px;padding:10px;font-size:14px;
+  font-family:monospace;cursor:pointer;letter-spacing:1px;}}
+button[type=submit]:hover{{background:#2274d4;}}
+</style>
+</head>
+<body>
+<button id="corner" onclick="document.getElementById('box').style.display='block';"></button>
+<div id="box">
+  <h3>BLUE FISH</h3>
+  {err_msg}
+  <form method="POST" action="/login">
+    <input name="email" type="email" placeholder="Email" autocomplete="email" required>
+    <input name="password" type="password" placeholder="Password" autocomplete="current-password" required>
+    <button type="submit">ENTER</button>
+  </form>
+</div>
+</body></html>"""
+        body = html.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
         parsed = urlparse(self.path)
         path   = parsed.path
+        params = parse_qs(parsed.query)
+
+        if path == "/login":
+            self._serve_locked_page(error="err" in params)
+            return
+        if not self._check_session():
+            self._serve_locked_page()
+            return
 
         if path == "/stream":
             # Write raw HTTP — bypasses BaseHTTPRequestHandler's Connection:close
@@ -652,8 +720,34 @@ class StreamHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path   = parsed.path
         length = int(self.headers.get("Content-Length", 0))
-        body   = self.rfile.read(length).decode()
-        params = parse_qs(body)
+        raw    = self.rfile.read(length).decode()
+        params = parse_qs(raw)
+
+        if path == "/login":
+            email = params.get("email", [""])[0].strip().lower()
+            pw    = params.get("password", [""])[0]
+            if email == OWNER_EMAIL.lower() and pw == OWNER_PASSWORD:
+                token = secrets.token_hex(32)
+                with sessions_lock:
+                    valid_sessions.add(token)
+                self.send_response(302)
+                self.send_header("Location", "/")
+                self.send_header("Set-Cookie",
+                    f"bf_session={token}; Path=/; HttpOnly; SameSite=Strict")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+            else:
+                self.send_response(302)
+                self.send_header("Location", "/login?err=1")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+            return
+
+        if not self._check_session():
+            self.send_response(403)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
 
         if path == "/enroll":
             name = params.get("name", [""])[0].strip()
