@@ -1195,12 +1195,14 @@ def listen_loop():
                 buf.append(chunk); silence_chunks += 1
                 if silence_chunks >= silence_limit:
                     audio_np = np.concatenate(buf).flatten()
-                    if len(audio_np) > SAMPLERATE * 0.5:
-                        text = transcribe(audio_np)
-                        if text and len(text) > 2:
-                            speaker = identify_speaker(audio_np)
-                            threading.Thread(target=handle_command, args=(text, speaker), daemon=True).start()
                     buf.clear(); silence_chunks = 0; in_speech = False
+                    if len(audio_np) > SAMPLERATE * 0.5:
+                        def _process(a=audio_np):
+                            text = transcribe(a)
+                            if text and len(text) > 2:
+                                speaker = identify_speaker(a)
+                                handle_command(text, speaker)
+                        threading.Thread(target=_process, daemon=True).start()
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
