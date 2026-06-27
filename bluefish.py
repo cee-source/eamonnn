@@ -11,9 +11,9 @@ from socketserver import ThreadingMixIn
 from urllib.parse import parse_qs, urlparse
 
 # ── Audio config ─────────────────────────────────────────────────────────────
-SAMPLERATE    = 48000
+SAMPLERATE    = 16000
 DEVICE        = 1
-CHUNK         = 4096
+CHUNK         = 1024
 SILENCE_THRESHOLD = 300
 MAX_SILENCE   = 1.5
 
