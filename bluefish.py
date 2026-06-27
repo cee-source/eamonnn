@@ -11,9 +11,14 @@ from socketserver import ThreadingMixIn
 from urllib.parse import parse_qs, urlparse
 
 # ── Audio config ─────────────────────────────────────────────────────────────
-SAMPLERATE    = 16000
 DEVICE        = 1
 CHUNK         = 1024
+# Detect mic's native sample rate at startup
+try:
+    import sounddevice as _sd
+    SAMPLERATE = int(_sd.query_devices(DEVICE, "input")["default_samplerate"])
+except Exception:
+    SAMPLERATE = 44100
 SILENCE_THRESHOLD = 300
 MAX_SILENCE   = 1.5
 
@@ -980,6 +985,10 @@ print("[Whisper] Ready")
 
 def transcribe(audio_np):
     audio_f32 = audio_np.astype(np.float32) / 32768.0
+    if SAMPLERATE != 16000:
+        import scipy.signal
+        audio_f32 = scipy.signal.resample_poly(
+            audio_f32, 16000, SAMPLERATE).astype(np.float32)
     result = whisper_model.transcribe(audio_f32, fp16=False, language="en")
     return result["text"].strip().lower()
 
