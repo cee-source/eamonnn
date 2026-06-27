@@ -2,6 +2,7 @@
 """Blue Fish - AI robot brain for Raspberry Pi 5 / CrunchLabs Omnibot"""
 
 import os, sys, time, json, queue, threading, subprocess, pickle, datetime, math, secrets
+sys.stdout.reconfigure(line_buffering=True)
 import numpy as np
 import sounddevice as sd
 import whisper
