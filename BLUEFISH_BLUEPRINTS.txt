@@ -1,0 +1,524 @@
+================================================================================
+                    BLUE FISH — FULL TECHNICAL BLUEPRINTS
+              5-Foot Aluminum Humanoid Robot — Full Build Reference
+         Material: 80/20 Aluminum Extrusion + 1/8" Aluminum Sheet
+                          Total Height: ~152cm (5 feet)
+                           Built by: Eamonn McDermott
+================================================================================
+
+
+================================================================================
+SECTION 1: FULL BODY FRONT VIEW
+================================================================================
+
+                              CENTER LINE
+                                  |
+                          +---------------+
+                          |   +-------+   |  <- HEAD: 20cm wide
+                          |   | ()  () |  |     22cm tall
+              [25KG NECK] |   |  CAM   |  |     (NeoPixel eyes)
+                  PAN/TILT|   +-------+   |
+                          +-------+-------+  -- y=150cm (top)
+                              +---+---+
+                       NECK ->| [===] | <- 8cm  -- y=128cm
+                          +---+---------+---+
+            [80KG]        |               |       [80KG]
+         +--SHOULDER------+               +------SHOULDER--+
+         | O 2-AXIS       |   T O R S O   |      2-AXIS O |  -- y=120cm
+         |                |               |               |
+         | UPPER          |  35cm wide    |         UPPER |  <- upper arm
+         | ARM            |  45cm tall    |           ARM |    30cm
+         | 30cm           |  (Pi5, batt,  |          30cm |
+         |                |   PCA9685s)   |               |
+       [80KG]--ELBOW O    |   +-------+   |    O ELBOW--[80KG] -- y=90cm
+         |                |   |HC-SR04|   |               |
+         | FORE-          |   +-------+   |         FORE- |
+         | ARM            |               |           ARM |
+         | 25cm           +-------+-------+          25cm |
+       [25KG]--WRIST O        | PELVIS              O WRIST-[25KG] - y=75cm
+        [HAND]          +------+------+              [HAND]
+       [25KG]          |   35cm wide  |              [25KG]
+                  [150KG]            [150KG]
+              +----HIP O----+    +----O HIP----+        -- y=72cm
+              | 3-AXIS      |    |     3-AXIS  |
+              |             |    |             |
+              |  THIGH      |    |   THIGH     |  <- thigh 40cm
+              |  40cm       |    |   40cm      |    (FLYWHEEL inside)
+              |  [flywheel] |    | [flywheel]  |
+        [150KG]-KNEE O      |    |    O KNEE-[150KG]      -- y=42cm
+              |             |    |             |
+              |   SHIN      |    |    SHIN     |  <- shin 35cm
+              |   35cm      |    |    35cm     |
+              |             |    |             |
+        [150KG]ANKLE O      |    |    O ANKLE[150KG]      -- y=12cm
+            +--+--+         |    |       +--+--+
+            |FOOT |         |    |       |FOOT |  <- foot 25cm x 12cm
+            +-----+         |    |       +-----+         -- y=0cm
+            <25cm>              <---- 30cm stance ---->
+            =============== GROUND ==============================
+
+  SERVO KEY: O = joint pivot   [25/80/150KG] = servo torque rating
+
+
+================================================================================
+SECTION 2: FULL BODY SIDE VIEW
+================================================================================
+
+        FRONT <-----------------------------------------> BACK
+                    +----------+
+          CAMERA -> | O   HEAD | <- MIC (USB, inside)   -- 150cm
+        (forehead)  |   18cm   |
+                    |  deep    |
+                    +----+-----+
+                  NECK ->|=|  [25KG pan/tilt]            -- 128cm
+                   +-----+--------------------+
+                   |  +------+                | <- BATTERY  -- 120cm
+       SHOULDER O--+  | Pi 5 |   +----------+ |   24V 20Ah
+        [80KG]     |  +------+   | BATTERY  | |   (rear/lower)
+                   |  +------+   |          | |
+                   |  |PCA x2|   |          | |  TORSO
+       SONAR -> |||+  +------+   +----------+ |  22cm deep
+       HC-SR04     |  +------+                |
+                   |  |SPEAKR|  [Arduino]     | <- Bluetooth  -- 90cm
+                   |  +------+                |   speaker
+                   +----------+--------------+
+                       +------+  PELVIS               -- 72cm
+          HIP O--------+
+         [150KG]       |
+                       |  /======\
+                       |  | FLY  | <- FLYWHEEL HOUSING
+              THIGH -> |  | WHL  |   inside thigh
+              40cm     |  \======/   (BLDC + 16lb disc)
+                       |   | cord                      -- 42cm
+          KNEE O-------+   |
+         [150KG]       |   | Dyneema cord
+              SHIN  -> |   |
+              35cm     |   |
+         ANKLE O-------+   |  [150KG]                  -- 12cm
+                  +--------+--------+
+          FOOT -> |%%%%%%%%%%%%%%%%%| <- 25cm long
+                  +-----------------+                   -- 0cm
+        <- heel              toe ->
+        =============== GROUND ================================
+
+
+================================================================================
+SECTION 3: HEAD DETAIL
+================================================================================
+
+FRONT VIEW                                TOP VIEW
+
+<---------- 20cm wide ---------->         <---------- 20cm wide ---------->
++-------------------------------------+   +-------------------------------------+
+|  +-----------+                      |   |          +--PiCam--+               |
+|  | PiCAM v3  | <- CSI ribbon to Pi5 |   |          | lens O  |               |
+|  +-----------+  (forehead center)   |   |          +---------+               |
+|     /OOO\           /OOO\           |   |  O EYE O             O EYE O       |
+|    O  O  O         O  O  O          |   |                                     |
+|    O LEFT O       O RIGHT O <- NeoPixel  |  +---------------------------+     |
+|    O EYE  O       O  EYE  O    12-LED|   |  | USB MIC    Pi processing  |     |
+|     \OOO/           \OOO/    rings  |   |  +---------------------------+     |
+|        [USB MIC behind grille]      |   +------------------+------------------+
+|          [=====SPEAKER======]       |                       |
++------------------+------------------+               +-------+-------+
+                   |                      PAN [25KG] ->| servo x 2    |<- TILT [25KG]
+             [===NECK===]                  (L/R)       +-------+-------+
+             [25KG servos]                                NECK MECHANISM
+             [pan + tilt]
+
+  Eyes:  2x NeoPixel 12-LED ring, ~37mm OD, WS2812B, single data line
+  Neck:  2-DOF pan/tilt, both 25KG servos, +-90 pan / +-45 tilt
+  Mic:   USB microphone, routed down to Pi 5 in chest via USB extension
+
+
+================================================================================
+SECTION 4: TORSO / CHEST DETAIL
+================================================================================
+
+FRONT CUTAWAY (panels removed):
+<-------------------- 35cm wide -------------------->
++--------------------------------------------------+  ^
+|  +-------------+    +-----------+                |  |
+|  | RASPBERRY   |    | PCA9685   | <- 0x40        |  |
+|  |   Pi 5      |    | driver #1 |   (servo 1-16) |  |
+|  | (4GB/8GB)   |    +-----------+                |  |
+|  +-------------+    +-----------+                |  |
+|  +-------------+    | PCA9685   | <- 0x41       45cm
+|  | ARDUINO     |    | driver #2 |   (servo17-20)|tall
+|  |  NANO       |    +-----------+                |  |
+|  +-------------+                                 |  |
+|  +------------------+  +--------------------+    |  |
+|  | BUCK 24->12V 10A |  | BLUETOOTH SPEAKER  |    |  |
+|  +------------------+  +--------------------+    |  |
+|  +------------------+                            |  |
+|  | BUCK 12-> 5V  5A |   ||| HC-SR04 SONAR |||    |  v
+|  +------------------+   (mounted front face)     |
++--------------------------------------------------+
+  Wiring: I2C bus (SDA/SCL) --- Pi5 -> PCA#1 -> PCA#2 (daisy chain)
+          UART --- Pi5 GPIO14/15 -> Nano RX/TX
+
+BACK PANEL:
++--------------------------------------------------+  ^
+|  +----------------------------------------------+|  |
+|  |        24V 20Ah LiPo BATTERY PACK            ||  |
+|  |        340mm x 155mm x 100mm                 ||  |
+|  |        [ON/OFF switch on top edge]            || 45cm
+|  +----------------------------------------------+|  |
++--------------------------------------------------+  v
+  Battery placed REAR + LOW for balance.
+  Heavy items low = stable walking.
+
+
+================================================================================
+SECTION 5: ARM DETAIL
+================================================================================
+
+FRONT VIEW - LEFT ARM:
+
+         80KG servo ===O=== shoulder pitch (lift fwd/back)
+         80KG servo ===O=== shoulder roll  (raise out to side)
+                       |
+          +------------+-----------+
+          |       UPPER ARM        |  <- 20x20mm 80/20 extrusion
+          |       30cm long        |
+          +------------+-----------+
+                       |
+         80KG servo ===O=== elbow (bend 0-135 degrees)
+                       |
+          +------------+-----------+
+          |         FOREARM        |  <- 20x20mm 80/20 extrusion
+          |         25cm long      |
+          +------------+-----------+
+                       |
+         25KG servo ===O=== wrist pitch (flex up/down)
+         25KG servo ===O=== wrist roll  (rotate/twist)
+                       |
+          +------------+-----------+
+          |   [F1] [F2] [F3] [F4] |  <- flat aluminum plate
+          |         HAND           |     with 4 finger tabs
+          +------------------------+     12cm wide (fixed)
+
+  Total arm reach shoulder to fingertip: ~62cm
+  Tube:  20x20mm 80/20 T-slot aluminum extrusion throughout
+
+
+================================================================================
+SECTION 6: LEG DETAIL (with Fat Tail system)
+================================================================================
+
+FRONT VIEW - LEFT LEG:
+
+         150KG servo ===O=== hip pitch (swing forward/back)
+         150KG servo ===O=== hip roll  (lean side to side)
+         150KG servo ===O=== hip yaw   (rotate)
+                        |
+          +-------------+------------+
+          |          THIGH           |  <- 40x40mm 80/20 extrusion
+          |          40cm long       |
+          |  +--------------------+  |
+          |  |  [*] FLYWHEEL [*]  |  |  <- 16lb steel disc
+          |  |   brushless motor  |  |     spins at 9000rpm
+          |  |   ESC controller   |  |
+          |  |   12V solenoid     |  |
+          |  +--------------------+  |
+          |  [Dyneema cord coiled]   |
+          +-------------+------------+
+                        |
+         150KG servo ===O=== knee  <-- Dyneema cord attaches HERE
+                        |
+          +-------------+------------+
+          |           SHIN           |  <- 30x30mm 80/20 extrusion
+          |           35cm long      |
+          |  [Dyneema runs inside]   |
+          |  [cord pulls shin fwd]   |
+          +-------------+------------+
+                        |
+         150KG servo ===O=== ankle pitch
+          80KG servo ===O=== ankle roll
+                        |
+          +-------------+------------+
+          |           FOOT           |  <- 1/8" aluminum flat plate
+          |   28cm long x 12cm wide  |     rubber grip pads on bottom
+          +--------------------------+
+
+  Dyneema cord path: flywheel -> knee pulley -> ankle pulley -> foot anchor
+  Total leg length hip to ground: ~78cm
+
+
+================================================================================
+SECTION 7: FAT TAIL MECHANISM CLOSEUP (inside thigh)
+================================================================================
+
+         TOP OF THIGH
+    +----------------------------------------------+
+    |   +====================+                      |
+    |   |    BLDC MOTOR      |  <- brushless motor  |
+    |   |   (brushless)      |     spins flywheel   |
+    |   |   ~24V, high RPM   |     target: 9000 rpm |
+    |   +=========|==========+     driven by ESC    |
+    |             | motor shaft                     |
+    |     +-------+---------+                       |
+    |    /                   \                      |  FLYWHEEL:
+    |   |   +--------------+  |                     |  16 lb steel disc
+    |   |   | ### STEEL ### |  |  <--16lb flywheel  |  diameter ~15cm
+    |   |   | ###  DISC ### |  |     5" diameter    |  spins @ 9000 rpm
+    |   |   | ############  |  |     STORES ENERGY  |
+    |    \                   /                      |
+    |     +-------+---------+                       |
+    |     +-------+---------+                       |  CLUTCH:
+    |     |   SOLENOID      |  <- 12V pull type     |  Normally OPEN.
+    |     |    CLUTCH       |     fires in < 5ms    |  Fire solenoid ->
+    |     |  MOSFET driven  |                       |  pad clamps disc
+    |     +-------+---------+                       |  to output spool
+    |      +------+------+                          |
+    |      |  (cord) SPOOL|  =====+                 |  OUTPUT DRUM:
+    |      +--------------+       |                 |  Dyneema cord wound
+    +------------------------------|-----------------+  on drum. When clutch
+                                   |                    engages, drum spins,
+                            Dyneema cord                yanks cord HARD.
+                                   |
+               KNEE  -----(pulley)-+-------> cord guide
+                                   |
+               ANKLE ---(pulley)---+-------> cord guide
+                                   |
+               FOOT  ==============+  <- cord anchors to foot toe
+
+  HOW IT WORKS:
+   1. BLDC motor spins 16lb flywheel to 9000 rpm (stores kinetic energy).
+   2. Solenoid clutch is OPEN -- flywheel free-spins, foot relaxed.
+   3. Arduino fires solenoid -> clutch CLAMPS flywheel to spool.
+   4. Spinning energy transfers to spool -> cord YANKS foot forward FAST.
+   5. Explosive pull = jump / running stride (fires in ~40 milliseconds).
+   6. Release clutch, motor re-spins flywheel for next step.
+
+  RUNNING MODE: flywheel stays spinning continuously, solenoid fires
+  alternating left/right with each step -> explosive sprint gait.
+
+  !! WARNING: 9000 RPM steel disc is EXTREMELY DANGEROUS.
+     An adult MUST supervise. Use a steel containment shield
+     bolted around flywheel inside the thigh. Never run uncontained.
+
+
+================================================================================
+SECTION 8: FOOT DETAIL
+================================================================================
+
+TOP VIEW:
+<-------------------- 25cm -------------------->
++--------------------------------------------------+  ^
+|  +----------------------------------------------+|  |
+|  |          ANKLE SERVO BRACKET                 ||  |
+|  |   +----------+    [150KG servo]              ||  |
+|  |   |servo horn|   O pivot point               || 12cm
+|  |   +----------+                               ||  |
+|  |   * cord anchor point (Dyneema ties here)    ||  |
+|  +----------------------------------------------+|  v
+|  %%% 1/8" ALUMINUM PLATE BASE (6mm thick) %%%    |
++------+------------------------------------------+----+
+    heel                                           toe
+
+SIDE VIEW:
+           [150KG ankle servo]
+                 O ankle pivot
+             +---+----+
+             | bracket|
++------------+---------+-------------------------------+  <- 1/8" Al plate
+|%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  toe \  |  <- toe plate
++---------------------------------------------------+--+
+|### RUBBER / GRIP PAD (bottom) ######################|  <- traction
++-----------------------------------------------------+
+<-- heel --------------- 25cm ------------------- toe -->
+
+  - Base:     1/8" (3.2mm) aluminum sheet, 25cm x 12cm
+  - Ankle:    150KG servo via bracket, 2-axis (pitch + roll)
+  - Bottom:   rubber grip pad (anti-slip, absorbs impact)
+  - Cord:     Dyneema from Fat Tail terminates at toe anchor point
+
+
+================================================================================
+SECTION 9: ELECTRONICS WIRING DIAGRAM
+================================================================================
+
++-------------+  CSI ribbon  +--------------------------------+
+| Pi Camera v3+--------------> |                              |
++-------------+               |                              | USB +----------+
++-------------+  USB          |       RASPBERRY Pi 5         +---->+ USB MIC  |
+|  Bluetooth  |<-- wireless --+       (the BRAIN)            |     +----------+
+|  Speaker    |               |                              |
++-------------+               |  I2C (GPIO2=SDA, GPIO3=SCL)  |
+                              |  UART (GPIO14=TX, GPIO15=RX) |
+                  +-----------+  GPIO18 -> NeoPixel L        |
+                  |  I2C      |  GPIO19 -> NeoPixel R        |
+                  |           +-----+--------+---------------+
+        +---------+---------+       |         |  UART serial
+        |                   |       |         |  (TX/RX/GND)
+   +----+-----+       +-----+----+  |    +----+-----------+
+   | PCA9685  |       | PCA9685  |  |    |  ARDUINO NANO  |
+   |  #1 0x40 |       |  #2 0x41 |  |    |  (realtime     |
+   +----+-----+       +-----+----+  |    |   controller)  |
+        | PWM x16          | PWM x4 |    +--+--+--+--+----+
+        |                  |        |       |  |  |  |
+   SERVOS 1-16         SERVOS 17-20 |       |  |  |  +-----> NeoPixel Eyes x2
+   (legs, arms,        (wrists,     |       |  |  +--------> Solenoid MOSFET
+    shoulders,          neck)       |       |  +-----------> Brushless ESC x2
+    waist)                          |       +-------------> HC-SR04 TRIG/ECHO
+                               HC-SR04 SONAR (trig/echo direct to Nano)
+
+  I2C ADDRESSES:    PCA9685 #1 = 0x40,  PCA9685 #2 = 0x41 (solder A0 pad)
+  UART:             Pi GPIO14 TX -> Nano RX,  Pi GPIO15 RX <- Nano TX
+  COMMON GROUND:    ALL grounds must connect together or nothing works!
+
+
+================================================================================
+SECTION 10: POWER SYSTEM DIAGRAM
+================================================================================
+
++----------------------------+
+|   24V 20Ah LiPo BATTERY    |  <- MAIN POWER SOURCE (~480 Wh)
+|   (rear / lower torso)     |
++------------+---------------+
+             |
+      [MAIN SWITCH]          <- master on/off toggle
+             |
+      [FUSE: 30A]            <- main fuse (protects everything)
+             |
+             +--- 24V BUS ---+-------------------+------------------+
+             |               |                   |                  |
+         [F:25A]         [F:10A]             [F:10A]            [F:3A]
+             |               |                   |                  |
+      +------+------+  +-----+------+   +--------+------+  +-------+------+
+      |  150KG      |  |  BUCK #1   |   |  BLDC ESC     |  | SOLENOID     |
+      |  SERVOS     |  |  24V->12V  |   |  (flywheel    |  | DRIVER       |
+      |  hip/knee/  |  |  10A       |   |   motors x2)  |  | (MOSFET x2)  |
+      |  ankle x6   |  +-----+------+   +---------------+  +--------------+
+      +-------------+        | 12V
+                       +-----+------+
+                       |   12V BUS  |
+                       |            +--------------------+
+                   [F:10A]                          [F:5A]
+                       |                                 |
+               +-------+-------+                 +-------+------+
+               |   80KG        |                 |  BUCK #2     |
+               |   SERVOS      |                 |  12V -> 5V   |
+               |  shoulder/    |                 |  5A          |
+               |  elbow x4     |                 +-------+------+
+               +---------------+                         | 5V
+                                              +----------+---------+-------+
+                                          [F:5A]      [F:2A]    [F:1A]     |
+                                              |            |         |      |
+                                        +-----+--+  +------+-+  +---+---+  |
+                                        | Pi 5   |  |Arduino |  |PCA9685|  |
+                                        | USB-C  |  |  Nano  |  | logic |  |
+                                        | 5V/5A  |  |  5V    |  |(3.3V) |  |
+                                        +--------+  +--------+  +-------+  |
+                                                                  NeoPixels-+
+
+RAIL SPECIFICATION TABLE:
++------------------+-------+---------+------+------------+
+| RAIL             | VOLTS | CURRENT | FUSE | WIRE GAUGE |
++------------------+-------+---------+------+------------+
+| Main battery     |  24V  | 30A max |  30A | 10 AWG     |
+| 150KG servos     |  24V  | ~20A pk |  25A | 12 AWG     |
+| Buck #1 input    |  24V  |  10A    |  10A | 14 AWG     |
+| 80KG servos      |  12V  |  ~8A    |  10A | 14 AWG     |
+| BLDC ESC         |  24V  |  10A+   |  10A | 12 AWG     |
+| Buck #2 (5V)     |   5V  |   5A    |   5A | 18 AWG     |
+| Pi 5             |   5V  |   5A    |   5A | 18 AWG     |
+| Arduino Nano     |   5V  |  <0.5A  |   2A | 22 AWG     |
+| PCA9685 logic    |  3.3V |  <0.1A  |   1A | 22 AWG     |
+| Solenoids        |  24V  |  2-5A   |   3A | 18 AWG     |
++------------------+-------+---------+------+------------+
+
+
+================================================================================
+SAFETY RULES (read with an adult before building)
+================================================================================
+
+  1. FLYWHEEL: The 16lb steel disc spinning at 9000rpm stores massive
+     energy. ALWAYS build a steel containment shield bolted around it
+     inside the thigh panel. NEVER run the flywheel uncontained.
+     An adult MUST be present when testing.
+
+  2. LIPO BATTERY: Can catch fire if shorted, overcharged, or punctured.
+     - Always use the correct balance charger
+     - Charge inside a fireproof LiPo charging bag
+     - Never leave charging unattended
+     - Store in a cool dry place away from flammable materials
+
+  3. FUSES: Every rail MUST have its own fuse. Do not skip fuses.
+     A short without a fuse = fire.
+
+  4. COMMON GROUND: Every component's ground wire must connect to the
+     same ground rail. If grounds are not connected, signals will not
+     work and components may be damaged.
+
+  5. HIGH TORQUE SERVOS: 150KG servos can crush fingers and break bones.
+     Never put hands near joints when power is on.
+
+  6. FIRST BUILD: Build one arm first and test it fully before building
+     the full robot. Go section by section.
+
+
+================================================================================
+SHOPPING LIST SUMMARY (total ~$2,590)
+================================================================================
+
+ALREADY HAVE (~$138):
+  Raspberry Pi 5 .................. ~$60
+  Arduino Nano ..................... ~$5
+  Pi Camera Module 3 .............. ~$25
+  USB Microphone ................... ~$10
+  Bluetooth Speaker ................ ~$20
+  HC-SR04 Sonar .................... ~$8
+  64GB microSD ..................... ~$10
+
+FRAME + CASING (~$585):
+  80/20 aluminum extrusion 1x1 x8 . ~$200
+  1/8" aluminum sheet x8 sheets ... ~$280
+  Aluminum angle brackets .......... ~$50
+  Ball bearing kit ................. ~$30
+  M4/M5 bolt + nut kit ............. ~$25
+
+SERVOS (~$1,180):
+  150KG servo x10 (legs) .......... ~$700
+  80KG servo x6 (arms) ............ ~$300
+  25KG servo x6 (wrists/neck) ..... ~$180
+
+POWER (~$239):
+  24V 20Ah LiPo battery ........... ~$180
+  LiPo balance charger ............. ~$35
+  Buck converter 24V->12V .......... ~$15
+  Buck converter 12V->5V ........... ~$9
+
+ELECTRONICS (~$72):
+  PCA9685 servo driver x3 .......... ~$21
+  Pi 5 active cooler ............... ~$5
+  NeoPixel 12-LED ring x2 .......... ~$22
+  Jumper wires + breadboard ......... ~$10
+  Resistor kit ...................... ~$8
+  On/off rocker switch .............. ~$6
+
+FAT TAIL LEG SYSTEM (~$191):
+  Brushless motor 5055 x2 .......... ~$50
+  50A ESC x2 ....................... ~$40
+  16lb steel flywheel disc x2 ....... ~$50
+  12V pull solenoid x2 .............. ~$24
+  Dyneema 400kg cord 50ft ........... ~$15
+  Flywheel bearing kit .............. ~$12
+
+TOOLS (~$185):
+  Cordless drill + bit set .......... ~$60
+  Jigsaw (cuts aluminum sheet) ....... ~$55
+  Tap and die set (M4/M5) ........... ~$30
+  Metal file set ..................... ~$15
+  Rivnut tool ........................ ~$25
+
+================================================================================
+                TOTAL: ~$2,590
+================================================================================
+
+                   BLUE FISH v1.0 - Built by Eamonn McDermott
+                   Powered by Raspberry Pi 5 + Ollama AI
+                   "The world's coolest robot"
+
+================================================================================
