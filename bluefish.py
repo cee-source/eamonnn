@@ -37,6 +37,7 @@ CONVO_LOG        = f"{HOME}/conversation_log.json"
 # ── Auth config ──────────────────────────────────────────────────────────────
 OWNER_EMAIL    = "ehmcdermott77@gmail.com"
 OWNER_PASSWORD = "bluefish2025"      # change this to whatever you want
+DRIVE_OVERRIDE = "BLUEFISH"          # type this to unlock drive mode
 
 valid_sessions  = set()
 sessions_lock   = threading.Lock()
@@ -706,6 +707,10 @@ button[type=submit]:hover{{background:#2274d4;}}
             self.end_headers()
             self.wfile.write(body)
 
+        elif path == "/drive":
+            self._serve_drive_page()
+            return
+
         elif path == "/sonar_map":
             if _sonar_sensor is None:
                 # Return a placeholder image when sensor isn't wired up
@@ -799,10 +804,149 @@ button[type=submit]:hover{{background:#2274d4;}}
             self.send_header("Location", "/")
             self.send_header("Content-Length", "0")
             self.end_headers()
+
+        elif path == "/motor":
+            cmd = params.get("cmd", ["S"])[0].strip().upper()
+            if cmd in ("F", "B", "L", "R", "S", "U", "D", "SL", "SR"):
+                if serial_conn:
+                    try:
+                        serial_conn.write(f"{cmd}\n".encode())
+                    except Exception as e:
+                        print(f"[Motor] {e}")
+            self.send_response(200)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
         else:
             self.send_response(404)
             self.send_header("Content-Length", "0")
             self.end_headers()
+
+    def _serve_drive_page(self):
+        html = f"""<!DOCTYPE html>
+<html><head><title>Blue Fish — Drive Mode</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box;}}
+body{{background:#000;overflow:hidden;font-family:monospace;}}
+#gate{{position:fixed;top:0;left:0;width:100%;height:100%;
+  background:#000;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;z-index:100;}}
+#gate h2{{color:#f00;letter-spacing:6px;font-size:24px;margin-bottom:8px;}}
+#gate p{{color:#555;margin-bottom:20px;}}
+#code{{background:#111;color:#f00;border:2px solid #f00;
+  padding:12px 20px;font-size:20px;font-family:monospace;
+  text-align:center;border-radius:6px;outline:none;width:280px;
+  letter-spacing:4px;}}
+#code.wrong{{border-color:#f00;animation:shake 0.3s;}}
+@keyframes shake{{0%,100%{{transform:translateX(0)}}25%{{transform:translateX(-8px)}}75%{{transform:translateX(8px)}}}}
+#cam{{width:100vw;height:100vh;object-fit:cover;display:block;}}
+#sonar{{position:fixed;bottom:12px;right:12px;width:220px;height:220px;
+  border:2px solid #0f0;border-radius:4px;opacity:0.9;}}
+#hud{{position:fixed;top:12px;left:12px;color:#f00;
+  background:rgba(0,0,0,0.7);padding:8px 14px;border-radius:4px;
+  border:1px solid #f00;letter-spacing:2px;font-size:13px;}}
+#back{{position:fixed;top:12px;right:12px;color:#555;
+  background:rgba(0,0,0,0.7);padding:6px 12px;border-radius:4px;
+  border:1px solid #333;font-size:12px;text-decoration:none;}}
+#back:hover{{color:#0f0;border-color:#0f0;}}
+#keys{{position:fixed;bottom:12px;left:12px;
+  background:rgba(0,0,0,0.7);padding:10px;border-radius:6px;
+  border:1px solid #333;color:#0f0;font-size:13px;line-height:2;}}
+.k{{display:inline-block;background:#222;border:1px solid #0f0;
+  border-radius:3px;padding:1px 7px;margin:1px;min-width:24px;text-align:center;}}
+.k.on{{background:#0f0;color:#000;}}
+</style></head>
+<body>
+
+<div id="gate">
+  <h2>⚠ MANUAL OVERRIDE ⚠</h2>
+  <p>Type the override code to enter drive mode</p>
+  <input id="code" type="password" placeholder="override code" autofocus
+    autocomplete="off" spellcheck="false">
+  <p id="hint" style="color:#333;margin-top:10px;font-size:12px;">press ENTER to confirm</p>
+</div>
+
+<img id="cam" src="" style="display:none;"
+  onload="if(go)setTimeout(function(){{document.getElementById('cam').src='/frame?t='+Date.now();}},80);"
+  onerror="if(go)setTimeout(function(){{document.getElementById('cam').src='/frame?t='+Date.now();}},300);">
+<img id="sonar" src="" style="display:none;"
+  onload="if(go)setTimeout(function(){{document.getElementById('sonar').src='/sonar_map?t='+Date.now();}},400);"
+  onerror="if(go)setTimeout(function(){{document.getElementById('sonar').src='/sonar_map?t='+Date.now();}},800);">
+<div id="hud" style="display:none;">&#9632; DRIVE MODE ACTIVE</div>
+<a id="back" href="/" style="display:none;">&#8592; back</a>
+<div id="keys" style="display:none;">
+  <div style="text-align:center;"><span class="k" id="kw">W</span></div>
+  <div><span class="k" id="ka">A</span> <span class="k" id="ks">S</span> <span class="k" id="kd">D</span></div>
+  <div style="color:#555;font-size:11px;margin-top:4px;">SPACE = stop &nbsp; &#8593;&#8595;&#8592;&#8594; also work</div>
+</div>
+
+<script>
+var go = false;
+var held = null;
+
+document.getElementById('code').addEventListener('keydown', function(e) {{
+  if (e.key !== 'Enter') return;
+  if (this.value.toUpperCase() === '{DRIVE_OVERRIDE}') {{
+    unlock();
+  }} else {{
+    this.value = '';
+    this.placeholder = 'wrong code!';
+    this.classList.add('wrong');
+    var t = this;
+    setTimeout(function(){{t.classList.remove('wrong');t.placeholder='override code';}}, 600);
+  }}
+}});
+
+function unlock() {{
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('cam').style.display = 'block';
+  document.getElementById('sonar').style.display = 'block';
+  document.getElementById('hud').style.display = 'block';
+  document.getElementById('back').style.display = 'block';
+  document.getElementById('keys').style.display = 'block';
+  go = true;
+  document.getElementById('cam').src = '/frame?t=' + Date.now();
+  document.getElementById('sonar').src = '/sonar_map?t=' + Date.now();
+}}
+
+var keyMap = {{'w':'F','arrowup':'F','a':'L','arrowleft':'L',
+               's':'B','arrowdown':'B','d':'R','arrowright':'R',' ':'S'}};
+var keyEls = {{'w':'kw','a':'ka','s':'ks','d':'kd'}};
+
+function motor(cmd) {{
+  fetch('/motor', {{method:'POST',
+    headers:{{'Content-Type':'application/x-www-form-urlencoded'}},
+    body:'cmd='+cmd}});
+}}
+
+document.addEventListener('keydown', function(e) {{
+  if (!go) return;
+  var k = e.key.toLowerCase();
+  if (k === ' ') e.preventDefault();
+  if (keyMap[k] && held !== k) {{
+    held = k;
+    motor(keyMap[k]);
+    if (keyEls[k]) document.getElementById(keyEls[k]).classList.add('on');
+  }}
+}});
+
+document.addEventListener('keyup', function(e) {{
+  if (!go) return;
+  var k = e.key.toLowerCase();
+  if (keyMap[k]) {{
+    held = null;
+    motor('S');
+    if (keyEls[k]) document.getElementById(keyEls[k]).classList.remove('on');
+  }}
+}});
+</script>
+</body></html>"""
+        body = html.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def _serve_page(self):
         # Build profiles section server-side — no AJAX needed
@@ -863,6 +1007,10 @@ button{{cursor:pointer;}}button:hover{{background:#0f0;color:#111;}}
 </style></head>
 <body>
 <h2>Blue Fish Camera</h2>
+<a href="/drive" style="display:inline-block;margin-bottom:10px;padding:8px 24px;
+  background:#300;color:#f55;border:1px solid #f00;border-radius:5px;
+  font-family:monospace;font-size:13px;text-decoration:none;letter-spacing:2px;">
+  &#9632; DRIVE MODE</a>
 <div id="fps" style="color:#555;font-size:12px;">frames: 0</div>
 <img id="f" src="/frame"
   onload="frameCount++;document.getElementById('fps').textContent='frames: '+frameCount;setTimeout(function(){{document.getElementById('f').src='/frame?t='+Date.now();}},100);"
