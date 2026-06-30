@@ -13,12 +13,15 @@ from urllib.parse import parse_qs, urlparse
 # ── Audio config ─────────────────────────────────────────────────────────────
 DEVICE        = 1
 CHUNK         = 1024
-# Detect mic's native sample rate at startup
+# Detect mic's native sample rate and channel count at startup
 try:
     import sounddevice as _sd
-    SAMPLERATE = int(_sd.query_devices(DEVICE, "input")["default_samplerate"])
+    _dev      = _sd.query_devices(DEVICE, "input")
+    SAMPLERATE   = int(_dev["default_samplerate"])
+    MIC_CHANNELS = max(1, int(_dev["max_input_channels"]))
 except Exception:
-    SAMPLERATE = 44100
+    SAMPLERATE   = 44100
+    MIC_CHANNELS = 1
 SILENCE_THRESHOLD = 300
 MAX_SILENCE   = 1.5
 
@@ -1324,12 +1327,18 @@ audio_queue = queue.Queue()
 def audio_callback(indata, frames, time_info, status):
     if status:
         print(f"[Audio] {status}")
-    audio_queue.put(indata.copy())
+    # Mix down to mono if stereo
+    if indata.shape[1] > 1:
+        mono = indata.mean(axis=1).astype(np.int16)
+    else:
+        mono = indata[:, 0]
+    audio_queue.put(mono.copy())
 
 def listen_loop():
     print("[Listen] Starting microphone listener...")
+    print(f"[Listen] device={DEVICE} rate={SAMPLERATE} ch={MIC_CHANNELS}")
     with sd.InputStream(samplerate=SAMPLERATE, device=DEVICE,
-                        channels=1, dtype="int16",
+                        channels=MIC_CHANNELS, dtype="int16",
                         blocksize=CHUNK, callback=audio_callback):
         buf = []
         silence_chunks = 0
