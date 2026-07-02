@@ -861,10 +861,13 @@ button[type=submit]:hover{{background:#2274d4;}}
             self.end_headers()
 
         elif path == "/talk":
-            length = int(self.headers.get("Content-Length", 0))
-            data = self.rfile.read(length)
-            print(f"[Talk] received {length} bytes")
-            play_talk_chunk(data)
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                data = self.rfile.read(length)
+                print(f"[Talk] received {length} bytes")
+                threading.Thread(target=play_talk_chunk, args=(data,), daemon=True).start()
+            except Exception as e:
+                print(f"[Talk] error: {e}")
             self.send_response(200)
             self.send_header("Content-Length", "0")
             self.end_headers()
@@ -1016,20 +1019,21 @@ function showBtn() {{
   document.getElementById('talkbtn').style.display = 'block';
 }}
 
+var talkChunks = [];
+
 async function startTalk() {{
+  talkChunks = [];
   try {{
     talkStream = await navigator.mediaDevices.getUserMedia({{audio:true}});
     talkCtx = new AudioContext({{sampleRate:22050}});
     var src = talkCtx.createMediaStreamSource(talkStream);
-    talkProc = talkCtx.createScriptProcessor(8192, 1, 1);
+    talkProc = talkCtx.createScriptProcessor(4096, 1, 1);
     talkProc.onaudioprocess = function(e) {{
       var f32 = e.inputBuffer.getChannelData(0);
       var i16 = new Int16Array(f32.length);
       for (var i = 0; i < f32.length; i++)
         i16[i] = Math.max(-32768, Math.min(32767, f32[i] * 32768));
-      fetch('/talk', {{method:'POST',
-        headers:{{'Content-Type':'application/octet-stream'}},
-        body: new Uint8Array(i16.buffer)}});
+      talkChunks.push(new Uint8Array(i16.buffer));
     }};
     src.connect(talkProc);
     talkProc.connect(talkCtx.destination);
@@ -1040,11 +1044,21 @@ async function startTalk() {{
   }} catch(e) {{ alert('Mic error: ' + e.message); }}
 }}
 
-function stopTalk() {{
+async function stopTalk() {{
   if (talkProc) {{ talkProc.disconnect(); talkProc = null; }}
   if (talkStream) {{ talkStream.getTracks().forEach(function(t){{t.stop();}}); talkStream = null; }}
   if (talkCtx) {{ talkCtx.close(); talkCtx = null; }}
   var btn = document.getElementById('talkbtn');
+  btn.style.background = '#555';
+  btn.style.color = '#fff';
+  btn.textContent = '📡 SENDING...';
+  var total = talkChunks.reduce(function(s,c){{return s+c.length;}},0);
+  var out = new Uint8Array(total), off = 0;
+  talkChunks.forEach(function(c){{out.set(c,off);off+=c.length;}});
+  try {{
+    await fetch('/talk', {{method:'POST',
+      headers:{{'Content-Type':'application/octet-stream'}}, body:out}});
+  }} catch(e) {{ console.log('talk error', e); }}
   btn.style.background = '#300';
   btn.style.color = '#f55';
   btn.textContent = '🎙 HOLD TO TALK';
