@@ -1021,7 +1021,7 @@ async function startTalk() {{
     talkStream = await navigator.mediaDevices.getUserMedia({{audio:true}});
     talkCtx = new AudioContext({{sampleRate:22050}});
     var src = talkCtx.createMediaStreamSource(talkStream);
-    talkProc = talkCtx.createScriptProcessor(2048, 1, 1);
+    talkProc = talkCtx.createScriptProcessor(8192, 1, 1);
     talkProc.onaudioprocess = function(e) {{
       var f32 = e.inputBuffer.getChannelData(0);
       var i16 = new Int16Array(f32.length);
