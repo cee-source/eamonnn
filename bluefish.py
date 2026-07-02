@@ -863,6 +863,7 @@ button[type=submit]:hover{{background:#2274d4;}}
         elif path == "/talk":
             length = int(self.headers.get("Content-Length", 0))
             data = self.rfile.read(length)
+            print(f"[Talk] received {length} bytes")
             play_talk_chunk(data)
             self.send_response(200)
             self.send_header("Content-Length", "0")
