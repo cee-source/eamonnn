@@ -869,12 +869,10 @@ body{{background:#000;overflow:hidden;font-family:monospace;}}
   <p id="hint" style="color:#333;margin-top:10px;font-size:12px;">press ENTER to confirm</p>
 </div>
 
-<img id="cam" src="" style="display:none;"
-  onload="if(go)setTimeout(function(){{document.getElementById('cam').src='/frame?t='+Date.now();}},80);"
-  onerror="if(go)setTimeout(function(){{document.getElementById('cam').src='/frame?t='+Date.now();}},300);">
+<img id="cam" src="" style="display:none;">
 <img id="sonar" src="" style="display:none;"
-  onload="if(go)setTimeout(function(){{document.getElementById('sonar').src='/sonar_map?t='+Date.now();}},400);"
-  onerror="if(go)setTimeout(function(){{document.getElementById('sonar').src='/sonar_map?t='+Date.now();}},800);">
+  onload="setTimeout(function(){{document.getElementById('sonar').src='/sonar_map?t='+Date.now();}},400);"
+  onerror="setTimeout(function(){{document.getElementById('sonar').src='/sonar_map?t='+Date.now();}},800);">
 <div id="hud" style="display:none;">&#9632; DRIVE MODE ACTIVE</div>
 <a id="back" href="/" style="display:none;">&#8592; back</a>
 <div id="keys" style="display:none;">
@@ -908,7 +906,7 @@ function unlock() {{
   document.getElementById('back').style.display = 'block';
   document.getElementById('keys').style.display = 'block';
   go = true;
-  document.getElementById('cam').src = '/frame?t=' + Date.now();
+  document.getElementById('cam').src = '/stream';
   document.getElementById('sonar').src = '/sonar_map?t=' + Date.now();
 }}
 
