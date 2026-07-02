@@ -499,7 +499,7 @@ def camera_loop():
     import cv2
 
     cmd = ["rpicam-vid", "-t", "0", "--width", "640", "--height", "480",
-           "--framerate", "10", "--codec", "mjpeg", "--inline", "-o", "-"]
+           "--framerate", "30", "--codec", "mjpeg", "--inline", "-o", "-"]
     proc = None
     face_counter = 0
     print("[Camera] thread started")
@@ -557,14 +557,14 @@ def camera_loop():
                             elabel = f"Enrolling {enroll_name}: {n}/{ENROLL_NEEDED}"
                             cv2.putText(display, elabel, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,255,255), 2)
 
-                    _, raw_buf = cv2.imencode(".jpg", display, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                    _, raw_buf = cv2.imencode(".jpg", display, [cv2.IMWRITE_JPEG_QUALITY, 85])
                     with stream_lock:
                         stream_frame = raw_buf.tobytes()
 
                     face_counter += 1
                     if face_counter % 30 == 0:
                         print(f"[Camera] {face_counter} frames")
-                    if face_counter % 15 == 0:
+                    if face_counter % 30 == 0:
                         t2 = threading.Thread(target=analyze_face, args=(frame.copy(),), daemon=True)
                         t2.start()
 
