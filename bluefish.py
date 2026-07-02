@@ -264,6 +264,47 @@ def make_sonar_image():
     _, buf = cv2.imencode(".png", img)
     return buf.tobytes()
 
+# ── Walkie-talkie ─────────────────────────────────────────────────────────────
+_talk_proc  = None
+_talk_lock  = threading.Lock()
+_talk_timer = None
+
+def play_talk_chunk(data):
+    global _talk_proc, _talk_timer
+    with _talk_lock:
+        if _talk_proc is None or _talk_proc.poll() is not None:
+            try:
+                _talk_proc = subprocess.Popen(
+                    ["aplay", "-r", "16000", "-f", "S16_LE", "-c", "1"],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                )
+            except Exception as e:
+                print(f"[Talk] {e}")
+                return
+        try:
+            _talk_proc.stdin.write(data)
+            _talk_proc.stdin.flush()
+        except Exception:
+            pass
+    if _talk_timer:
+        _talk_timer.cancel()
+    _talk_timer = threading.Timer(1.5, _close_talk)
+    _talk_timer.daemon = True
+    _talk_timer.start()
+
+def _close_talk():
+    global _talk_proc
+    with _talk_lock:
+        if _talk_proc:
+            try:
+                _talk_proc.stdin.close()
+                _talk_proc.wait(timeout=2)
+            except Exception:
+                try: _talk_proc.kill()
+                except Exception: pass
+            _talk_proc = None
+
 # ── Knowledge base ────────────────────────────────────────────────────────────
 def load_knowledge():
     global knowledge
@@ -820,20 +861,8 @@ button[type=submit]:hover{{background:#2274d4;}}
 
         elif path == "/talk":
             length = int(self.headers.get("Content-Length", 0))
-            audio_data = self.rfile.read(length)
-            def _play(data=audio_data):
-                try:
-                    subprocess.run(
-                        ["aplay", "-D", f"bluealsa:DEV={BT_SPEAKER},PROFILE=a2dp",
-                         "-r", "16000", "-f", "S16_LE", "-c", "1"],
-                        input=data, capture_output=True, timeout=30
-                    )
-                except Exception:
-                    subprocess.run(
-                        ["aplay", "-r", "16000", "-f", "S16_LE", "-c", "1"],
-                        input=data, capture_output=True, timeout=30
-                    )
-            threading.Thread(target=_play, daemon=True).start()
+            data = self.rfile.read(length)
+            play_talk_chunk(data)
             self.send_response(200)
             self.send_header("Content-Length", "0")
             self.end_headers()
@@ -986,18 +1015,19 @@ function showBtn() {{
 }}
 
 async function startTalk() {{
-  talkChunks = [];
   try {{
     talkStream = await navigator.mediaDevices.getUserMedia({{audio:true}});
     talkCtx = new AudioContext({{sampleRate:16000}});
     var src = talkCtx.createMediaStreamSource(talkStream);
-    talkProc = talkCtx.createScriptProcessor(4096, 1, 1);
+    talkProc = talkCtx.createScriptProcessor(2048, 1, 1);
     talkProc.onaudioprocess = function(e) {{
       var f32 = e.inputBuffer.getChannelData(0);
       var i16 = new Int16Array(f32.length);
       for (var i = 0; i < f32.length; i++)
         i16[i] = Math.max(-32768, Math.min(32767, f32[i] * 32768));
-      talkChunks.push(new Uint8Array(i16.buffer));
+      fetch('/talk', {{method:'POST',
+        headers:{{'Content-Type':'application/octet-stream'}},
+        body: new Uint8Array(i16.buffer)}});
     }};
     src.connect(talkProc);
     talkProc.connect(talkCtx.destination);
@@ -1008,19 +1038,11 @@ async function startTalk() {{
   }} catch(e) {{ alert('Mic error: ' + e.message); }}
 }}
 
-async function stopTalk() {{
+function stopTalk() {{
   if (talkProc) {{ talkProc.disconnect(); talkProc = null; }}
   if (talkStream) {{ talkStream.getTracks().forEach(function(t){{t.stop();}}); talkStream = null; }}
   if (talkCtx) {{ talkCtx.close(); talkCtx = null; }}
   var btn = document.getElementById('talkbtn');
-  btn.style.background = '#333';
-  btn.style.color = '#aaa';
-  btn.textContent = '📡 SENDING...';
-  var total = talkChunks.reduce(function(s,c){{return s+c.length;}}, 0);
-  var out = new Uint8Array(total), off = 0;
-  talkChunks.forEach(function(c){{ out.set(c, off); off += c.length; }});
-  await fetch('/talk', {{method:'POST',
-    headers:{{'Content-Type':'application/octet-stream'}}, body:out}});
   btn.style.background = '#300';
   btn.style.color = '#f55';
   btn.textContent = '🎙 HOLD TO TALK';
