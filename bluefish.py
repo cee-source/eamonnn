@@ -818,6 +818,26 @@ button[type=submit]:hover{{background:#2274d4;}}
             self.send_header("Content-Length", "0")
             self.end_headers()
 
+        elif path == "/talk":
+            length = int(self.headers.get("Content-Length", 0))
+            audio_data = self.rfile.read(length)
+            def _play(data=audio_data):
+                try:
+                    subprocess.run(
+                        ["aplay", "-D", f"bluealsa:DEV={BT_SPEAKER},PROFILE=a2dp",
+                         "-r", "16000", "-f", "S16_LE", "-c", "1"],
+                        input=data, capture_output=True, timeout=30
+                    )
+                except Exception:
+                    subprocess.run(
+                        ["aplay", "-r", "16000", "-f", "S16_LE", "-c", "1"],
+                        input=data, capture_output=True, timeout=30
+                    )
+            threading.Thread(target=_play, daemon=True).start()
+            self.send_response(200)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
         elif path == "/motor":
             cmd = params.get("cmd", ["S"])[0].strip().upper()
             if cmd in ("F", "B", "L", "R", "S", "U", "D", "SL", "SR"):
@@ -890,6 +910,12 @@ body{{background:#000;overflow:hidden;font-family:monospace;}}
   <div><span class="k" id="ka">A</span> <span class="k" id="ks">S</span> <span class="k" id="kd">D</span></div>
   <div style="color:#555;font-size:11px;margin-top:4px;">SPACE = stop &nbsp; &#8593;&#8595;&#8592;&#8594; also work</div>
 </div>
+<button id="talkbtn" style="display:none;position:fixed;bottom:12px;left:50%;
+  transform:translateX(-50%);background:#300;color:#f55;border:2px solid #f00;
+  border-radius:50px;padding:14px 32px;font-family:monospace;font-size:16px;
+  letter-spacing:2px;cursor:pointer;user-select:none;-webkit-user-select:none;">
+  🎙 HOLD TO TALK
+</button>
 
 <script>
 var go = false;
@@ -918,6 +944,7 @@ function unlock() {{
   go = true;
   document.getElementById('cam').src = '/stream';
   document.getElementById('sonar').src = '/sonar_map?t=' + Date.now();
+  showBtn();
 }}
 
 var keyMap = {{'w':'F','arrowup':'F','a':'L','arrowleft':'L',
@@ -950,6 +977,59 @@ document.addEventListener('keyup', function(e) {{
     if (keyEls[k]) document.getElementById(keyEls[k]).classList.remove('on');
   }}
 }});
+
+// ── Walkie-talkie ──────────────────────────────────────────
+var talkCtx = null, talkProc = null, talkStream = null, talkChunks = [];
+
+function showBtn() {{
+  document.getElementById('talkbtn').style.display = 'block';
+}}
+
+async function startTalk() {{
+  talkChunks = [];
+  try {{
+    talkStream = await navigator.mediaDevices.getUserMedia({{audio:true}});
+    talkCtx = new AudioContext({{sampleRate:16000}});
+    var src = talkCtx.createMediaStreamSource(talkStream);
+    talkProc = talkCtx.createScriptProcessor(4096, 1, 1);
+    talkProc.onaudioprocess = function(e) {{
+      var f32 = e.inputBuffer.getChannelData(0);
+      var i16 = new Int16Array(f32.length);
+      for (var i = 0; i < f32.length; i++)
+        i16[i] = Math.max(-32768, Math.min(32767, f32[i] * 32768));
+      talkChunks.push(new Uint8Array(i16.buffer));
+    }};
+    src.connect(talkProc);
+    talkProc.connect(talkCtx.destination);
+    var btn = document.getElementById('talkbtn');
+    btn.style.background = '#f00';
+    btn.style.color = '#fff';
+    btn.textContent = '🔴 TALKING...';
+  }} catch(e) {{ alert('Mic error: ' + e.message); }}
+}}
+
+async function stopTalk() {{
+  if (talkProc) {{ talkProc.disconnect(); talkProc = null; }}
+  if (talkStream) {{ talkStream.getTracks().forEach(function(t){{t.stop();}}); talkStream = null; }}
+  if (talkCtx) {{ talkCtx.close(); talkCtx = null; }}
+  var btn = document.getElementById('talkbtn');
+  btn.style.background = '#333';
+  btn.style.color = '#aaa';
+  btn.textContent = '📡 SENDING...';
+  var total = talkChunks.reduce(function(s,c){{return s+c.length;}}, 0);
+  var out = new Uint8Array(total), off = 0;
+  talkChunks.forEach(function(c){{ out.set(c, off); off += c.length; }});
+  await fetch('/talk', {{method:'POST',
+    headers:{{'Content-Type':'application/octet-stream'}}, body:out}});
+  btn.style.background = '#300';
+  btn.style.color = '#f55';
+  btn.textContent = '🎙 HOLD TO TALK';
+}}
+
+document.getElementById('talkbtn').addEventListener('mousedown', startTalk);
+document.getElementById('talkbtn').addEventListener('mouseup', stopTalk);
+document.getElementById('talkbtn').addEventListener('touchstart', function(e){{e.preventDefault();startTalk();}});
+document.getElementById('talkbtn').addEventListener('touchend', function(e){{e.preventDefault();stopTalk();}});
 </script>
 </body></html>"""
         body = html.encode()
