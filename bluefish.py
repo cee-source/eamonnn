@@ -11,17 +11,27 @@ from socketserver import ThreadingMixIn
 from urllib.parse import parse_qs, urlparse
 
 # ── Audio config ─────────────────────────────────────────────────────────────
-DEVICE        = 1
 CHUNK         = 1024
-# Detect mic's native sample rate and channel count at startup
+# Auto-find the USB mic by name, fall back to default input
 try:
     import sounddevice as _sd
-    _dev      = _sd.query_devices(DEVICE, "input")
+    _devs = _sd.query_devices()
+    DEVICE = next(
+        (i for i, d in enumerate(_devs)
+         if "usb" in d["name"].lower() and d["max_input_channels"] > 0),
+        None
+    )
+    if DEVICE is None:
+        DEVICE = _sd.default.device[0]
+    _dev         = _sd.query_devices(DEVICE, "input")
     SAMPLERATE   = int(_dev["default_samplerate"])
     MIC_CHANNELS = max(1, int(_dev["max_input_channels"]))
-except Exception:
+    print(f"[Audio] Using mic: {_dev['name']} (device {DEVICE}, {SAMPLERATE}Hz, {MIC_CHANNELS}ch)")
+except Exception as e:
+    DEVICE       = None
     SAMPLERATE   = 44100
     MIC_CHANNELS = 1
+    print(f"[Audio] Mic detection failed: {e}")
 SILENCE_THRESHOLD = 300
 MAX_SILENCE   = 1.5
 
