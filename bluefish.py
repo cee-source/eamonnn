@@ -39,7 +39,7 @@ MAX_SILENCE   = 1.5
 HOME             = "/home/fussykitten12"
 PIPER            = f"{HOME}/.local/bin/piper"
 VOICE_MODEL      = f"{HOME}/piper_voices/en_US-ryan-high.onnx"
-BT_SPEAKER       = "E6_8A_D3_4B_55_67"
+BT_SPEAKER       = "E6:8A:D3:4B:55:67"
 VOICE_PROFILE    = f"{HOME}/voice_profile.pkl"
 FACE_PROFILES_DB = f"{HOME}/face_profiles.pkl"   # {name: encoding}
 FACE_PROFILE_OLD = f"{HOME}/face_profile.pkl"    # legacy single-person file
@@ -275,7 +275,8 @@ def play_talk_chunk(data):
         if _talk_proc is None or _talk_proc.poll() is not None:
             try:
                 _talk_proc = subprocess.Popen(
-                    ["aplay", "-r", "16000", "-f", "S16_LE", "-c", "1"],
+                    ["aplay", "-D", f"bluealsa:DEV={BT_SPEAKER},PROFILE=a2dp",
+                     "-r", "16000", "-f", "S16_LE", "-c", "1"],
                     stdin=subprocess.PIPE,
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
                 )
