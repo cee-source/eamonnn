@@ -276,7 +276,7 @@ def play_talk_chunk(data):
             try:
                 _talk_proc = subprocess.Popen(
                     ["aplay", "-D", f"bluealsa:DEV={BT_SPEAKER},PROFILE=a2dp",
-                     "-r", "16000", "-f", "S16_LE", "-c", "1"],
+                     "-r", "22050", "-f", "S16_LE", "-c", "1"],
                     stdin=subprocess.PIPE,
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
                 )
@@ -1018,7 +1018,7 @@ function showBtn() {{
 async function startTalk() {{
   try {{
     talkStream = await navigator.mediaDevices.getUserMedia({{audio:true}});
-    talkCtx = new AudioContext({{sampleRate:16000}});
+    talkCtx = new AudioContext({{sampleRate:22050}});
     var src = talkCtx.createMediaStreamSource(talkStream);
     talkProc = talkCtx.createScriptProcessor(2048, 1, 1);
     talkProc.onaudioprocess = function(e) {{
