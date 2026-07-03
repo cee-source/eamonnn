@@ -98,6 +98,13 @@ speaking          = False
 serial_conn       = None
 conversation_log  = []          # list of {when, who, said, replied}
 
+# Autonomous mode
+auto_mode         = True        # False when drive mode is active
+auto_lock         = threading.Lock()
+_last_manual      = 0           # timestamp of last manual motor command
+_last_greeted     = {}          # name -> timestamp, to avoid repeat greetings
+AUTO_RESUME_SECS  = 5           # seconds after last manual cmd before auto resumes
+
 # Sonar state
 sonar_distance    = None        # float cm, or None if no reading
 sonar_map         = []          # list of [angle_deg, dist_cm] from last scan
@@ -885,8 +892,10 @@ button[type=submit]:hover{{background:#2274d4;}}
             self.end_headers()
 
         elif path == "/motor":
+            global _last_manual
             cmd = params.get("cmd", ["S"])[0].strip().upper()
             if cmd in ("F", "B", "L", "R", "S", "U", "D", "SL", "SR"):
+                _last_manual = time.time()
                 if serial_conn:
                     try:
                         serial_conn.write(f"{cmd}\n".encode())
@@ -1513,6 +1522,71 @@ def listen_loop():
                         threading.Thread(target=_process, daemon=True).start()
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+def auto_loop():
+    """Autonomous behaviour: roam, avoid obstacles, greet faces."""
+    global _last_greeted
+    import random
+    OBSTACLE_CM   = 40    # stop and turn if closer than this
+    GREET_COOLDOWN = 30   # seconds between greetings for same person
+    IDLE_PHRASES  = [
+        "I'm patrolling the area.",
+        "All clear so far.",
+        "I wonder what's around the corner.",
+        "Scanning for interesting things.",
+        "Everything looks good from here.",
+    ]
+    last_idle = 0
+    print("[Auto] Autonomous loop started")
+
+    while True:
+        # Check if manual override is active
+        now = time.time()
+        if now - _last_manual < AUTO_RESUME_SECS:
+            time.sleep(0.5)
+            continue
+
+        if not serial_conn:
+            time.sleep(1)
+            continue
+
+        # Greet any faces in view
+        with face_overlay_lock:
+            visible = list(face_overlays)
+        for o in visible:
+            name = o["name"]
+            last = _last_greeted.get(name, 0)
+            if now - last > GREET_COOLDOWN:
+                _last_greeted[name] = now
+                if name == "Stranger":
+                    threading.Thread(target=speak,
+                        args=("Hello! I don't recognise you. Who are you?",),
+                        daemon=True).start()
+                else:
+                    threading.Thread(target=speak,
+                        args=(f"Hey {name}! Good to see you.",),
+                        daemon=True).start()
+                time.sleep(3)
+                continue
+
+        # Obstacle avoidance
+        with sonar_lock:
+            d = sonar_distance
+
+        if d is not None and d < OBSTACLE_CM:
+            send_motor("S", 0)
+            speak("Obstacle ahead, turning.")
+            send_motor("R", 0.6)
+        else:
+            send_motor("F", 0)
+
+        # Random idle comment every 60-120 seconds
+        if now - last_idle > random.randint(60, 120):
+            last_idle = now
+            threading.Thread(target=speak,
+                args=(random.choice(IDLE_PHRASES),), daemon=True).start()
+
+        time.sleep(0.3)
+
 def main():
     load_knowledge()
     load_face_profiles()
@@ -1523,6 +1597,7 @@ def main():
     threading.Thread(target=start_stream, daemon=True).start()
     threading.Thread(target=camera_loop, daemon=True).start()
     threading.Thread(target=sonar_loop, daemon=True).start()
+    threading.Thread(target=auto_loop, daemon=True).start()
 
     time.sleep(2)
     speak("Blue Fish online. I'm ready to help, Eamonn!")
