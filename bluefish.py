@@ -32,7 +32,7 @@ except Exception as e:
     SAMPLERATE   = 44100
     MIC_CHANNELS = 1
     print(f"[Audio] Mic detection failed: {e}")
-SILENCE_THRESHOLD = 300
+SILENCE_THRESHOLD = 100
 MAX_SILENCE   = 1.5
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
@@ -1526,22 +1526,28 @@ def auto_loop():
     """Autonomous behaviour: roam, avoid obstacles, greet faces."""
     global _last_greeted
     import random
-    OBSTACLE_CM   = 40    # stop and turn if closer than this
-    GREET_COOLDOWN = 30   # seconds between greetings for same person
-    IDLE_PHRASES  = [
+    OBSTACLE_CM    = 40
+    GREET_COOLDOWN = 30
+    IDLE_PHRASES   = [
         "I'm patrolling the area.",
         "All clear so far.",
         "I wonder what's around the corner.",
         "Scanning for interesting things.",
         "Everything looks good from here.",
     ]
-    last_idle = 0
+    last_idle  = 0
+    last_state = None   # track state so we only send command on change
     print("[Auto] Autonomous loop started")
 
     while True:
-        # Check if manual override is active
         now = time.time()
+        # Pause during manual control
         if now - _last_manual < AUTO_RESUME_SECS:
+            if last_state != "manual":
+                last_state = "manual"
+                if serial_conn:
+                    try: serial_conn.write(b"S\n")
+                    except Exception: pass
             time.sleep(0.5)
             continue
 
@@ -1549,32 +1555,40 @@ def auto_loop():
             time.sleep(1)
             continue
 
-        # Greet any faces in view
+        # Greet faces
         with face_overlay_lock:
             visible = list(face_overlays)
         for o in visible:
             name = o["name"]
-            last = _last_greeted.get(name, 0)
-            if now - last > GREET_COOLDOWN:
+            if now - _last_greeted.get(name, 0) > GREET_COOLDOWN:
                 _last_greeted[name] = now
-                if name == "Stranger":
-                    threading.Thread(target=speak,
-                        args=("Hello! I don't recognise you. Who are you?",),
-                        daemon=True).start()
-                else:
-                    threading.Thread(target=speak,
-                        args=(f"Hey {name}! Good to see you.",),
-                        daemon=True).start()
+                msg = ("Hello! I don't recognise you. Who are you?"
+                       if name == "Stranger" else f"Hey {name}! Good to see you.")
+                threading.Thread(target=speak, args=(msg,), daemon=True).start()
                 time.sleep(3)
-                continue
 
-        # Random idle comment every 60-120 seconds
+        # Obstacle avoidance — only write serial when state changes
+        with sonar_lock:
+            d = sonar_distance
+
+        if d is not None and d < OBSTACLE_CM:
+            if last_state != "turn":
+                last_state = "turn"
+                try: serial_conn.write(b"R\n")
+                except Exception: pass
+            time.sleep(0.8)
+        else:
+            if last_state != "forward":
+                last_state = "forward"
+                try: serial_conn.write(b"F\n")
+                except Exception: pass
+            time.sleep(1.5)
+
+        # Random idle comment
         if now - last_idle > random.randint(60, 120):
             last_idle = now
             threading.Thread(target=speak,
                 args=(random.choice(IDLE_PHRASES),), daemon=True).start()
-
-        time.sleep(0.3)
 
 def main():
     load_knowledge()
