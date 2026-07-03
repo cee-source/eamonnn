@@ -1,5 +1,5 @@
 // Omnibot configuration
-float maxSpeed = 180.0;
+float maxSpeed = 255.0;
 
 bool flipM1 = false;
 bool flipM2 = false;
