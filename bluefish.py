@@ -393,7 +393,12 @@ def init_serial():
     global serial_conn
     try:
         import serial
-        serial_conn = serial.Serial("/dev/ttyUSB0", 115200, timeout=1)
+        # Auto-detect Arduino port
+        import glob
+        ports = glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*")
+        port = ports[0] if ports else "/dev/ttyUSB0"
+        serial_conn = serial.Serial(port, 115200, timeout=1)
+        print(f"[Serial] Connected on {port}")
         time.sleep(2)
         print("[Serial] Arduino connected")
     except Exception as e:
