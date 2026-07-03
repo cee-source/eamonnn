@@ -405,13 +405,20 @@ def init_serial():
         print(f"[Serial] Not connected: {e}")
 
 def send_motor(cmd, duration=0.5):
-    if serial_conn:
+    global serial_conn
+    for attempt in range(3):
+        if serial_conn is None:
+            init_serial()
+            time.sleep(0.5)
         try:
             serial_conn.write(f"{cmd}\n".encode())
-            time.sleep(duration)
-            serial_conn.write(b"S\n")
+            if duration > 0:
+                time.sleep(duration)
+                serial_conn.write(b"S\n")
+            return
         except Exception as e:
-            print(f"[Serial] {e}")
+            print(f"[Motor] write failed: {e}")
+            serial_conn = None
 
 # ── Face analysis ─────────────────────────────────────────────────────────────
 def analyze_face(frame):
