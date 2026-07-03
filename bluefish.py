@@ -1019,10 +1019,7 @@ function showBtn() {{
   document.getElementById('talkbtn').style.display = 'block';
 }}
 
-var talkChunks = [];
-
 async function startTalk() {{
-  talkChunks = [];
   try {{
     talkStream = await navigator.mediaDevices.getUserMedia({{audio:true}});
     talkCtx = new AudioContext({{sampleRate:22050}});
@@ -1033,7 +1030,9 @@ async function startTalk() {{
       var i16 = new Int16Array(f32.length);
       for (var i = 0; i < f32.length; i++)
         i16[i] = Math.max(-32768, Math.min(32767, f32[i] * 32768));
-      talkChunks.push(new Uint8Array(i16.buffer));
+      fetch('/talk', {{method:'POST',
+        headers:{{'Content-Type':'application/octet-stream'}},
+        body: new Uint8Array(i16.buffer)}}).catch(function(){{}});
     }};
     src.connect(talkProc);
     talkProc.connect(talkCtx.destination);
@@ -1044,21 +1043,11 @@ async function startTalk() {{
   }} catch(e) {{ alert('Mic error: ' + e.message); }}
 }}
 
-async function stopTalk() {{
+function stopTalk() {{
   if (talkProc) {{ talkProc.disconnect(); talkProc = null; }}
   if (talkStream) {{ talkStream.getTracks().forEach(function(t){{t.stop();}}); talkStream = null; }}
   if (talkCtx) {{ talkCtx.close(); talkCtx = null; }}
   var btn = document.getElementById('talkbtn');
-  btn.style.background = '#555';
-  btn.style.color = '#fff';
-  btn.textContent = '📡 SENDING...';
-  var total = talkChunks.reduce(function(s,c){{return s+c.length;}},0);
-  var out = new Uint8Array(total), off = 0;
-  talkChunks.forEach(function(c){{out.set(c,off);off+=c.length;}});
-  try {{
-    await fetch('/talk', {{method:'POST',
-      headers:{{'Content-Type':'application/octet-stream'}}, body:out}});
-  }} catch(e) {{ console.log('talk error', e); }}
   btn.style.background = '#300';
   btn.style.color = '#f55';
   btn.textContent = '🎙 HOLD TO TALK';
