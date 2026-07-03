@@ -954,7 +954,7 @@ body{{background:#000;overflow:hidden;font-family:monospace;}}
 <div id="keys" style="display:none;">
   <div style="text-align:center;"><span class="k" id="kw">W</span></div>
   <div><span class="k" id="ka">A</span> <span class="k" id="ks">S</span> <span class="k" id="kd">D</span></div>
-  <div style="color:#555;font-size:11px;margin-top:4px;">SPACE = stop &nbsp; &#8593;&#8595;&#8592;&#8594; also work</div>
+  <div style="color:#555;font-size:11px;margin-top:4px;">SPACE = stop &nbsp; Q/E = fork up/down</div>
 </div>
 <button id="talkbtn" style="display:none;position:fixed;bottom:12px;left:50%;
   transform:translateX(-50%);background:#300;color:#f55;border:2px solid #f00;
@@ -962,6 +962,18 @@ body{{background:#000;overflow:hidden;font-family:monospace;}}
   letter-spacing:2px;cursor:pointer;user-select:none;-webkit-user-select:none;">
   🎙 HOLD TO TALK
 </button>
+<div id="forkbtns" style="display:none;position:fixed;bottom:12px;right:240px;">
+  <button onmousedown="motor('U')" onmouseup="motor('S')"
+    ontouchstart="motor('U')" ontouchend="motor('S')"
+    style="display:block;background:#222;color:#0ff;border:1px solid #0ff;
+    border-radius:6px;padding:10px 18px;font-family:monospace;font-size:18px;
+    cursor:pointer;margin-bottom:6px;">▲ FORK UP</button>
+  <button onmousedown="motor('D')" onmouseup="motor('S')"
+    ontouchstart="motor('D')" ontouchend="motor('S')"
+    style="display:block;background:#222;color:#0ff;border:1px solid #0ff;
+    border-radius:6px;padding:10px 18px;font-family:monospace;font-size:18px;
+    cursor:pointer;">▼ FORK DOWN</button>
+</div>
 
 <script>
 var go = false;
@@ -991,10 +1003,12 @@ function unlock() {{
   document.getElementById('cam').src = '/stream';
   document.getElementById('sonar').src = '/sonar_map?t=' + Date.now();
   showBtn();
+  document.getElementById('forkbtns').style.display = 'block';
 }}
 
 var keyMap = {{'w':'F','arrowup':'F','a':'L','arrowleft':'L',
-               's':'B','arrowdown':'B','d':'R','arrowright':'R',' ':'S'}};
+               's':'B','arrowdown':'B','d':'R','arrowright':'R',
+               ' ':'S','q':'U','e':'D'}};
 var keyEls = {{'w':'kw','a':'ka','s':'ks','d':'kd'}};
 
 function motor(cmd) {{
