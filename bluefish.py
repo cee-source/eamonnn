@@ -1568,17 +1568,6 @@ def auto_loop():
                 time.sleep(3)
                 continue
 
-        # Obstacle avoidance
-        with sonar_lock:
-            d = sonar_distance
-
-        if d is not None and d < OBSTACLE_CM:
-            send_motor("S", 0)
-            speak("Obstacle ahead, turning.")
-            send_motor("R", 0.6)
-        else:
-            send_motor("F", 0)
-
         # Random idle comment every 60-120 seconds
         if now - last_idle > random.randint(60, 120):
             last_idle = now
