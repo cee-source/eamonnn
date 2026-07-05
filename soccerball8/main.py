@@ -10,14 +10,21 @@ from .display import Display, build_display, play_frames
 
 
 def _wait_for_trigger(settings: Settings) -> None:
-    """Blocks until the physical button is pressed (or Enter, off the Pi)."""
+    """Blocks until the device is shaken (or Enter, off the Pi / without an
+    accelerometer attached)."""
     try:
-        from gpiozero import Button
+        from .shake import wait_for_shake
 
-        button = Button(settings.button_gpio_pin, bounce_time=0.05)
-        button.wait_for_press()
+        wait_for_shake(
+            threshold_g=settings.shake_threshold_g,
+            required_spikes=settings.shake_required_spikes,
+            window_seconds=settings.shake_window_seconds,
+            cooldown_seconds=settings.shake_cooldown_seconds,
+            bus_number=settings.accelerometer_bus,
+            i2c_address=settings.accelerometer_address,
+        )
     except Exception:
-        input("Press Enter to ask the soccer 8-ball a question... ")
+        input("Shake sensor unavailable - press Enter to ask the soccer 8-ball a question... ")
 
 
 def run_once(settings: Settings, display: Display) -> None:

@@ -12,6 +12,11 @@ def _float_env(name: str, default: str) -> float:
     return float(os.environ.get(name, default))
 
 
+def _int_env_auto_base(name: str, default: str) -> int:
+    """Like _int_env, but accepts hex like "0x68" (for I2C addresses)."""
+    return int(os.environ.get(name, default), 0)
+
+
 @dataclass
 class Settings:
     # Google Custom Search JSON API (https://programmablesearchengine.google.com/).
@@ -32,7 +37,14 @@ class Settings:
     display_gpio_rst: int = _int_env("DISPLAY_GPIO_RST", "25")
 
     mic_device_index: int = _int_env("MIC_DEVICE_INDEX", "-1")
-    button_gpio_pin: int = _int_env("BUTTON_GPIO_PIN", "17")
+
+    # Shake-to-ask trigger (MPU6050 accelerometer over I2C).
+    accelerometer_bus: int = _int_env("ACCELEROMETER_BUS", "1")
+    accelerometer_address: int = _int_env_auto_base("ACCELEROMETER_ADDRESS", "0x68")
+    shake_threshold_g: float = _float_env("SHAKE_THRESHOLD_G", "0.8")
+    shake_required_spikes: int = _int_env("SHAKE_REQUIRED_SPIKES", "3")
+    shake_window_seconds: float = _float_env("SHAKE_WINDOW_SECONDS", "1.0")
+    shake_cooldown_seconds: float = _float_env("SHAKE_COOLDOWN_SECONDS", "1.5")
 
     @property
     def mic_device(self):
