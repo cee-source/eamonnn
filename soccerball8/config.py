@@ -14,11 +14,6 @@ def _float_env(name: str, default: str) -> float:
 
 @dataclass
 class Settings:
-    # Ollama runs on a separate, more powerful machine on the same network -
-    # a Pi Zero does not have anywhere near enough RAM/CPU to host an LLM.
-    ollama_host: str = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-    ollama_model: str = os.environ.get("OLLAMA_MODEL", "llama3.2")
-
     # Google Custom Search JSON API (https://programmablesearchengine.google.com/).
     google_api_key: str = os.environ.get("GOOGLE_API_KEY", "")
     google_cse_id: str = os.environ.get("GOOGLE_CSE_ID", "")

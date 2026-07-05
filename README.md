@@ -1,8 +1,9 @@
 # Soccer 8-Ball
 
 A Magic 8-Ball for soccer fans, built on a Raspberry Pi Zero. Ask it a
-question out loud; it "thinks" by cross-checking a draft answer from an LLM
-(Ollama) against several independent Google search results, then reveals its
+question out loud; it "thinks" by cross-checking your question against
+several independent Google search results using free keyword heuristics (no
+AI/LLM, no server to run, no license to worry about), then reveals its
 verdict on a small screen: a soccer ball flies at the camera, one white
 hexagon panel keeps zooming in until it fills the whole screen, and the
 answer types itself on over the white.
@@ -12,33 +13,48 @@ don't know"** instead of guessing.
 
 ## How the "is this actually true" check works
 
-1. Ollama turns your question into a short factual claim + search query (or
-   flags it as unanswerable opinion/luck, e.g. "will I win the lottery").
-2. `soccerball8/search.py` fetches several independent results from Google
-   Custom Search for that query.
-3. `soccerball8/fact_check.py` asks Ollama to classify each result snippet as
-   `SUPPORTS`, `CONTRADICTS`, or `UNRELATED` to the claim, then:
+1. `soccerball8/search.py` fetches several independent results from Google
+   Custom Search for your question.
+2. `soccerball8/fact_check.py` classifies each result snippet as `SUPPORTS`,
+   `CONTRADICTS`, or `UNRELATED` by checking how many of the question's
+   keywords it contains, and whether it also contains a negation word
+   ("not", "never", "debunked", ...). Then it:
    - takes the fraction of relevant results that agree (the "stance
      probability"),
    - separately measures how much the supporting/contradicting snippets
-     textually corroborate **each other** (independent of the claim), so one
-     confident-sounding page can't dominate the vote,
+     textually corroborate **each other** (independent of the question), so
+     one outlier result can't dominate the vote,
    - blends both into one confidence score.
-4. If there isn't enough relevant evidence, or confidence falls below
+3. If there isn't enough relevant evidence, or confidence falls below
    `CONFIDENCE_THRESHOLD` (default 0.7), the answer is **"I don't know"**.
-   Otherwise Ollama phrases the verdict as a short Magic-8-Ball-style line.
+   Otherwise a short Magic-8-Ball-style line is picked from a canned phrase
+   bank based on the verdict.
 
-## Hardware
+This is deliberately rule-based rather than LLM-based: it's free forever,
+there's no per-unit API key or server for a customer to set up, and nothing
+to license for resale. The trade-off is it's less clever than an LLM at
+parsing oddly-phrased questions - straightforward yes/no factual questions
+("did Messi win the World Cup") work well; vague or very colloquial phrasing
+may land on "I don't know" more often.
 
-- Raspberry Pi Zero W or Zero 2 W (needs Wi-Fi to reach Ollama + Google)
-- USB mini microphone (USB-A -> a micro-USB-OTG adapter for the Pi Zero's
-  port, or use a Zero 2 W's USB port directly)
-- A 2.4"-2.5" SPI TFT display, e.g. an ST7789V or ILI9341 panel (this
-  project defaults to 240x320)
-- A push button wired to a GPIO pin (default: GPIO17) + ground, to trigger
-  listening (tilt/shake sensors work too if you'd rather wire one of those in
-  place of the button)
-- microSD card, power supply, case
+## Shopping list (per unit)
+
+| Qty | Item | Notes |
+|-----|------|-------|
+| 1 | Raspberry Pi Zero 2 W | Needs Wi-Fi for Google Search + speech-to-text. The Zero 2 W is strongly recommended over the original Zero/Zero W - noticeably faster for the animation loop and network calls, similar price. |
+| 1 | microSD card, 8GB+ (A1-rated) | Raspberry Pi OS Lite (no desktop needed - the screen is driven directly over SPI) |
+| 1 | 2.4"-2.5" SPI TFT display, ST7789V or ILI9341, 240x320 | e.g. "Waveshare 2.4inch LCD Module" or generic "2.4 inch SPI TFT ST7789" listings. Confirm it's SPI (4-wire), not parallel/DPI. |
+| 1 | Mini USB microphone | A small USB lavalier/desktop mic, e.g. generic "mini USB microphone" listings. Needs USB-A. |
+| 1 | Micro-USB OTG adapter (USB-A female to Micro-USB male) | To plug the USB mic into the Pi Zero's data port. Not needed if using a Zero 2 W's full-size USB port variant. |
+| 1 | Momentary push button (6mm or 12mm) | The "ask a question" trigger |
+| 2 | Jumper wires, female-to-female | Button to GPIO + GND |
+| 1 | 5V/2.5A micro-USB power supply | Official Raspberry Pi power supply recommended for stability |
+| 1 | Enclosure/case | 3D-printed or off-the-shelf project box with cutouts for the screen, mic, button, and a soccer-ball-themed shell if you want the physical look to match the on-screen animation |
+| 1 | Perma-proto board or small breadboard (optional) | For a clean solder-down of the button + display headers instead of loose jumpers |
+| - | M2.5 standoffs/screws (optional) | For mounting the Pi and display inside the case |
+
+Approximate per-unit hardware cost: **$25-$40** depending on sourcing and
+display choice, before enclosure/assembly labor.
 
 ### Wiring the screen (SPI)
 
@@ -60,27 +76,6 @@ Enable SPI first: `sudo raspi-config` -> Interface Options -> SPI -> Enable.
 Button between `BUTTON_GPIO_PIN` (default GPIO17) and GND. `gpiozero`'s
 `Button` uses the internal pull-up, so no external resistor is needed.
 
-## Important: where Ollama runs
-
-**A Pi Zero cannot run an LLM locally** - it doesn't have the RAM or CPU for
-it. Run Ollama on another machine on the same network (a desktop, laptop, or
-a beefier Pi) and point `OLLAMA_HOST` at it, e.g.:
-
-```bash
-# on the machine that will run the model:
-ollama serve
-ollama pull llama3.2
-```
-
-```bash
-# in soccerball8/.env on the Pi:
-OLLAMA_HOST=http://192.168.1.50:11434
-```
-
-The Pi Zero itself only needs to record audio, hit the network for
-speech-to-text/search/Ollama, and push pixels to the little screen - all
-lightweight.
-
 ## Software setup
 
 ```bash
@@ -94,7 +89,7 @@ pip install -r requirements.txt
 pip install -r requirements-pi.txt   # gpiozero, RPi.GPIO, luma.lcd - Pi only
 
 cp .env.example .env
-nano .env   # set OLLAMA_HOST, GOOGLE_API_KEY, GOOGLE_CSE_ID, DISPLAY_DRIVER=st7789 (or ili9341)
+nano .env   # set GOOGLE_API_KEY, GOOGLE_CSE_ID, DISPLAY_DRIVER=st7789 (or ili9341)
 ```
 
 Find your mic's device index if the default doesn't work:
@@ -118,6 +113,22 @@ python -m soccerball8.main
 2. Create an API key with the "Custom Search API" enabled at
    https://console.cloud.google.com/apis/credentials -> `GOOGLE_API_KEY`.
 
+**Free tier caveat:** Google Custom Search gives **100 free queries/day per
+API key**; each question this device asks uses one query. Beyond 100/day it
+bills per additional query unless you raise the quota. If you're selling
+many units, either have each unit use its own free API key (fine for light
+personal use per household) or budget for overage if you expect heavy use.
+When the quota is hit, the search call fails gracefully and the device just
+answers **"I don't know"** rather than erroring out.
+
+**Speech-to-text caveat:** transcription uses the free, unofficial Google
+Web Speech endpoint (via the `SpeechRecognition` library) - free with no key
+needed, but undocumented and rate-limited by Google, not something to rely
+on for high call volume. For a small hobby/gift-shop batch this is fine; if
+you scale up and start seeing failures, swapping in an offline recognizer
+(e.g. `vosk`, which has small enough models to run - slowly - on a Pi Zero)
+is the free alternative, at the cost of extra setup and CPU time.
+
 ### Run on boot
 
 ```bash
@@ -139,10 +150,9 @@ hardware. The button trigger also falls back to pressing Enter when
 ```
 soccerball8/
   audio.py          mic capture + speech-to-text (Google Web Speech API)
-  ollama_client.py  thin HTTP client for a networked Ollama server
   search.py         Google Custom Search JSON API wrapper
-  fact_check.py     cross-checks a claim against multiple search results
-  answer_engine.py  question -> claim -> fact-check -> phrased answer
+  fact_check.py     cross-checks a question against multiple search results
+  answer_engine.py  fact-check verdict -> phrased Magic-8-Ball answer
   animation.py      ball-approach / hexagon-zoom / typewriter frame generator
   display.py        SPI (ST7789/ILI9341) driver + dummy/pygame simulator
   main.py           button -> listen -> think -> animate loop
