@@ -1,0 +1,16 @@
+[Unit]
+Description=Soccer 8-Ball oracle
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/eamonnn
+EnvironmentFile=/home/pi/eamonnn/.env
+ExecStart=/home/pi/eamonnn/venv/bin/python -m soccerball8.main
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

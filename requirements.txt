@@ -1,0 +1,4 @@
+requests>=2.31
+Pillow>=10.0
+SpeechRecognition>=3.10
+PyAudio>=0.2.13

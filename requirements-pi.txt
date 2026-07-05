@@ -1,0 +1,5 @@
+# Extra dependencies needed only on the Raspberry Pi itself (physical button
+# + SPI screen). Install after requirements.txt: pip install -r requirements-pi.txt
+gpiozero>=2.0
+RPi.GPIO>=0.7.1
+luma.lcd>=2.11
