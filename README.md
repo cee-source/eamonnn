@@ -37,24 +37,38 @@ parsing oddly-phrased questions - straightforward yes/no factual questions
 ("did Messi win the World Cup") work well; vague or very colloquial phrasing
 may land on "I don't know" more often.
 
-## Shopping list (per unit)
+## Shopping list
+
+### Per unit
 
 | Qty | Item | Notes |
 |-----|------|-------|
 | 1 | Raspberry Pi Zero 2 W | Needs Wi-Fi for Google Search + speech-to-text. The Zero 2 W is strongly recommended over the original Zero/Zero W - noticeably faster for the animation loop and network calls, similar price. |
 | 1 | microSD card, 8GB+ (A1-rated) | Raspberry Pi OS Lite (no desktop needed - the screen is driven directly over SPI) |
-| 1 | 2.4"-2.5" SPI TFT display, ST7789V or ILI9341, 240x320 | e.g. "Waveshare 2.4inch LCD Module" or generic "2.4 inch SPI TFT ST7789" listings. Confirm it's SPI (4-wire), not parallel/DPI. |
+| 1 | 2.4"-2.5" SPI TFT display, ST7789V or ILI9341, 240x320 | e.g. "Waveshare 2.4inch LCD Module" or generic "2.4 inch SPI TFT ST7789" listings. Confirm it's SPI (4-wire), not parallel/DPI. Comes with a header you'll solder to the Pi's GPIO or to hookup wire directly. |
 | 1 | Mini USB microphone | A small USB lavalier/desktop mic, e.g. generic "mini USB microphone" listings. Needs USB-A. |
 | 1 | Micro-USB OTG adapter (USB-A female to Micro-USB male) | To plug the USB mic into the Pi Zero's data port. Not needed if using a Zero 2 W's full-size USB port variant. |
 | 1 | MPU6050 accelerometer/gyroscope breakout (GY-521 module) | The shake sensor - I2C, ~$2-4. This is what detects "shake to ask" instead of a button. |
-| 4 | Jumper wires, female-to-female | Accelerometer to I2C pins (VCC, GND, SDA, SCL) |
+| 1 | Perma-proto board (small, e.g. Pi HAT-sized prototyping board) | Where the accelerometer's 4 wires get soldered down permanently instead of relying on friction-fit jumpers - much more reliable for something that's going to be shaken |
+| ~0.3m | Solid-core hookup wire (22-24 AWG, a couple of colors) | Soldered connections: accelerometer to I2C pins, and display to SPI pins if it doesn't come pre-wired |
 | 1 | 5V/2.5A micro-USB power supply | Official Raspberry Pi power supply recommended for stability |
 | 1 | Enclosure/case | 3D-printed or off-the-shelf project box with cutouts for the screen and mic, sized/weighted so it feels good to shake, and a soccer-ball-themed shell if you want the physical look to match the on-screen animation |
-| 1 | Perma-proto board or small breadboard (optional) | For a clean solder-down of the accelerometer + display headers instead of loose jumpers |
 | - | M2.5 standoffs/screws (optional) | For mounting the Pi and display inside the case |
 
 Approximate per-unit hardware cost: **$25-$40** depending on sourcing and
 display choice, before enclosure/assembly labor.
+
+### Tools (one-time, shared across a whole production run)
+
+| Qty | Item | Notes |
+|-----|------|-------|
+| 1 | Soldering iron kit | A basic temperature-adjustable kit is enough - iron + stand, a few spare/fine conical tips, solder wire (rosin-core, 60/40 or lead-free), flux pen, desoldering braid/wick, brass tip cleaner, and a "helping hands"/PCB holder with a magnifier. Widely sold as an all-in-one "soldering iron kit" for ~$25-$40. |
+| 1 | Wire strippers/cutters | For prepping the hookup wire |
+| 1 | Anti-static mat or wristband (optional) | Cheap insurance for the Pi Zero and accelerometer board |
+| 1 | Multimeter | For checking continuity/voltage before first power-on of each unit |
+
+These are a one-time purchase - reuse them across every unit you build, they
+don't factor into the per-unit cost above.
 
 ### Wiring the screen (SPI)
 
