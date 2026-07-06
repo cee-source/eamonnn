@@ -51,12 +51,34 @@ may land on "I don't know" more often.
 | 1 | MPU6050 accelerometer/gyroscope breakout (GY-521 module) | The shake sensor - I2C, ~$2-4. This is what detects "shake to ask" instead of a button. |
 | 1 | Perma-proto board (small, e.g. Pi HAT-sized prototyping board) | Where the accelerometer's 4 wires get soldered down permanently instead of relying on friction-fit jumpers - much more reliable for something that's going to be shaken |
 | ~0.3m | Solid-core hookup wire (22-24 AWG, a couple of colors) | Soldered connections: accelerometer to I2C pins, and display to SPI pins if it doesn't come pre-wired |
-| 1 | 5V/2.5A micro-USB power supply | Official Raspberry Pi power supply recommended for stability |
-| 1 | Enclosure/case | 3D-printed or off-the-shelf project box with cutouts for the screen and mic, sized/weighted so it feels good to shake, and a soccer-ball-themed shell if you want the physical look to match the on-screen animation |
+| 1 | Small USB power bank, 5000mAh+, 5V/2A+ output | See "Choosing the power bank" below - not every power bank works for an always-on device like this one |
+| 1 | Inline micro-USB power switch (a small toggle/slide switch wired into the power lead) | Lets you fully cut power between uses instead of leaving the bank trickling power to an idle Pi 24/7 - the single biggest lever on battery life |
+| 1 | Enclosure/case | 3D-printed or off-the-shelf project box with cutouts for the screen and mic, sized/weighted so it feels good to shake, with room inside for the power bank, and a soccer-ball-themed shell if you want the physical look to match the on-screen animation |
 | - | M2.5 standoffs/screws (optional) | For mounting the Pi and display inside the case |
 
-Approximate per-unit hardware cost: **$25-$40** depending on sourcing and
-display choice, before enclosure/assembly labor.
+Approximate per-unit hardware cost: **$30-$50** depending on sourcing,
+display choice, and power bank capacity, before enclosure/assembly labor.
+
+### Choosing the power bank
+
+A wall-plug supply is the easy choice, but it isn't portable, so this needs
+a battery bank instead - with two catches that are easy to miss:
+
+- **Auto-shutoff.** Most cheap power banks cut their own output if they
+  don't see enough current draw for a while (they're designed for phones,
+  which draw a big charging current; a Pi Zero 2 W sitting idle between
+  shakes draws maybe 150-250mA, well under many banks' 300-500mA cutoff
+  threshold). A bank that shuts itself off mid-idle means the whole device
+  randomly dies. Look for a bank explicitly marketed as supporting
+  **low-current/small-device charging** (commonly advertised for
+  smartwatches, fitness trackers, or wireless earbuds cases) - that's the
+  spec that actually matters here, more than raw mAh.
+- **Runtime vs. always-on.** At roughly 1-1.5W idle plus short spikes while
+  thinking/animating, a 5000mAh bank gives on the order of half a day to a
+  day of standby - fine for a gift/novelty item that gets picked up
+  occasionally, but it'll drain if left "on" continuously. The inline power
+  switch above is what makes this practical: flip it off when not in use,
+  and shelf life stops being a battery question at all.
 
 ### Tools (one-time, shared across a whole production run)
 
