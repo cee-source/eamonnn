@@ -56,7 +56,11 @@ def main() -> None:
     settings = SETTINGS
     display = build_display(settings)
     low_power_indicator = LowPowerIndicator(
-        settings.low_power_led_gpio_pin, settings.low_power_poll_seconds
+        settings.low_power_led_gpio_pin,
+        settings.low_power_poll_seconds,
+        ina219_bus_number=settings.ina219_bus,
+        ina219_address=settings.ina219_address,
+        ina219_threshold_v=settings.ina219_threshold_v,
     )
     low_power_indicator.start()
     try:

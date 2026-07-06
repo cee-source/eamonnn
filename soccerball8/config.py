@@ -46,9 +46,14 @@ class Settings:
     shake_window_seconds: float = _float_env("SHAKE_WINDOW_SECONDS", "1.0")
     shake_cooldown_seconds: float = _float_env("SHAKE_COOLDOWN_SECONDS", "1.5")
 
-    # Low-power warning LED (lit from the Pi's own under-voltage detection).
+    # Low-power warning LED. Uses an INA219 voltage sensor if one is wired
+    # in and detected on the I2C bus (earlier warning); otherwise falls back
+    # to the Pi's own under-voltage detection automatically.
     low_power_led_gpio_pin: int = _int_env("LOW_POWER_LED_GPIO_PIN", "27")
     low_power_poll_seconds: float = _float_env("LOW_POWER_POLL_SECONDS", "5.0")
+    ina219_bus: int = _int_env("INA219_BUS", "1")
+    ina219_address: int = _int_env_auto_base("INA219_ADDRESS", "0x40")
+    ina219_threshold_v: float = _float_env("INA219_THRESHOLD_V", "4.8")
 
     @property
     def mic_device(self):

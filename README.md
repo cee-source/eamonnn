@@ -10,8 +10,9 @@ and the answer types itself on over the white.
 
 If the search results don't clearly agree with each other, it says **"I
 don't know"** instead of guessing. A small LED lights up when the power
-bank is running low, using the Pi's own under-voltage detection - no extra
-battery-monitoring hardware needed.
+bank is running low: an INA219 voltage sensor spliced into the power line
+gives an early warning before things get bad, or if you skip that part, it
+falls back automatically to the Pi's own under-voltage detection instead.
 
 ## How the "is this actually true" check works
 
@@ -53,15 +54,17 @@ may land on "I don't know" more often.
 | 1 | MPU6050 accelerometer/gyroscope breakout (GY-521 module) | The shake sensor - I2C, ~$2-4. This is what detects "shake to ask" instead of a button. |
 | 1 | 5mm LED (red or amber) | The low-power warning light |
 | 1 | Resistor, ~330 ohm | Current-limits the LED off a GPIO pin |
-| 1 | Perma-proto board (small, e.g. Pi HAT-sized prototyping board) | Where the accelerometer/LED wiring gets soldered down permanently instead of relying on friction-fit jumpers - much more reliable for something that's going to be shaken |
-| ~0.3m | Solid-core hookup wire (22-24 AWG, a couple of colors) | Soldered connections: accelerometer to I2C pins, LED to its GPIO pin, and display to SPI pins if it doesn't come pre-wired |
+| 1 | INA219 voltage/current sensor breakout (optional) | Gives an early low-power warning (configurable voltage threshold) instead of waiting for the Pi's own under-voltage protection to trip. I2C, ~$4-6. Skippable - everything falls back automatically to the free Pi-only method without it. |
+| 1 | Perma-proto board (small, e.g. Pi HAT-sized prototyping board) | Where the accelerometer/LED/INA219 wiring gets soldered down permanently instead of relying on friction-fit jumpers - much more reliable for something that's going to be shaken |
+| ~0.3m | Solid-core hookup wire (22-24 AWG, a couple of colors) | Soldered connections: accelerometer to I2C pins, LED to its GPIO pin, INA219 spliced into the power line if used, and display to SPI pins if it doesn't come pre-wired |
 | 1 | Small USB power bank, 5000mAh+, 5V/2A+ output | See "Choosing the power bank" below - not every power bank works for an always-on device like this one |
 | 1 | Inline micro-USB power switch (a small toggle/slide switch wired into the power lead) | Lets you fully cut power between uses instead of leaving the bank trickling power to an idle Pi 24/7 - the single biggest lever on battery life |
 | 1 | Enclosure/case | 3D-printed or off-the-shelf project box with cutouts for the screen and mic, sized/weighted so it feels good to shake, with room inside for the power bank, and a soccer-ball-themed shell if you want the physical look to match the on-screen animation |
 | - | M2.5 standoffs/screws (optional) | For mounting the Pi and display inside the case |
 
-Approximate per-unit hardware cost: **$30-$50** depending on sourcing,
-display choice, and power bank capacity, before enclosure/assembly labor.
+Approximate per-unit hardware cost: **$30-$55** depending on sourcing,
+display choice, power bank capacity, and whether you include the optional
+INA219, before enclosure/assembly labor.
 
 ### Choosing the power bank
 
@@ -141,12 +144,37 @@ registering.
 | LED cathode (short leg) | GND |
 
 Wire it as `GPIO -> 330 ohm resistor -> LED anode`, `LED cathode -> GND`.
-No extra sensor is needed: the light is driven by the Pi's own power
-management chip, which already detects when the 5V input rail sags -
-exactly what happens as a power bank's battery runs low under load. The
-main loop polls this every `LOW_POWER_POLL_SECONDS` (default 5s) and lights
-the LED for as long as the under-voltage condition is active. This relies
-on the `vcgencmd` tool, which ships with Raspberry Pi OS by default.
+By default the light is driven by the Pi's own power management chip,
+which already detects when the 5V input rail sags - exactly what happens
+as a power bank's battery runs low under load. The main loop polls this
+every `LOW_POWER_POLL_SECONDS` (default 5s) and lights the LED for as long
+as the under-voltage condition is active. This relies on the `vcgencmd`
+tool, which ships with Raspberry Pi OS by default, and it's free - no extra
+part needed.
+
+### Wiring the INA219 (optional, for an earlier warning)
+
+The Pi's own detection above only trips once the rail has already sagged
+close to the point where the Pi could misbehave. An INA219 measures the
+actual rail voltage directly, so it can warn well before that - the
+trade-off is it means splicing into the power line:
+
+| INA219 pin | Connects to |
+|------------|-------------|
+| VIN+       | Power bank / switch side of the 5V feed (cut the cable's +5V wire and land the bank-side end here) |
+| VIN-       | Pi-side of the cut +5V wire (the module's internal shunt completes the circuit) |
+| VCC        | Pi 3V3 |
+| GND        | Pi GND |
+| SCL        | GPIO3 (I2C1 SCL) - same bus as the accelerometer, different address |
+| SDA        | GPIO2 (I2C1 SDA) - same bus as the accelerometer, different address |
+
+The MPU6050 (`0x68`) and INA219 (default `0x40`) share the same I2C bus
+without conflict since they're at different addresses - no need for a
+second bus. Set `INA219_THRESHOLD_V` in `.env` to whatever margin you want
+above the Pi's own ~4.63V cutoff (default 4.8V). If no INA219 answers on
+the bus, `soccerball8/power_monitor.py` detects that automatically at
+startup and falls back to the `vcgencmd`-only method above - no
+configuration change needed either way.
 
 ## Software setup
 
@@ -222,7 +250,8 @@ hardware. The shake trigger also falls back to pressing Enter when
 ```
 soccerball8/
   shake.py          MPU6050 accelerometer driver + shake-to-ask detection
-  power_monitor.py  low-power warning LED, driven by the Pi's own under-voltage detection
+  power_monitor.py  low-power warning LED (INA219 if present, else Pi under-voltage detection)
+  ina219.py         minimal read-only INA219 driver (bus voltage only)
   audio.py          mic capture + speech-to-text (Google Web Speech API)
   search.py         Google Custom Search JSON API wrapper
   fact_check.py     cross-checks a question against multiple search results

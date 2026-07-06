@@ -1,6 +1,12 @@
 import time
 
-from soccerball8.power_monitor import LowPowerIndicator, _parse_throttled_hex, is_undervoltage_now
+from soccerball8.power_monitor import (
+    LowPowerIndicator,
+    _build_ina219_read_state,
+    _parse_throttled_hex,
+    is_undervoltage_now,
+    is_voltage_below,
+)
 
 
 def test_parse_throttled_hex():
@@ -13,6 +19,18 @@ def test_is_undervoltage_now_true_when_bit0_set():
 
 def test_is_undervoltage_now_false_when_bit0_clear():
     assert is_undervoltage_now(read_hex=lambda: 0x50000) is False
+
+
+def test_is_voltage_below_threshold():
+    assert is_voltage_below(4.8, read_voltage=lambda: 4.5) is True
+    assert is_voltage_below(4.8, read_voltage=lambda: 5.0) is False
+
+
+def test_build_ina219_read_state_returns_none_when_no_sensor_present():
+    # No INA219 (or even smbus2) attached in a dev/test environment - the
+    # probe should fail closed and return None so the caller falls back to
+    # vcgencmd, rather than raising.
+    assert _build_ina219_read_state(bus_number=1, address=0x40, threshold_v=4.8) is None
 
 
 def test_low_power_indicator_starts_and_stops_without_hardware():
