@@ -9,7 +9,9 @@ one white hexagon panel keeps zooming in until it fills the whole screen,
 and the answer types itself on over the white.
 
 If the search results don't clearly agree with each other, it says **"I
-don't know"** instead of guessing.
+don't know"** instead of guessing. A small LED lights up when the power
+bank is running low, using the Pi's own under-voltage detection - no extra
+battery-monitoring hardware needed.
 
 ## How the "is this actually true" check works
 
@@ -49,8 +51,10 @@ may land on "I don't know" more often.
 | 1 | Mini USB microphone | A small USB lavalier/desktop mic, e.g. generic "mini USB microphone" listings. Needs USB-A. |
 | 1 | Micro-USB OTG adapter (USB-A female to Micro-USB male) | To plug the USB mic into the Pi Zero's data port. Not needed if using a Zero 2 W's full-size USB port variant. |
 | 1 | MPU6050 accelerometer/gyroscope breakout (GY-521 module) | The shake sensor - I2C, ~$2-4. This is what detects "shake to ask" instead of a button. |
-| 1 | Perma-proto board (small, e.g. Pi HAT-sized prototyping board) | Where the accelerometer's 4 wires get soldered down permanently instead of relying on friction-fit jumpers - much more reliable for something that's going to be shaken |
-| ~0.3m | Solid-core hookup wire (22-24 AWG, a couple of colors) | Soldered connections: accelerometer to I2C pins, and display to SPI pins if it doesn't come pre-wired |
+| 1 | 5mm LED (red or amber) | The low-power warning light |
+| 1 | Resistor, ~330 ohm | Current-limits the LED off a GPIO pin |
+| 1 | Perma-proto board (small, e.g. Pi HAT-sized prototyping board) | Where the accelerometer/LED wiring gets soldered down permanently instead of relying on friction-fit jumpers - much more reliable for something that's going to be shaken |
+| ~0.3m | Solid-core hookup wire (22-24 AWG, a couple of colors) | Soldered connections: accelerometer to I2C pins, LED to its GPIO pin, and display to SPI pins if it doesn't come pre-wired |
 | 1 | Small USB power bank, 5000mAh+, 5V/2A+ output | See "Choosing the power bank" below - not every power bank works for an always-on device like this one |
 | 1 | Inline micro-USB power switch (a small toggle/slide switch wired into the power lead) | Lets you fully cut power between uses instead of leaving the bank trickling power to an idle Pi 24/7 - the single biggest lever on battery life |
 | 1 | Enclosure/case | 3D-printed or off-the-shelf project box with cutouts for the screen and mic, sized/weighted so it feels good to shake, with room inside for the power bank, and a soccer-ball-themed shell if you want the physical look to match the on-screen animation |
@@ -129,6 +133,21 @@ are a reasonable starting point - nudge `SHAKE_THRESHOLD_G` up if it's
 triggering on being picked up gently, or down if a real shake isn't
 registering.
 
+### Wiring the low-power LED
+
+| LED circuit          | Pi Zero pin |
+|-----------------------|-------------|
+| Resistor -> GPIO27 (configurable, `LOW_POWER_LED_GPIO_PIN`) | GPIO27 |
+| LED cathode (short leg) | GND |
+
+Wire it as `GPIO -> 330 ohm resistor -> LED anode`, `LED cathode -> GND`.
+No extra sensor is needed: the light is driven by the Pi's own power
+management chip, which already detects when the 5V input rail sags -
+exactly what happens as a power bank's battery runs low under load. The
+main loop polls this every `LOW_POWER_POLL_SECONDS` (default 5s) and lights
+the LED for as long as the under-voltage condition is active. This relies
+on the `vcgencmd` tool, which ships with Raspberry Pi OS by default.
+
 ## Software setup
 
 ```bash
@@ -203,6 +222,7 @@ hardware. The shake trigger also falls back to pressing Enter when
 ```
 soccerball8/
   shake.py          MPU6050 accelerometer driver + shake-to-ask detection
+  power_monitor.py  low-power warning LED, driven by the Pi's own under-voltage detection
   audio.py          mic capture + speech-to-text (Google Web Speech API)
   search.py         Google Custom Search JSON API wrapper
   fact_check.py     cross-checks a question against multiple search results
@@ -213,6 +233,7 @@ soccerball8/
 tests/
   test_fact_check.py
   test_shake.py
+  test_power_monitor.py
 systemd/soccerball8.service
 ```
 

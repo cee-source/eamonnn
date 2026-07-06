@@ -1,4 +1,4 @@
-"""Main loop: wait for the button, listen, think, animate the answer, repeat."""
+"""Main loop: wait for a shake, listen, think, animate the answer, repeat."""
 
 import traceback
 
@@ -7,6 +7,7 @@ from .answer_engine import answer_question
 from .audio import listen_for_question
 from .config import SETTINGS, Settings
 from .display import Display, build_display, play_frames
+from .power_monitor import LowPowerIndicator
 
 
 def _wait_for_trigger(settings: Settings) -> None:
@@ -54,6 +55,10 @@ def run_once(settings: Settings, display: Display) -> None:
 def main() -> None:
     settings = SETTINGS
     display = build_display(settings)
+    low_power_indicator = LowPowerIndicator(
+        settings.low_power_led_gpio_pin, settings.low_power_poll_seconds
+    )
+    low_power_indicator.start()
     try:
         while True:
             try:
@@ -65,6 +70,7 @@ def main() -> None:
     except KeyboardInterrupt:
         pass
     finally:
+        low_power_indicator.stop()
         display.close()
 
 

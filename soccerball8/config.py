@@ -46,6 +46,10 @@ class Settings:
     shake_window_seconds: float = _float_env("SHAKE_WINDOW_SECONDS", "1.0")
     shake_cooldown_seconds: float = _float_env("SHAKE_COOLDOWN_SECONDS", "1.5")
 
+    # Low-power warning LED (lit from the Pi's own under-voltage detection).
+    low_power_led_gpio_pin: int = _int_env("LOW_POWER_LED_GPIO_PIN", "27")
+    low_power_poll_seconds: float = _float_env("LOW_POWER_POLL_SECONDS", "5.0")
+
     @property
     def mic_device(self):
         return None if self.mic_device_index < 0 else self.mic_device_index
