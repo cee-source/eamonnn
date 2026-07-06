@@ -42,29 +42,41 @@ may land on "I don't know" more often.
 
 ## Shopping list
 
+**A note on the prices below:** Amazon blocks automated price scraping and
+its search results don't reliably surface live prices, so these are ranges
+compiled from current listings and typical market rates for these
+component categories, not a guaranteed checkout total - sellers, stock, and
+"scarcity" markups (especially on the Pi itself) shift week to week. Click
+through and check the current price before ordering.
+
 ### Per unit
 
-| Qty | Item | Notes |
-|-----|------|-------|
-| 1 | Raspberry Pi Zero 2 W | Needs Wi-Fi for Google Search + speech-to-text. The Zero 2 W is strongly recommended over the original Zero/Zero W - noticeably faster for the animation loop and network calls, similar price. |
-| 1 | microSD card, 8GB+ (A1-rated) | Raspberry Pi OS Lite (no desktop needed - the screen is driven directly over SPI) |
-| 1 | 2.4"-2.5" SPI TFT display, ST7789V or ILI9341, 240x320 | e.g. "Waveshare 2.4inch LCD Module" or generic "2.4 inch SPI TFT ST7789" listings. Confirm it's SPI (4-wire), not parallel/DPI. Comes with a header you'll solder to the Pi's GPIO or to hookup wire directly. |
-| 1 | Mini USB microphone | A small USB lavalier/desktop mic, e.g. generic "mini USB microphone" listings. Needs USB-A. |
-| 1 | Micro-USB OTG adapter (USB-A female to Micro-USB male) | To plug the USB mic into the Pi Zero's data port. Not needed if using a Zero 2 W's full-size USB port variant. |
-| 1 | MPU6050 accelerometer/gyroscope breakout (GY-521 module) | The shake sensor - I2C, ~$2-4. This is what detects "shake to ask" instead of a button. |
-| 1 | 5mm LED (red or amber) | The low-power warning light |
-| 1 | Resistor, ~330 ohm | Current-limits the LED off a GPIO pin |
-| 1 | INA219 voltage/current sensor breakout (optional) | Gives an early low-power warning (configurable voltage threshold) instead of waiting for the Pi's own under-voltage protection to trip. I2C, ~$4-6. Skippable - everything falls back automatically to the free Pi-only method without it. |
-| 1 | Perma-proto board (small, e.g. Pi HAT-sized prototyping board) | Where the accelerometer/LED/INA219 wiring gets soldered down permanently instead of relying on friction-fit jumpers - much more reliable for something that's going to be shaken |
-| ~0.3m | Solid-core hookup wire (22-24 AWG, a couple of colors) | Soldered connections: accelerometer to I2C pins, LED to its GPIO pin, INA219 spliced into the power line if used, and display to SPI pins if it doesn't come pre-wired |
-| 1 | Small USB power bank, 5000mAh+, 5V/2A+ output | See "Choosing the power bank" below - not every power bank works for an always-on device like this one |
-| 1 | Inline micro-USB power switch (a small toggle/slide switch wired into the power lead) | Lets you fully cut power between uses instead of leaving the bank trickling power to an idle Pi 24/7 - the single biggest lever on battery life |
-| 1 | Enclosure/case | 3D-printed or off-the-shelf project box with cutouts for the screen and mic, sized/weighted so it feels good to shake, with room inside for the power bank, and a soccer-ball-themed shell if you want the physical look to match the on-screen animation |
-| - | M2.5 standoffs/screws (optional) | For mounting the Pi and display inside the case |
+| Qty | Item | Amazon (approx.) | Notes |
+|-----|------|-------------------|-------|
+| 1 | Raspberry Pi Zero 2 W | **$15-$45** | Official retail is $15, but Amazon resellers frequently mark it up 2-3x on scarcity - shop around. [Example listing](https://www.amazon.com/Raspberry-Zero-Bluetooth-RPi-2W/dp/B09LH5SBPS). Needs Wi-Fi for Google Search + speech-to-text; strongly recommended over the original Zero/Zero W. |
+| 1 | microSD card, 32GB A1-rated (e.g. SanDisk Ultra) | **$7-$12** | [Example listing](https://www.amazon.com/SanDisk-Ultra-microSDHC-Memory-Adapter/dp/B08GY9NYRM). Raspberry Pi OS Lite - no desktop needed, the screen is driven directly over SPI. |
+| 1 | 2.4"-2.5" SPI TFT display, ST7789V or ILI9341, 240x320 | **$9-$16** | [Example listing](https://www.amazon.com/display-240x320-interface-driver-ST7789V/dp/B0C3BGPZQY). Confirm it's SPI (4-wire), not parallel/DPI. |
+| 1 | Mini USB microphone | **$8-$16** | [Example listing](https://www.amazon.com/Adafruit-Mini-USB-Microphone-ADA3367/dp/B071YMZQP1). Needs USB-A. |
+| 1 (pack) | Micro-USB OTG adapter (USB-A female to Micro-USB male) | **$6-$9** for a 2-3 pack | [Example listing](https://www.amazon.com/CableCreation-Female-Assorted-Direction-Straight/dp/B013G4DMCE). Only need one, but these are sold in multi-packs. Skip if using a full-size-USB Pi variant. |
+| 1 (pack) | MPU6050 accelerometer/gyroscope breakout (GY-521) | **$7-$10** single, or **~$2-3/unit** in a 5-10 pack | [Example listing](https://www.amazon.com/HiLetgo-MPU-6050-Accelerometer-Gyroscope-Converter/dp/B078SS8NQV). The shake sensor. Buy a multi-pack if building more than one or two units. |
+| 1 (kit) | 5mm LED assortment kit | **$8-$12** | [Example listing](https://www.amazon.com/DiCUNO-450pcs-Colors-Emitting-Assorted/dp/B073QMYKDM). Only 1 LED needed per unit - the rest are spares for the whole run. |
+| 1 (kit) | Resistor assortment kit (need ~330 ohm) | **$7-$10** | Often bundled with LED kits above - check before buying separately. |
+| 1 (optional) | INA219 voltage/current sensor breakout | **$7-$12** | [Example listing](https://www.amazon.com/HiLetgo-INA219-Bi-Directional-Current-Breakout/dp/B07VL8NY32). Gives an early low-power warning instead of waiting for the Pi's own under-voltage protection. Skippable - falls back automatically to the free method without it. |
+| 1 (pack) | Perma-proto board (small prototyping board) | **$8-$12** for a multi-pack | [Example listing](https://www.amazon.com/Adafruit-Perma-Proto-Half-sized-Breadboard-PCB/dp/B00SK8QR8S). Where the sensor/LED wiring gets soldered down permanently instead of friction-fit jumpers. |
+| 1 (spool set) | Solid-core hookup wire (22-24 AWG, a couple of colors) | **$10-$15** | Lasts many units - buy once. |
+| 1 | Small USB power bank, 5000mAh+, 5V/2A+ output | **$15-$25** | See "Choosing the power bank" below - not every power bank works for an always-on device like this one. |
+| 1 | Inline micro-USB power switch | **$6-$9** | [Example listing](https://www.amazon.com/LoveRPi-MicroUSB-Switch-Raspberry-Female/dp/B018BFWLRU). Lets you fully cut power between uses - the single biggest lever on battery life. |
+| 1 | Enclosure/case | **$6-$15** | 3D-print filament cost, or an off-the-shelf project box, sized/weighted so it feels good to shake, with room for the power bank. |
+| - | M2.5 standoffs/screws (optional, kit) | **$7-$10** | For mounting the Pi and display inside the case. |
 
-Approximate per-unit hardware cost: **$30-$55** depending on sourcing,
-display choice, power bank capacity, and whether you include the optional
-INA219, before enclosure/assembly labor.
+**Buying one of everything above at listed prices: ~$119-$216** (add
+$7-$12 more if you include the optional INA219). That's the honest total
+for building your *first* unit, because several of these are sold as kits
+or multi-packs (the wire spool, LED/resistor assortments, standoffs, and
+bulk MPU6050/perma-proto packs) - you'll have leftover material for
+several more units afterward. Once those shared kits are bought, each
+*additional* unit mainly costs the Pi, microSD, display, mic, power bank,
+and enclosure - roughly **$60-$110** each after the first.
 
 ### Choosing the power bank
 
@@ -89,14 +101,15 @@ a battery bank instead - with two catches that are easy to miss:
 
 ### Tools (one-time, shared across a whole production run)
 
-| Qty | Item | Notes |
-|-----|------|-------|
-| 1 | Soldering iron kit | A basic temperature-adjustable kit is enough - iron + stand, a few spare/fine conical tips, solder wire (rosin-core, 60/40 or lead-free), flux pen, desoldering braid/wick, brass tip cleaner, and a "helping hands"/PCB holder with a magnifier. Widely sold as an all-in-one "soldering iron kit" for ~$25-$40. |
-| 1 | Wire strippers/cutters | For prepping the hookup wire |
-| 1 | Anti-static mat or wristband (optional) | Cheap insurance for the Pi Zero and accelerometer board |
-| 1 | Multimeter | For checking continuity/voltage before first power-on of each unit |
+| Qty | Item | Amazon (approx.) | Notes |
+|-----|------|-------------------|-------|
+| 1 | Soldering iron kit | **$20-$40** (some feature-rich kits run $50-$60) | [Example listing](https://www.amazon.com/Soldering-Digital-Welding-Portable-Electric/dp/B08R3515SF). Iron + stand, spare/fine conical tips, solder wire, flux pen, desoldering braid/wick, tip cleaner, and ideally a "helping hands"/PCB holder with a magnifier. |
+| 1 | Wire strippers/cutters | **$8-$15** | For prepping the hookup wire. |
+| 1 (optional) | Anti-static mat or wristband | **$10-$15** | Cheap insurance for the Pi Zero and accelerometer board. |
+| 1 | Digital multimeter | **$15-$30** | [Search results](https://www.amazon.com/digital-multimeter/s?k=digital+multimeter). For checking continuity/voltage before first power-on of each unit. |
 
-These are a one-time purchase - reuse them across every unit you build, they
+**Total tools: ~$53-$100** (or ~$43-$85 without the optional anti-static
+mat). One-time purchase - reuse them across every unit you build, they
 don't factor into the per-unit cost above.
 
 ### Wiring the screen (SPI)
