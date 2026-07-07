@@ -126,6 +126,51 @@ extra step if you want it:
   take on, **skip the INA219 entirely** - the device still gets a low-power
   warning for free from the Pi's own detection, with zero wiring changes.
 
+### What if a wire works loose?
+
+Two separate questions here - can it damage anything, and does the device
+just stop working - and the answers are different for the sensor wiring
+versus the power wiring:
+
+- **Sensor/display/LED wiring (the majority of the build) is low
+  voltage (3.3V) logic - a loose connection there just breaks that one
+  circuit, it doesn't create a dangerous short.** Two bare 3.3V-or-GND
+  jumper ends touching each other isn't a fire risk; worst case is that
+  part of the circuit stops working until it's reseated. The Pi's GPIO
+  pins are also current-limited, so an accidental 3.3V-to-GND touch there
+  won't damage the board. This is exactly what the hot glue + firmly-
+  mounted breadboard in "Going solderless" above is for - not safety, but
+  keeping things from randomly disconnecting mid-shake.
+- **The one place a real short is possible is the optional INA219's power
+  splice** - that's the bare +5V line, which carries more current than a
+  logic pin and isn't current-limited the same way. If the two crimp
+  connections there were left exposed and touched each other or a metal
+  surface, that could short the power bank directly. This is why the
+  splice should always be insulated (heat-shrink tubing or electrical tape
+  over each crimp connector) and dressed away from other wires/metal
+  inside the case - or again, just skip the INA219 if you'd rather not
+  have any bare power wire in the build at all.
+- **What actually happens in software if a sensor wire drops out** (already
+  handled, no configuration needed):
+  - **Shake sensor (accelerometer):** falls back to a "press Enter"
+    prompt; if there's no keyboard attached either (a real headless unit),
+    it prints what went wrong and waits a few seconds before trying again,
+    rather than hammering the disconnected sensor in a tight loop.
+  - **Low-power LED / INA219:** if the INA219 wire comes loose mid-run, the
+    code notices the read failing and automatically falls back to the
+    Pi's free built-in detection instead of just going silent - so you
+    still get a low-power warning, just without the early lead time.
+  - **Low-power LED itself:** if the LED's own wire comes loose, the code
+    keeps driving the GPIO pin normally either way - there's just nothing
+    plugged in to light up, no error, no crash.
+  - **Display or microphone:** a dropped connection there fails that one
+    question/answer cycle (visible in the console log) and the device goes
+    back to waiting for the next shake - it doesn't get stuck.
+- **Before first power-on of each unit**, use the multimeter to check
+  continuity on each connection and confirm there's no unintended short
+  between adjacent pins - cheap insurance against a wiring mistake before
+  it meets a live power source.
+
 ### Choosing the power bank
 
 A wall-plug supply is the easy choice, but it isn't portable, so this needs

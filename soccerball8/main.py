@@ -1,5 +1,6 @@
 """Main loop: wait for a shake, listen, think, animate the answer, repeat."""
 
+import time
 import traceback
 
 from .animation import iter_full_sequence, iter_typewriter_frames
@@ -9,10 +10,15 @@ from .config import SETTINGS, Settings
 from .display import Display, build_display, play_frames
 from .power_monitor import LowPowerIndicator
 
+_TRIGGER_RETRY_SECONDS = 5.0
+
 
 def _wait_for_trigger(settings: Settings) -> None:
     """Blocks until the device is shaken (or Enter, off the Pi / without an
-    accelerometer attached)."""
+    accelerometer attached). If the accelerometer is missing or its wire has
+    worked loose *and* there's no keyboard to fall back to (e.g. running
+    headless under systemd), waits a few seconds instead of spinning in a
+    tight retry loop that would peg the CPU and flood the logs."""
     try:
         from .shake import wait_for_shake
 
@@ -24,8 +30,13 @@ def _wait_for_trigger(settings: Settings) -> None:
             bus_number=settings.accelerometer_bus,
             i2c_address=settings.accelerometer_address,
         )
-    except Exception:
-        input("Shake sensor unavailable - press Enter to ask the soccer 8-ball a question... ")
+    except Exception as exc:
+        try:
+            input("Shake sensor unavailable - press Enter to ask the soccer 8-ball a question... ")
+        except EOFError:
+            print(f"Shake sensor unavailable ({exc}) and no keyboard attached - retrying in "
+                  f"{_TRIGGER_RETRY_SECONDS:.0f}s.")
+            time.sleep(_TRIGGER_RETRY_SECONDS)
 
 
 def run_once(settings: Settings, display: Display) -> None:

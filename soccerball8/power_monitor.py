@@ -50,21 +50,47 @@ def is_voltage_below(threshold_v: float, read_voltage: Callable[[], float]) -> b
     return read_voltage() < threshold_v
 
 
-def _build_ina219_read_state(
-    bus_number: int, address: int, threshold_v: float
-) -> Optional[Callable[[], bool]]:
-    """Tries to bring up an INA219 on the I2C bus; returns a ready-to-use
-    read_state callable if one responds, or None if there isn't one wired in
-    (missing smbus2, no device at that address, etc.)."""
-    try:
-        from .ina219 import INA219
+def _default_ina219_factory(address: int, bus_number: int):
+    from .ina219 import INA219
 
-        sensor = INA219(address=address, bus_number=bus_number)
-        sensor.read_bus_voltage()  # probe - raises if nothing answers at this address
-    except Exception:
-        return None
+    return INA219(address=address, bus_number=bus_number)
 
-    return lambda: is_voltage_below(threshold_v, sensor.read_bus_voltage)
+
+def _build_read_state(
+    bus_number: int,
+    address: int,
+    threshold_v: float,
+    ina219_factory: Callable[[int, int], object] = _default_ina219_factory,
+    fallback_read_state: Callable[[], bool] = is_undervoltage_now,
+) -> Callable[[], bool]:
+    """Returns a read_state callable that prefers a live INA219 reading on
+    each poll, and transparently falls back to the Pi's own under-voltage
+    detection if no INA219 answers at startup, *or* if one stops responding
+    partway through a run (e.g. its wire works loose) - rather than either
+    locking onto one method for the process lifetime or going silently
+    blind on a mid-run disconnect."""
+    state = {"attempted": False, "sensor": None}
+
+    def read_state() -> bool:
+        if not state["attempted"]:
+            state["attempted"] = True
+            try:
+                sensor = ina219_factory(address, bus_number)
+                sensor.read_bus_voltage()  # probe - raises if nothing answers at this address
+                state["sensor"] = sensor
+            except Exception:
+                state["sensor"] = None
+
+        sensor = state["sensor"]
+        if sensor is not None:
+            try:
+                return is_voltage_below(threshold_v, sensor.read_bus_voltage)
+            except Exception:
+                state["sensor"] = None  # dropped mid-run - fall back to vcgencmd from here on
+
+        return fallback_read_state()
+
+    return read_state
 
 
 class LowPowerIndicator:
@@ -82,9 +108,8 @@ class LowPowerIndicator:
     ):
         self._gpio_pin = gpio_pin
         self._poll_seconds = poll_seconds
-        self._read_state = read_state or (
-            _build_ina219_read_state(ina219_bus_number, ina219_address, ina219_threshold_v)
-            or is_undervoltage_now
+        self._read_state = read_state or _build_read_state(
+            ina219_bus_number, ina219_address, ina219_threshold_v
         )
         self._stop = threading.Event()
         self._gpio = None
