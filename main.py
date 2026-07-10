@@ -75,6 +75,7 @@ def build_root_menu(config, display) -> list[MenuEntry]:
     from modules.network.network_menu     import build_network_menu
     from modules.cats.cat_menu            import build_cats_menu
     from modules.sonar.sonar_menu         import build_sonar_menu
+    from modules.bluenet.bluenet_menu     import build_bluenet_menu
 
     return [
         MenuEntry(label='RFID / NFC',  children=build_rfid_menu(config, display)),
@@ -90,6 +91,7 @@ def build_root_menu(config, display) -> list[MenuEntry]:
         MenuEntry(label='Games',       children=build_games_menu(config, display)),
         MenuEntry(label='Cat Videos',  children=build_cats_menu(config, display)),
         MenuEntry(label='Sonar',       children=build_sonar_menu(config, display)),
+        MenuEntry(label='BlueNet',     children=build_bluenet_menu(config, display)),
         MenuEntry(label='About',       action=lambda: _show_about(display)),
     ]
 
