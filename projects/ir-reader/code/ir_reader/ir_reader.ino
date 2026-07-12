@@ -1,14 +1,14 @@
 // IR Remote Code Reader
 // Press buttons on any remote and see the hex codes in Serial Monitor.
-// Wire your IR receiver: left leg=GND, middle=5V, right=pin 11
-// (pin order varies by receiver model -- check the label)
+// Wire your IR receiver: OUT=pin 9, GND=GND, VCC=5V
+// (VS1838B facing you, dome side: left=OUT, middle=GND, right=VCC)
 //
 // Open Serial Monitor at 9600 baud, then press each button you want to use.
 // Write down the code next to the button name -- you'll need them to update your turret.
 
 #include <IRremote.h>
 
-int receiverPin = 11;
+int receiverPin = 9;
 
 IRrecv irrecv(receiverPin);
 decode_results results;
