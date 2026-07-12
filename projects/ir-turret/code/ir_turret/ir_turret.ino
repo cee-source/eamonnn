@@ -37,6 +37,7 @@
 
 #include <Arduino.h>
 #include <Servo.h>
+#define DECODE_NEC
 #include <IRremote.hpp>
 
 #pragma endregion LIBRARIES
@@ -68,8 +69,6 @@
 #define cmd8     0x0D  // not mapped
 #define cmd9     0x52  // not mapped
 #define cmd0     0x19  // not mapped
-
-#define DECODE_NEC
 
 #pragma endregion IR CODES
 
