@@ -1,30 +1,32 @@
 // IR Remote Code Reader
-// Press buttons on any remote and see the hex codes in Serial Monitor.
-// Wire your IR receiver: OUT=pin 9, GND=GND, VCC=5V
-// (VS1838B facing you, dome side: left=OUT, middle=GND, right=VCC)
+// Press buttons on your remote and see the hex codes in Serial Monitor.
 //
-// Open Serial Monitor at 9600 baud, then press each button you want to use.
-// Write down the code next to the button name -- you'll need them to update your turret.
+// Wiring (VS1838B, dome facing you):
+//   Left leg  (OUT) → Arduino pin 9
+//   Middle leg (GND) → Arduino GND
+//   Right leg  (VCC) → Arduino 5V
+//
+// Open Serial Monitor at 9600 baud, press each button, write down the code.
 
-#include <IRremote.h>
+#include <IRremote.hpp>
 
 int receiverPin = 9;
 
-IRrecv irrecv(receiverPin);
-decode_results results;
-
 void setup() {
   Serial.begin(9600);
-  irrecv.enableIRIn();
-  Serial.println("Ready! Press a button on your remote...");
+  IrReceiver.begin(receiverPin, ENABLE_LED_FEEDBACK);
+  Serial.println("Ready! Press a button...");
 }
 
 void loop() {
-  if (irrecv.decode(&results)) {
-    if (results.value != 0xFFFFFFFF) {  // ignore repeat codes
-      Serial.print("Code: 0x");
-      Serial.println(results.value, HEX);
+  if (IrReceiver.decode()) {
+    if (IrReceiver.decodedIRData.protocol != UNKNOWN) {
+      Serial.print("Protocol : ");
+      Serial.println(IrReceiver.getProtocolString());
+      Serial.print("Code     : 0x");
+      Serial.println(IrReceiver.decodedIRData.command, HEX);
+      Serial.println("----");
     }
-    irrecv.resume();
+    IrReceiver.resume();
   }
 }
