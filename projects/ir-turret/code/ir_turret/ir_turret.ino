@@ -51,23 +51,23 @@
 ** then update the values below.
 */
 
-#define left     0x8   // <-- replace with your remote's code
-#define right    0x5A  // <-- replace with your remote's code
-#define up       0x18  // <-- replace with your remote's code
-#define down     0x52  // <-- replace with your remote's code
-#define ok       0x1C  // <-- replace with your remote's code
-#define cmd1     0x45  // <-- replace with your remote's code
-#define cmd2     0x46  // <-- replace with your remote's code
-#define cmd3     0x47  // <-- replace with your remote's code
-#define cmd4     0x44  // <-- replace with your remote's code
-#define cmd5     0x40  // <-- replace with your remote's code
-#define cmd6     0x43  // <-- replace with your remote's code
-#define cmd7     0x7   // <-- replace with your remote's code
-#define cmd8     0x15  // <-- replace with your remote's code
-#define cmd9     0x9   // <-- replace with your remote's code
-#define cmd0     0x19  // <-- replace with your remote's code
-#define star     0x16  // <-- replace with your remote's code
-#define hashtag  0xD   // <-- replace with your remote's code
+#define left     0x44  // car MP3: left arrow
+#define right    0x43  // car MP3: right arrow
+#define up       0x46  // car MP3: up arrow
+#define down     0x15  // car MP3: down arrow
+#define ok       0x40  // car MP3: OK
+#define star     0x09  // car MP3: *
+#define hashtag  0x07  // car MP3: #
+#define cmd1     0x0C  // car MP3: 1 (shake yes)
+#define cmd2     0x18  // car MP3: 2 (shake no)
+#define cmd3     0x47  // not mapped
+#define cmd4     0x08  // not mapped
+#define cmd5     0x1C  // not mapped
+#define cmd6     0x5A  // not mapped
+#define cmd7     0x16  // not mapped
+#define cmd8     0x0D  // not mapped
+#define cmd9     0x52  // not mapped
+#define cmd0     0x19  // not mapped
 
 #define DECODE_NEC
 
