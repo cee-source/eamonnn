@@ -13,7 +13,7 @@ Two build tiers:
 
 ## Simulator
 
-Try the interactive simulator first to see the concept before you solder
+Try the interactive simulator first to see the concept before you build
 anything: it shows what each band's readout (and, in the AR build, its
 overlay) looks like, and which sensors behind it are real vs. simulated.
 
@@ -56,9 +56,10 @@ Note: MLX90614 and BH1700 both use I2C, both default to fixed addresses — chec
 your specific breakout board's address if you run into conflicts, and use an
 I2C multiplexer or address-changeable variant if needed.
 
-## Wiring
+## Wiring — no soldering required
 
-All I2C devices share SDA/SCL; only one device per non-I2C signal.
+Everything plugs into a solderless breadboard with jumper wires. All I2C
+devices share SDA/SCL; only one device per non-I2C signal.
 
 | Signal | Arduino Nano pin |
 |---|---|
@@ -72,9 +73,18 @@ All I2C devices share SDA/SCL; only one device per non-I2C signal.
 | All sensor VCC | 5V (check each module's actual voltage rating) |
 | All sensor GND | GND |
 
-Potentiometer: outer legs to 5V and GND, wiper to A0. Mount it on the side of
-the frame within thumb's reach, matching the reference "dial on the side"
-concept.
+Potentiometer: outer legs to 5V and GND, wiper to A0. It's mounted on the
+side of the goggle frame, away from the breadboard, so run three alligator-clip
+test leads from its legs to the breadboard instead of plugging it in
+directly. Everything else — the Nano, OLED, and sensor breakouts — plugs
+straight into the breadboard with jumper wires as long as you buy modules
+with their header pins already attached (see `SHOPPING_LIST.md`).
+
+For power, strip the battery holder's bare leads and push them directly
+into the breadboard's power rail, then run a bead of hot glue over the hole
+so they can't work loose. Hot glue is also how the breadboard, battery, and
+potentiometer get mounted to the frame — no soldering anywhere in this
+build.
 
 ## Firmware
 

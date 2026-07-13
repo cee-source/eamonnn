@@ -49,31 +49,40 @@ Pick one path — don't need both.
 | 1 | MT3608 (or similar) boost converter module | steps 3.7–4.2V up to a clean 5V into the Arduino's 5V pin — a single LiPo cell is too low to drive VIN through the onboard regulator |
 | 1 | SPST slide switch | power on/off |
 
-## Mechanical / wearable
+## Mechanical / wearable (no-solder build)
 
 | Qty | Part | Notes |
 |---|---|---|
 | 1 | Ski-goggle frame, safety-glasses frame, or headband mount | whatever you're building into — wide-strap ski goggles give the most room for electronics on the side |
-| 1 | Small perfboard or protoboard (e.g. 3×7 cm) | tidy mounting point for the Nano + wiring instead of dead-bug soldering |
-| 1 | Small project box or 3D-printed enclosure | houses the Nano, battery, and wiring on the goggle's side arm |
-| — | M3 screws + standoffs, or hot glue + zip ties | mounting the box and dial to the frame |
-| — | Double-sided foam tape | securing the battery and perfboard inside the enclosure |
+| 1 | Half-size or full-size solderless breadboard | mounting point for the Nano + all modules — no soldering needed |
+| 1 | Small project box, or just the breadboard's own backing | houses the Nano, breadboard, and battery on the goggle's side arm |
+| — | Hot glue sticks (for the glue gun below) | mounts the breadboard, battery, and enclosure to the frame — this replaces solder as the "permanent" step |
+| — | Double-sided foam tape | extra hold under the breadboard/battery before gluing, if you want it repositionable first |
 
-## Wiring & build supplies
+## Wiring & build supplies (no-solder)
 
 | Qty | Part | Notes |
 |---|---|---|
-| 1 set | Jumper wires (M-M, M-F, F-F) | prototyping before you commit to solder |
-| 1 spool | 22–26 AWG hookup wire, multi-color | permanent wiring between modules |
-| 1 pack | Heat shrink tubing assortment | insulating soldered joints |
-| — | Solder + flux | if not already on hand |
+| 1 set | Jumper wires (M-M, M-F, F-F, Dupont-style) | breadboard-to-module wiring — the only "wiring" this build needs |
+| 1 set | Alligator-clip test leads (4–6) | connects the side-mounted potentiometer to the breadboard, since it sits too far away to plug in directly |
+
+**Buy modules "with pins" / "pre-soldered header"** — nearly all BH1750,
+GUVA-S12SD, MLX90614, RCWL-0516, OLED, and Geiger module listings already
+ship this way, but check the listing photo before ordering so nothing
+arrives needing a soldering iron. The Arduino Nano itself always ships with
+headers pre-soldered.
+
+**Battery wiring**: pick a battery holder with bare wire leads, strip ~5mm
+of insulation, and push the wires straight into the breadboard's power rail
+— no connector needed. A dab of hot glue over the hole keeps it from
+wiggling loose.
 
 ## Tools (if you don't already have them)
 
-- Soldering iron + stand
+- Hot glue gun + extra glue sticks
 - Multimeter (continuity + voltage checks while wiring)
-- Small Phillips/hex driver set (for frame and enclosure screws)
-- Hot glue gun
+- Small Phillips/hex driver set (for frame and enclosure screws, if using a project box)
+- Wire strippers (for the battery leads)
 
 ## AR headset upgrade (V2, optional)
 
@@ -107,5 +116,9 @@ Rough total for the V2 upgrade on top of the base build: **~$120–170**.
 - The **Geiger module** is the one part worth buying from a reputable seller
   (e.g. Adafruit, or a well-reviewed CAJOE listing) rather than the cheapest
   listing — the SBM-20 tube and its HV driver circuit are the whole product.
-- Everything else (resistors, wire, perfboard, enclosure) is genuinely
+- Everything else (resistors, wire, breadboard, enclosure) is genuinely
   generic — buy whatever's cheapest and on hand.
+- **No soldering is required anywhere in this build.** The breadboard plus
+  jumper wires and alligator clips handle every electrical connection; hot
+  glue handles every mechanical one (mounting the breadboard, battery, and
+  dial to the frame).
