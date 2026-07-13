@@ -3,9 +3,19 @@
 Wearable goggles that read out several bands of the electromagnetic spectrum
 using cheap, real sensors, switched with a potentiometer on the side.
 
+Two build tiers:
+
+- **This README** — an OLED readout build on an Arduino Nano. Cheap, simple,
+  a good first build.
+- **[`ar-headset/`](./ar-headset/)** — a VR-style upgrade: a camera feed on
+  two eye displays with the current band drawn as a moving overlay on the
+  scene, on a Raspberry Pi 4. Bigger, pricier, builds on top of this one.
+
+## Simulator
+
 Try the interactive simulator first to see the concept before you solder
-anything: it shows what each band's readout looks like and which sensors are
-realistic to build.
+anything: it shows what each band's readout (and, in the AR build, its
+overlay) looks like, and which sensors behind it are real vs. simulated.
 
 ## Reality check
 

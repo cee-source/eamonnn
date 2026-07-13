@@ -2,6 +2,10 @@
 // Potentiometer on A0 selects one of 7 EM bands; OLED shows the band name
 // and, where a real sensor is wired up, its live reading. See ../README.md
 // for wiring and which bands have genuine hardware behind them.
+//
+// Also emits "key,value\n" over Serial every loop (e.g. "gamma,24") so this
+// board can act as the sensor hub for the AR pass-through build in
+// ../ar-headset/ — see ../ar-headset/README.md for the wire protocol.
 
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -24,19 +28,20 @@ const int NUM_BANDS = 7;
 enum SensorType { SENSOR_NONE, SENSOR_RADIO, SENSOR_MICROWAVE, SENSOR_IR, SENSOR_VISIBLE, SENSOR_UV, SENSOR_GEIGER };
 
 struct Band {
+  const char *key;
   const char *name;
   const char *range;
   SensorType sensor;
 };
 
 Band bands[NUM_BANDS] = {
-  { "Radio Waves",   "> 1 m",        SENSOR_RADIO },
-  { "Microwaves",    "1mm - 1m",     SENSOR_MICROWAVE },
-  { "Infrared",      "700nm - 1mm",  SENSOR_IR },
-  { "Visible Light", "400 - 700nm",  SENSOR_VISIBLE },
-  { "Ultraviolet",   "10 - 400nm",   SENSOR_UV },
-  { "X-Rays",        "0.01 - 10nm",  SENSOR_NONE },
-  { "Gamma Rays",    "< 0.01nm",     SENSOR_GEIGER },
+  { "radio",   "Radio Waves",   "> 1 m",        SENSOR_RADIO },
+  { "micro",   "Microwaves",    "1mm - 1m",     SENSOR_MICROWAVE },
+  { "ir",      "Infrared",      "700nm - 1mm",  SENSOR_IR },
+  { "visible", "Visible Light", "400 - 700nm",  SENSOR_VISIBLE },
+  { "uv",      "Ultraviolet",   "10 - 400nm",   SENSOR_UV },
+  { "xray",    "X-Rays",        "0.01 - 10nm",  SENSOR_NONE },
+  { "gamma",   "Gamma Rays",    "< 0.01nm",     SENSOR_GEIGER },
 };
 
 Adafruit_SSD1306 display(OLED_WIDTH, OLED_HEIGHT, &Wire, -1);
@@ -165,6 +170,41 @@ void drawReading(const Band &band) {
   }
 }
 
+void sendSerialReading(const Band &band) {
+  Serial.print(band.key);
+  Serial.print(',');
+
+  switch (band.sensor) {
+    case SENSOR_RADIO: {
+      int raw = analogRead(RADIO_PIN);
+      Serial.println(map(raw, 0, 1023, 0, 100));
+      break;
+    }
+    case SENSOR_MICROWAVE:
+      Serial.println(digitalRead(MICROWAVE_PIN) == HIGH ? 1 : 0);
+      break;
+    case SENSOR_IR:
+      Serial.println(hasMLX90614 ? mlx.readObjectTempC() : -999);
+      break;
+    case SENSOR_VISIBLE:
+      Serial.println(hasBH1750 ? lightMeter.readLightLevel() : -1);
+      break;
+    case SENSOR_UV: {
+      int raw = analogRead(UV_PIN);
+      float uvIndex = (raw * (5.0 / 1023.0)) / 0.1; // approx per GUVA-S12SD datasheet
+      Serial.println(uvIndex);
+      break;
+    }
+    case SENSOR_GEIGER:
+      updateGeigerCPM();
+      Serial.println(geigerCPM);
+      break;
+    default:
+      Serial.println(-1);
+      break;
+  }
+}
+
 void loop() {
   int idx = readBandIndex();
   const Band &band = bands[idx];
@@ -172,6 +212,8 @@ void loop() {
   display.clearDisplay();
   drawReading(band);
   display.display();
+
+  sendSerialReading(band);
 
   delay(200);
 }

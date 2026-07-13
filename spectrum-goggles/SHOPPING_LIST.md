@@ -75,6 +75,25 @@ Pick one path — don't need both.
 - Small Phillips/hex driver set (for frame and enclosure screws)
 - Hot glue gun
 
+## AR headset upgrade (V2, optional)
+
+Adds a camera pass-through view with the band overlay drawn on the scene —
+see [`ar-headset/`](./ar-headset/). Everything above still applies; this
+replaces the OLED with two eye displays and adds a Pi as the video brain.
+
+| Qty | Part | Notes | Approx. cost |
+|---|---|---|---|
+| 1 | Raspberry Pi 4 Model B (2GB+) | needs dual micro-HDMI — cheaper Pi models only have one | $35–55 |
+| 1 | microSD card, 16GB+ | Pi OS boot media | $5–8 |
+| 1 | USB webcam | the pass-through camera feed | $8–20 |
+| 2 | Small HDMI display panel + driver board (3.5"–5") | one per eye | $15–25 each |
+| 2 | Micro-HDMI to HDMI cable (short) | check your panel's connector | $3–5 each |
+| 1 | VR lens housing / lens cups (~34mm biconvex) or 3D-printed equivalent | holds displays at eye distance | $8–15 |
+| 1 | USB-C power supply, 5V/3A | Pi 4 power | $8–10 |
+| 1 | USB-A to Micro-USB cable | Arduino → Pi serial link | $2–4 |
+
+Rough total for the V2 upgrade on top of the base build: **~$120–170**.
+
 ## Rough total
 
 - Core build (no add-ons, simple battery power): **~$25–40**
