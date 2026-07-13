@@ -39,6 +39,9 @@ the bands where it doesn't:
 - Optional: diode + short whip antenna for the radio-band signal meter
 - Goggle/headband frame, 3.7 V LiPo + charge module, on/off switch, hookup wire
 
+See [`SHOPPING_LIST.md`](./SHOPPING_LIST.md) for exact part specs, quantities,
+and rough costs.
+
 Note: MLX90614 and BH1700 both use I2C, both default to fixed addresses — check
 your specific breakout board's address if you run into conflicts, and use an
 I2C multiplexer or address-changeable variant if needed.
