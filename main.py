@@ -49,6 +49,17 @@ def init_display(args, config):
     from core.display import TerminalDisplay
 
     if not args.headless:
+        # Try touchscreen first (3.5" TFT HAT)
+        try:
+            from core.display import TouchDisplay
+            display = TouchDisplay(config)
+            display.clear()
+            logging.info('TouchDisplay (3.5" TFT) active')
+            return display
+        except Exception as e:
+            logging.warning('TouchDisplay unavailable (%s), trying OLED', e)
+
+        # Fall back to OLED
         try:
             from core.display import OLEDDisplay
             display = OLEDDisplay(config)

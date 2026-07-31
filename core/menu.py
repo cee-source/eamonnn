@@ -11,7 +11,7 @@ import threading
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
-from core.display import DisplayDriver, TerminalDisplay
+from core.display import DisplayDriver, TerminalDisplay, TouchDisplay
 
 log = logging.getLogger(__name__)
 
@@ -64,10 +64,19 @@ class InputHandler:
             self._queue.append(key)
 
     def get_key(self) -> Optional[str]:
-        """Non-blocking if GPIO; blocking keyboard read if terminal."""
+        """Non-blocking if GPIO/touch; blocking keyboard read if terminal."""
+        # GPIO buttons (highest priority — always checked)
         if self._gpio_ok:
             with self._lock:
-                return self._queue.pop(0) if self._queue else None
+                if self._queue:
+                    return self._queue.pop(0)
+
+        # Touch input
+        if isinstance(self._display, TouchDisplay):
+            tap = self._display.get_tap()
+            if tap:
+                return self._display.tap_to_zone(*tap)
+            return None
 
         # Keyboard fallback via curses
         if isinstance(self._display, TerminalDisplay):
@@ -78,7 +87,7 @@ class InputHandler:
                 curses.KEY_DOWN: KEY_DOWN,
                 ord('\n'): KEY_SELECT,
                 ord('\r'): KEY_SELECT,
-                27: KEY_BACK,          # ESC
+                27: KEY_BACK,
                 ord('q'): KEY_BACK,
                 ord('w'): KEY_UP,
                 ord('s'): KEY_DOWN,
@@ -136,7 +145,10 @@ class MenuEngine:
             elif key == KEY_DOWN:
                 self._set_selected(min(len(entries) - 1, selected + 1))
 
-            elif key == KEY_SELECT:
+            elif key == KEY_SELECT or (key and key.startswith('JUMP:')):
+                if key and key.startswith('JUMP:'):
+                    selected = int(key.split(':', 1)[1])
+                    self._set_selected(selected)
                 entry = entries[selected]
                 if entry.children:
                     self.push(entry.children)
@@ -154,7 +166,7 @@ class MenuEngine:
                         ])
                         self._wait_back()
 
-            elif key == KEY_BACK:
+            elif key == KEY_BACK or key == 'BACK':
                 self.pop()
 
         self._input.cleanup()

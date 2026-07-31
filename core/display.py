@@ -1,6 +1,6 @@
 """
 Display abstraction layer.
-Auto-detects OLED (SSD1306 via luma.oled) or falls back to terminal (curses).
+Priority: TouchDisplay (3.5" TFT) → OLEDDisplay (SSD1306) → TerminalDisplay (curses).
 """
 from __future__ import annotations
 
@@ -199,3 +199,147 @@ class TerminalDisplay(DisplayDriver):
             curses.echo()
             curses.endwin()
             self._stdscr = None
+
+
+# ---------------------------------------------------------------------------
+# TouchDisplay backend (pygame → /dev/fb1 framebuffer, 320×480)
+# ---------------------------------------------------------------------------
+
+class TouchDisplay(DisplayDriver):
+    """
+    3.5" TFT touchscreen (320×480) via pygame + Linux framebuffer.
+
+    One-time Pi setup:
+        sudo apt install python3-pygame
+        # Add to /boot/config.txt (Waveshare/MPI3501 HAT):
+        #   dtoverlay=piscreen,speed=16000000,rotate=90
+        # Reboot, then the screen appears as /dev/fb1 and touch as
+        # /dev/input/touchscreen.
+    """
+
+    W       = 320
+    H       = 480
+    TITLE_H = 48
+    ITEM_H  = 58
+    BACK_H  = 52
+
+    # Palette
+    C_BG     = ( 10,  12,  20)
+    C_TITLE  = ( 18,  22,  38)
+    C_PANEL  = ( 22,  26,  42)
+    C_SEL    = (  0, 110, 255)
+    C_ACCENT = (  0, 155,  80)
+    C_TEXT   = (210, 215, 230)
+    C_BRIGHT = (255, 255, 255)
+    C_DIV    = ( 40,  45,  65)
+
+    def __init__(self, config=None) -> None:
+        import os
+        import pygame
+        os.environ.setdefault('SDL_FBDEV',       '/dev/fb1')
+        os.environ.setdefault('SDL_VIDEODRIVER',  'fbcon')
+        os.environ.setdefault('SDL_MOUSEDEV',    '/dev/input/touchscreen')
+        os.environ.setdefault('SDL_MOUSEDRV',    'EV')
+        pygame.init()
+        pygame.mouse.set_visible(False)
+        self._pg     = pygame
+        self._screen = pygame.display.set_mode((self.W, self.H), pygame.FULLSCREEN)
+        self._ft     = pygame.font.SysFont('freemono', 22, bold=True)
+        self._fi     = pygame.font.SysFont('freemono', 20)
+        self._fs     = pygame.font.SysFont('freemono', 16)
+        self._zones: list[tuple[int, int, object]] = []  # (y0, y1, 'back'|int)
+        log.info('TouchDisplay ready %dx%d', self.W, self.H)
+
+    def draw_menu(self, title: str, items: list[str], selected: int) -> None:
+        pg = self._pg
+        self._zones = []
+        self._screen.fill(self.C_BG)
+
+        # Title bar
+        pg.draw.rect(self._screen, self.C_TITLE, (0, 0, self.W, self.TITLE_H))
+        hdr = self._ft.render(f'PiFlip  {title}', True, self.C_BRIGHT)
+        self._screen.blit(hdr, (10, (self.TITLE_H - hdr.get_height()) // 2))
+        pg.draw.line(self._screen, self.C_DIV,
+                     (0, self.TITLE_H), (self.W, self.TITLE_H), 2)
+
+        # Items (scrollable)
+        avail   = self.H - self.TITLE_H - self.BACK_H
+        max_vis = avail // self.ITEM_H
+        start   = max(0, selected - max_vis + 1)
+
+        for i, label in enumerate(items[start: start + max_vis]):
+            idx = start + i
+            y   = self.TITLE_H + i * self.ITEM_H
+            sel = (idx == selected)
+            pg.draw.rect(self._screen,
+                         self.C_SEL if sel else self.C_PANEL,
+                         (0, y, self.W, self.ITEM_H - 2), border_radius=4)
+            surf = self._fi.render(f'  {label}',
+                                   True, self.C_BRIGHT if sel else self.C_TEXT)
+            self._screen.blit(surf, (8, y + (self.ITEM_H - surf.get_height()) // 2))
+            pg.draw.line(self._screen, self.C_DIV,
+                         (0, y + self.ITEM_H - 1), (self.W, y + self.ITEM_H - 1), 1)
+            self._zones.append((y, y + self.ITEM_H, idx))
+
+        # Back button
+        by = self.H - self.BACK_H
+        pg.draw.rect(self._screen, self.C_ACCENT, (0, by, self.W, self.BACK_H))
+        bs = self._fi.render('< BACK', True, self.C_BRIGHT)
+        self._screen.blit(bs, (10, by + (self.BACK_H - bs.get_height()) // 2))
+        self._zones.append((by, self.H, 'back'))
+
+        pg.display.flip()
+
+    def draw_message(self, lines: list[str]) -> None:
+        pg = self._pg
+        self._zones = [(0, self.H, 'back')]
+        self._screen.fill(self.C_BG)
+        pg.draw.rect(self._screen, self.C_TITLE, (0, 0, self.W, self.TITLE_H))
+        hdr = self._ft.render('PiFlip', True, self.C_BRIGHT)
+        self._screen.blit(hdr, (10, (self.TITLE_H - hdr.get_height()) // 2))
+        y = self.TITLE_H + 16
+        for line in lines:
+            surf = self._fi.render(str(line)[:32], True, self.C_TEXT)
+            self._screen.blit(surf, (10, y))
+            y += surf.get_height() + 8
+        hint = self._fs.render('Tap anywhere to go back', True, self.C_DIV)
+        self._screen.blit(hint, (10, self.H - 28))
+        pg.display.flip()
+
+    def draw_progress(self, label: str, value: int, max_val: int) -> None:
+        pg = self._pg
+        self._screen.fill(self.C_BG)
+        pct    = int(100 * value / max(max_val, 1))
+        filled = int((self.W - 20) * pct / 100)
+        lbl = self._ft.render(label, True, self.C_TEXT)
+        self._screen.blit(lbl, (10, 60))
+        pg.draw.rect(self._screen, self.C_PANEL,
+                     (10, 130, self.W - 20, 40), border_radius=6)
+        if filled:
+            pg.draw.rect(self._screen, self.C_SEL,
+                         (10, 130, filled, 40), border_radius=6)
+        pct_s = self._ft.render(f'{pct}%', True, self.C_BRIGHT)
+        self._screen.blit(pct_s,
+                          (self.W // 2 - pct_s.get_width() // 2, 185))
+        pg.display.flip()
+
+    def get_tap(self) -> Optional[tuple[int, int]]:
+        """Non-blocking; returns (x, y) of a touch event or None."""
+        for event in self._pg.event.get():
+            if event.type == self._pg.MOUSEBUTTONDOWN:
+                return event.pos
+        return None
+
+    def tap_to_zone(self, x: int, y: int) -> Optional[str]:
+        """Convert touch coords to 'BACK' or 'JUMP:N'."""
+        for y0, y1, target in self._zones:
+            if y0 <= y < y1:
+                return 'BACK' if target == 'back' else f'JUMP:{target}'
+        return None
+
+    def clear(self) -> None:
+        self._screen.fill(self.C_BG)
+        self._pg.display.flip()
+
+    def cleanup(self) -> None:
+        self._pg.quit()
