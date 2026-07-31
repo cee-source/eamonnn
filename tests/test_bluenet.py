@@ -172,10 +172,12 @@ class TestBlueNetMenu(unittest.TestCase):
         self.assertIn('Ping All',     labels)
         self.assertIn('Share Signal', labels)
 
-    def test_all_entries_have_actions(self):
+    def test_all_entries_have_actions_or_children(self):
         from modules.bluenet.bluenet_menu import build_bluenet_menu
         for entry in build_bluenet_menu(config=None, display=None):
-            self.assertIsNotNone(entry.action)
+            has_action   = entry.action   is not None
+            has_children = entry.children is not None
+            self.assertTrue(has_action or has_children, f'{entry.label!r} has neither')
 
 
 if __name__ == '__main__':

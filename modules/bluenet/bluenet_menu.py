@@ -8,6 +8,30 @@ from core.menu import MenuEntry
 _node = None
 _node_lock = threading.Lock()
 
+# One shared hotspot manager
+_hotspot = None
+_hotspot_lock = threading.Lock()
+
+
+def _get_hotspot(config) -> 'HotspotManager':
+    global _hotspot
+    with _hotspot_lock:
+        if _hotspot is None:
+            from modules.bluenet.hotspot import HotspotManager
+            ssid = 'PiFlip-Mesh'
+            pwd  = 'piflip123'
+            if config:
+                try:
+                    ssid = config.parser['bluenet']['hotspot_ssid']
+                except (KeyError, AttributeError):
+                    pass
+                try:
+                    pwd = config.parser['bluenet']['hotspot_password']
+                except (KeyError, AttributeError):
+                    pass
+            _hotspot = HotspotManager(ssid=ssid, password=pwd)
+    return _hotspot
+
 
 def _get_node(config) -> 'BlueNetNode':
     global _node
@@ -158,6 +182,53 @@ def build_bluenet_menu(config, display) -> list:
 
         curses.wrapper(_inner)
 
+    def _hotspot_toggle():
+        hs = _get_hotspot(config)
+        if hs.running:
+            hs.stop()
+            _show(display, 'Hotspot OFF', 'WiFi AP stopped')
+        else:
+            _show(display, 'Starting...', 'Creating PiFlip-Mesh')
+            ok = hs.start()
+            if ok:
+                from modules.bluenet.hotspot import AP_IP
+                ssid = hs.ssid
+                pwd  = hs.password
+                lines = [
+                    'Hotspot ON!',
+                    f'WiFi: {ssid}',
+                    f'Pass: {pwd}',
+                    f'IP  : {AP_IP}',
+                    'Other PiFlips: connect',
+                    'to this WiFi first',
+                ]
+                if display:
+                    display.draw_message(lines)
+                    time.sleep(6)
+                else:
+                    print('\n'.join(lines))
+            else:
+                _show(display, 'Hotspot FAILED', 'Need: sudo apt install', secs=3)
+                _show(display, 'hostapd dnsmasq', '', secs=3)
+
+    def _hotspot_status():
+        hs = _get_hotspot(config)
+        if hs.running:
+            from modules.bluenet.hotspot import AP_IP
+            lines = [
+                'Hotspot: ON',
+                f'SSID: {hs.ssid}',
+                f'Pass: {hs.password}',
+                f'IP  : {AP_IP}',
+            ]
+        else:
+            lines = ['Hotspot: OFF', 'Use Start Hotspot', 'to create a network']
+        if display:
+            display.draw_message(lines)
+            time.sleep(4)
+        else:
+            print('\n'.join(lines))
+
     return [
         MenuEntry(label='Status',        action=_status),
         MenuEntry(label='Peer List',     action=_peer_list),
@@ -165,6 +236,10 @@ def build_bluenet_menu(config, display) -> list:
         MenuEntry(label='Inbox',         action=_inbox),
         MenuEntry(label='Ping All',      action=_ping_all),
         MenuEntry(label='Share Signal',  action=_share_last),
+        MenuEntry(label='Hotspot',       children=[
+            MenuEntry(label='Start/Stop Hotspot', action=_hotspot_toggle),
+            MenuEntry(label='Hotspot Info',       action=_hotspot_status),
+        ]),
     ]
 
 
