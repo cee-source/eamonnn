@@ -1,0 +1,748 @@
+<title>PiFlip — Interactive Demo</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0B0F18;--surf:#131923;--elev:#1C2438;
+  --acc:#1FCC7C;--blu:#2DA8FF;--txt:#E2E8F0;
+  --mut:#8B95A5;--dan:#FF4757;--brd:#1E2B3F;
+  font-family:system-ui,-apple-system,sans-serif;
+}
+body{
+  background:radial-gradient(ellipse at top,#0D1420 0%,#050709 70%);
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;padding:28px 20px 48px;
+  color:var(--txt);
+}
+.test-banner{
+  background:rgba(31,204,124,.06);border:1px solid rgba(31,204,124,.25);
+  border-radius:8px;padding:9px 18px;margin-bottom:22px;
+  font-family:'Courier New',monospace;font-size:12px;color:var(--acc);
+  text-align:center;max-width:380px;width:100%;letter-spacing:.5px;
+}
+.test-banner .dim{color:var(--mut)}
+
+/* ── Device ── */
+.device{
+  position:relative;width:320px;
+  background:linear-gradient(160deg,#1A2136 0%,#0E131D 100%);
+  border-radius:28px;padding:14px 10px 18px;
+  box-shadow:0 0 0 1px #070C14,0 0 0 2.5px #1A2336,
+    0 4px 8px rgba(0,0,0,.5),0 24px 64px rgba(0,0,0,.85),
+    inset 0 1px 0 rgba(255,255,255,.06);
+}
+.side-btns{position:absolute;right:-5px;top:90px;display:flex;flex-direction:column;gap:6px;}
+.sbtn{
+  width:5px;height:26px;background:#0E131D;border:1px solid #1A2336;
+  border-left:none;border-radius:0 3px 3px 0;cursor:pointer;transition:background .1s;
+}
+.sbtn:hover{background:#1C2C44}.sbtn:active{background:var(--acc)}
+.top-bezel{height:28px;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:5px;}
+.pi-orb{width:18px;height:18px;border-radius:50%;background:var(--acc);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#050A0F;}
+.brand{font-family:'Courier New',monospace;font-size:12px;letter-spacing:4px;color:var(--mut);font-weight:600;}
+.screen{
+  width:300px;height:450px;background:var(--bg);
+  border-radius:10px;overflow:hidden;position:relative;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.04);
+}
+.screen::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.025) 0%,transparent 30%);
+  border-radius:10px;z-index:50;
+}
+.sbar{
+  height:26px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 9px;background:rgba(0,0,0,.45);
+  border-bottom:1px solid rgba(255,255,255,.05);
+  font-family:'Courier New',monospace;font-size:10px;
+  flex-shrink:0;position:relative;z-index:10;
+}
+.sbar-l{color:var(--acc);font-weight:700;letter-spacing:1.5px}
+.sbar-r{display:flex;align-items:center;gap:5px;color:var(--mut)}
+.bat{width:18px;height:9px;border:1px solid #445;border-radius:2px;position:relative;overflow:hidden;}
+.bat::after{content:'';position:absolute;right:-3px;top:50%;transform:translateY(-50%);width:2px;height:5px;background:#445;border-radius:0 1px 1px 0;}
+.bat-fill{height:100%;width:72%;background:var(--acc)}
+.scr-content{position:absolute;top:26px;left:0;right:0;bottom:0;overflow:hidden;}
+.bot-bezel{height:18px;display:flex;align-items:center;justify-content:center;gap:12px;margin-top:4px;}
+.usb{width:18px;height:6px;border:1px solid #1A2336;border-radius:2px;background:#070C14}
+.led{width:5px;height:5px;border-radius:50%;background:var(--acc);box-shadow:0 0 6px var(--acc);animation:blink 2.2s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1}55%{opacity:.2}}
+
+/* ── Shared UI ── */
+.tbar{height:42px;display:flex;align-items:center;padding:0 10px;gap:9px;background:var(--surf);border-bottom:1px solid var(--brd);flex-shrink:0;}
+.back-btn{
+  width:26px;height:26px;border-radius:6px;
+  background:rgba(31,204,124,.12);border:1px solid rgba(31,204,124,.3);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--acc);font-size:16px;line-height:1;
+  flex-shrink:0;transition:background .1s;user-select:none;
+}
+.back-btn:hover{background:rgba(31,204,124,.22)}.back-btn:active{background:rgba(31,204,124,.38)}
+.tbar-title{font-family:'Courier New',monospace;font-size:14px;font-weight:700;color:var(--txt);letter-spacing:.5px;}
+
+/* ── Menu ── */
+.menu-list{flex:1;overflow-y:auto;scrollbar-width:none;}
+.menu-list::-webkit-scrollbar{display:none}
+.mitem{
+  display:flex;align-items:center;gap:11px;padding:0 12px;height:52px;
+  border-bottom:1px solid var(--brd);cursor:pointer;transition:background .1s;position:relative;
+}
+.mitem:hover{background:var(--elev)}.mitem:active{background:rgba(45,168,255,.12)}
+.mitem.sel{background:rgba(45,168,255,.14)}
+.mitem.sel::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:3px;background:var(--blu);border-radius:0 2px 2px 0;}
+.mitem-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.mitem-body{flex:1;min-width:0}
+.mitem-label{font-size:13px;font-family:'Courier New',monospace;color:var(--txt);font-weight:600;}
+.mitem-desc{font-size:10px;color:var(--mut);margin-top:1px}
+.mitem-arrow{color:var(--brd);font-size:14px}
+.kbd-hint{height:16px;display:flex;align-items:center;justify-content:center;font-family:monospace;font-size:9px;color:#1E2B3F;flex-shrink:0;background:var(--surf);border-top:1px solid var(--brd);}
+
+/* ── Info ── */
+.info-scr{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;padding:18px;text-align:center;}
+.info-ico{font-size:46px}
+.info-ttl{font-family:'Courier New',monospace;font-size:15px;font-weight:700;color:var(--txt);}
+.info-bod{font-size:11px;color:var(--mut);line-height:1.7;max-width:230px}
+.info-badge{background:rgba(31,204,124,.08);border:1px solid rgba(31,204,124,.25);color:var(--acc);font-family:'Courier New',monospace;font-size:10px;padding:4px 12px;border-radius:20px;letter-spacing:.5px;}
+
+/* ── Hotspot ── */
+.hs-card{margin:10px;background:var(--elev);border:1px solid var(--brd);border-radius:10px;overflow:hidden;}
+.hs-row{display:flex;justify-content:space-between;align-items:center;padding:9px 13px;border-bottom:1px solid var(--brd);}
+.hs-row:last-child{border-bottom:none}
+.hs-k{color:var(--mut);font-family:'Courier New',monospace;font-size:11px}
+.hs-v{color:var(--txt);font-family:'Courier New',monospace;font-size:11px;font-weight:700}
+.hs-v.on{color:var(--acc)}
+.hs-toggle{margin:10px;padding:12px;text-align:center;border-radius:8px;cursor:pointer;font-family:'Courier New',monospace;font-size:13px;font-weight:700;letter-spacing:1px;transition:all .15s;border:1px solid;}
+.hs-toggle.off{background:rgba(31,204,124,.09);border-color:rgba(31,204,124,.35);color:var(--acc);}
+.hs-toggle.off:hover{background:rgba(31,204,124,.18)}
+.hs-toggle.act{background:rgba(255,71,87,.09);border-color:rgba(255,71,87,.35);color:var(--dan);}
+
+/* ── Snake ── */
+.snake-hdr{height:28px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:#050D05;font-family:'Courier New',monospace;font-size:12px;color:var(--acc);flex-shrink:0;border-bottom:1px solid #0D1E0D;}
+.snake-hint{height:20px;display:flex;align-items:center;justify-content:center;background:#050D05;font-family:monospace;font-size:9px;color:#2A3A2A;flex-shrink:0;}
+
+/* ── Below device ── */
+.chips{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:20px;max-width:380px;}
+.chip{background:rgba(31,204,124,.06);border:1px solid rgba(31,204,124,.18);color:var(--mut);font-family:'Courier New',monospace;font-size:10px;padding:3px 9px;border-radius:20px;}
+.hint-row{margin-top:12px;font-size:11px;color:#3A4A5A;text-align:center;font-family:monospace;}
+
+@media(prefers-color-scheme:light){body{background:#E8EDF5}.device{background:linear-gradient(160deg,#CDD5E0 0%,#B8C2D0 100%)}}
+</style>
+
+<div class="test-banner">✓ <strong>142 / 142 tests passed</strong> &nbsp;<span class="dim">in 2.24s · stdlib unittest · zero failures</span></div>
+
+<div class="device">
+  <div class="side-btns">
+    <div class="sbtn" title="UP"     onclick="sKey('up')"></div>
+    <div class="sbtn" title="DOWN"   onclick="sKey('down')"></div>
+    <div class="sbtn" title="SELECT" onclick="sKey('select')"></div>
+    <div class="sbtn" title="BACK"   onclick="goBack()"></div>
+  </div>
+  <div class="top-bezel"><div class="pi-orb">π</div><div class="brand">PIFLIP</div></div>
+  <div class="screen">
+    <div class="sbar">
+      <div class="sbar-l">PiFlip</div>
+      <div class="sbar-r"><span id="clk">--:--</span><div class="bat"><div class="bat-fill"></div></div></div>
+    </div>
+    <div class="scr-content" id="scr"></div>
+  </div>
+  <div class="bot-bezel"><div class="usb"></div><div class="led"></div></div>
+</div>
+
+<div class="chips">
+  <div class="chip">Sub-GHz 433 MHz</div>
+  <div class="chip">RFID RC522</div>
+  <div class="chip">IR blaster</div>
+  <div class="chip">Bad USB HID</div>
+  <div class="chip">BlueNet mesh</div>
+  <div class="chip">Hotspot AP</div>
+  <div class="chip">7 games</div>
+  <div class="chip">Touch UI</div>
+</div>
+<div class="hint-row">↑↓ keys navigate menus · Enter select · Esc back · Arrow keys / WASD control games</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   TETRIS PIECES  (matching modules/games/tetris.py exactly)
+═══════════════════════════════════════════════════════════════ */
+const TP = {
+  I:{c:[[0,1],[1,1],[2,1],[3,1]],col:'#00E5E5'},
+  O:{c:[[0,0],[1,0],[0,1],[1,1]],col:'#E5E500'},
+  T:{c:[[0,1],[1,1],[2,1],[1,0]],col:'#9500E5'},
+  S:{c:[[0,1],[1,1],[1,0],[2,0]],col:'#00E500'},
+  Z:{c:[[0,0],[1,0],[1,1],[2,1]],col:'#E50000'},
+  J:{c:[[0,0],[0,1],[1,1],[2,1]],col:'#0000E5'},
+  L:{c:[[2,0],[0,1],[1,1],[2,1]],col:'#E59500'},
+};
+const TGW=10, TGH=20, TCW=15, TCH=15;
+
+/* ═══════════════════════════════════════════════════════════════
+   MENU DATA
+═══════════════════════════════════════════════════════════════ */
+function inf(ico,title,body,badge){return{type:'info',ico,title,body,badge}}
+const MAIN={title:'PiFlip',items:[
+  {icon:'📡',color:'#FF8C42',label:'Sub-GHz',desc:'433 / 315 / 868 MHz',menu:{title:'Sub-GHz',items:[
+    {icon:'🔍',label:'Scan',    desc:'Listen for signals',  ...inf('📡','Scanning…','Listening on 433.92 MHz\nModulation: ASK/OOK\nNo signals detected.','433.92 MHz')},
+    {icon:'▶️', label:'Replay',  desc:'Resend captured',     ...inf('🔁','No Captures','Capture a signal first.','0 saves')},
+    {icon:'📤',label:'Transmit',desc:'Send raw signal',     ...inf('📤','Transmit','Set frequency, modulation and data.','Ready')},
+    {icon:'💾',label:'Captures',desc:'0 saved signals',     ...inf('📂','Captures','No signals saved yet.','Empty')},
+  ]}},
+  {icon:'💳',color:'#2DA8FF',label:'RFID',desc:'Read & emulate cards',menu:{title:'RFID',items:[
+    {icon:'📖',label:'Read Card',  desc:'Scan NFC / RFID',...inf('💳','Place Card Near Pi','Hold your card within 2–3 cm of the RC522 reader.','SPI bus 0')},
+    {icon:'📁',label:'Saved Cards',desc:'0 saved',        ...inf('📂','No Saved Cards','Read a card first.','0 cards')},
+    {icon:'🎭',label:'Emulate',    desc:'Play back card',  ...inf('🎭','Select a Card','Go to Saved Cards and pick one.','No card')},
+  ]}},
+  {icon:'🔴',color:'#FF4757',label:'IR Remote',desc:'Infrared controller',menu:{title:'IR Remote',items:[
+    {icon:'🎓',label:'Learn Remote',    desc:'Record IR codes',...inf('🔴','Point Remote at Pi','Point your remote at the IR receiver on GPIO 23.','NEC / Sony')},
+    {icon:'📁',label:'Saved Remotes',   desc:'0 saved',        ...inf('📂','No Remotes','Learn a remote first.','Empty')},
+    {icon:'🌐',label:'Universal Remote',desc:'TV power codes', ...inf('📺','Universal Remote','NEC Power codes for Samsung, LG, Sony, Philips.','4 brands')},
+  ]}},
+  {icon:'⌨️',color:'#9B59B6',label:'Bad USB',desc:'HID injection scripts',menu:{title:'Bad USB',items:[
+    {icon:'▶️', label:'Run Script',desc:'Execute DuckyScript',...inf('⌨️','Select a Script','Plug PiFlip into target USB port first.','HID')},
+    {icon:'📄',label:'Scripts',   desc:'0 saved',            ...inf('📂','No Scripts','Drop .txt DuckyScript files in /data/badusb/','Empty')},
+  ]}},
+  {icon:'🦷',color:'#5B9EFF',label:'Bluetooth',desc:'BT HID & audio',menu:{title:'Bluetooth',items:[
+    {icon:'⌨️',label:'BT HID Keyboard', desc:'Wireless typing',...inf('⌨️','BT Keyboard Mode','Pi presents itself as a Bluetooth HID keyboard. Pair it with any device.','BT 4.2')},
+    {icon:'🖥️', label:'USB HID Keyboard',desc:'Wired HID',     ...inf('🔌','USB HID Mode','Connect via micro-USB. Pi appears as a keyboard.','HID')},
+    {icon:'🎧',label:'Audio Devices',   desc:'Pair headphones',...inf('🎧','Bluetooth Audio','Requires pulseaudio-module-bluetooth.\nNote: WiFi & BT share one antenna — interference possible.','A2DP')},
+  ]}},
+  {icon:'🔗',color:'#1FCC7C',label:'BlueNet',desc:'Mesh LAN between PiFlips',menu:{title:'BlueNet',items:[
+    {icon:'🔍',label:'Discover Peers',desc:'Find nearby PiFlips',...inf('🔍','Scanning…','Broadcasting on UDP 42424\nNo other PiFlips found.','0 peers')},
+    {icon:'💬',label:'Send Message',  desc:'Chat peer-to-peer',  ...inf('💬','No Peers','Discover peers first.','TCP 42425')},
+    {icon:'📬',label:'Read Messages', desc:'0 unread',           ...inf('📭','Inbox Empty','Messages from other PiFlips appear here.','0 msgs')},
+    {icon:'ℹ️', label:'My Info',       desc:'Name · IP · version',...inf('📟','Device Info','Name: PiFlip\nVersion: 0.4.0\nChannel: 6','v0.4.0')},
+    {icon:'📶',label:'Ping All',      desc:'Check latency',      ...inf('📶','Ping All Peers','No peers to ping. Start the hotspot first.','0 peers')},
+    {icon:'📡',label:'Share Signal',  desc:'Broadcast capture',  ...inf('📡','Share Signal','Capture a Sub-GHz signal first.','Ready')},
+    {icon:'🌐',label:'Hotspot',       desc:'PiFlip-Mesh WiFi AP',type:'hotspot'},
+  ]}},
+  {icon:'🎮',color:'#FF6B81',label:'Games',desc:'Snake, Tetris, Chess…',menu:{title:'Games',items:[
+    {icon:'🐍',label:'Snake',        desc:'Classic snake',      type:'snake'},
+    {icon:'🟦',label:'Tetris',       desc:'7 pieces · ghost piece · speed levels',type:'tetris'},
+    {icon:'🏓',label:'Pong vs AI',   desc:'First to 7 wins',    ...inf('🏓','Pong vs AI','W/S keys to move. Ball speeds up on paddle edge hit.','curses TUI')},
+    {icon:'🏓',label:'Pong 2 Player',desc:'Local multiplayer',  ...inf('🏓','Pong 2P','P1: W/S · P2: UP/DOWN arrows\nFirst to 7.','2 players')},
+    {icon:'♟️', label:'Chess vs AI', desc:'Minimax depth 3',    ...inf('♟️','Chess vs AI','Full rules: castling, en passant, promotion. Alpha-beta pruning at depth 3.','Depth 3')},
+    {icon:'♟️', label:'Chess 2 Player',desc:'Pass-and-play',    ...inf('♟️','Chess 2P','Arrows to move cursor, Enter/Space to select piece.','Full rules')},
+    {icon:'🐦',label:'Flappy Bird',  desc:'Tap to flap',        ...inf('🐦','Flappy Bird','Tap screen to flap. Dodge the pipes.\nTouchscreen required on real device.','60 fps')},
+  ]}},
+  {icon:'⚙️',color:'#8B95A5',label:'Settings',desc:'Device configuration',  ...inf('⚙️','Settings','Brightness, WiFi SSID, device name,\nSPI bus, GPIO pin assignments.','config.ini')},
+  {icon:'🐱',color:'#FFD93D',label:'Cats',    desc:'Nyan cat · loaf · walk',...inf('🐱','Cat Animations','Three animations: Nyan cat, bread loaf, and walking cat.\nRenders on OLED or TFT screen.','very important')},
+  {icon:'🔥',color:'#FF8C42',label:'Firewall',desc:'Network profiles',       ...inf('🔥','Firewall','Profiles: strict / standard / open.\nUses iptables to control traffic.','3 profiles')},
+]};
+
+/* ═══════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════ */
+let stack     = [MAIN];
+let menuSel   = 0;
+let hotspotOn = false;
+let sg        = null;  // snake
+let tg        = null;  // tetris
+
+/* ═══════════════════════════════════════════════════════════════
+   UI HELPERS
+═══════════════════════════════════════════════════════════════ */
+function mkTbar(title, showBack) {
+  const bar = document.createElement('div');
+  bar.className = 'tbar';
+  if (showBack) {
+    const b = document.createElement('div');
+    b.className = 'back-btn';
+    b.textContent = '‹';
+    b.onclick = goBack;
+    bar.appendChild(b);
+  }
+  const t = document.createElement('div');
+  t.className = 'tbar-title';
+  t.textContent = title;
+  bar.appendChild(t);
+  return bar;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════════════════════════ */
+function render() {
+  killSnake(); killTetris();
+  const cur = stack[stack.length-1];
+  const el  = document.getElementById('scr');
+  el.innerHTML = '';
+  const v = document.createElement('div');
+  v.style.cssText = 'display:flex;flex-direction:column;height:100%;';
+
+  if      (cur.type==='snake')   buildSnake(v);
+  else if (cur.type==='tetris')  buildTetris(v);
+  else if (cur.type==='info')    buildInfo(v, cur);
+  else if (cur.type==='hotspot') buildHotspot(v);
+  else                           buildMenu(v, cur);
+
+  el.appendChild(v);
+}
+
+function buildMenu(v, m) {
+  v.appendChild(mkTbar(m.title, stack.length > 1));
+  const list = document.createElement('div');
+  list.className = 'menu-list';
+  (m.items||[]).forEach((it, i) => {
+    const d = document.createElement('div');
+    d.className = 'mitem' + (i === menuSel ? ' sel' : '');
+    d.id = 'mi'+i;
+    d.innerHTML = `
+      <div class="mitem-icon" style="background:${(it.color||'#1FCC7C')}1A">${it.icon}</div>
+      <div class="mitem-body">
+        <div class="mitem-label">${it.label}</div>
+        <div class="mitem-desc">${it.desc||''}</div>
+      </div>
+      <div class="mitem-arrow">›</div>`;
+    d.onclick = () => { menuSel = i; pushItem(it); };
+    list.appendChild(d);
+  });
+  v.appendChild(list);
+  const kh = document.createElement('div');
+  kh.className = 'kbd-hint';
+  kh.textContent = '↑ ↓ navigate · Enter select · Esc back';
+  v.appendChild(kh);
+  // Scroll selected into view after DOM is attached
+  setTimeout(() => { const el=document.getElementById('mi'+menuSel); if(el) el.scrollIntoView({block:'nearest'}); }, 0);
+}
+
+function buildInfo(v, d) {
+  v.appendChild(mkTbar(d.title, true));
+  const s = document.createElement('div');
+  s.className = 'info-scr';
+  s.innerHTML = `
+    <div class="info-ico">${d.ico}</div>
+    <div class="info-ttl">${d.title}</div>
+    <div class="info-bod">${(d.body||'').replace(/\n/g,'<br>')}</div>
+    ${d.badge?`<div class="info-badge">${d.badge}</div>`:''}`;
+  v.appendChild(s);
+}
+
+function buildHotspot(v) {
+  v.appendChild(mkTbar('Hotspot', true));
+  const btn = document.createElement('div');
+  btn.className = 'hs-toggle '+(hotspotOn?'act':'off');
+  btn.textContent = hotspotOn ? '■  STOP HOTSPOT' : '▶  START HOTSPOT';
+  btn.onclick = () => { hotspotOn=!hotspotOn; render(); };
+  v.appendChild(btn);
+  const card = document.createElement('div');
+  card.className = 'hs-card';
+  card.innerHTML = `
+    <div class="hs-row"><span class="hs-k">Status</span><span class="hs-v ${hotspotOn?'on':''}">${hotspotOn?'● ACTIVE':'○ OFF'}</span></div>
+    <div class="hs-row"><span class="hs-k">SSID</span><span class="hs-v">PiFlip-Mesh</span></div>
+    <div class="hs-row"><span class="hs-k">Password</span><span class="hs-v">piflip123</span></div>
+    <div class="hs-row"><span class="hs-k">AP IP</span><span class="hs-v">${hotspotOn?'10.42.0.1':'—'}</span></div>
+    <div class="hs-row"><span class="hs-k">Channel</span><span class="hs-v">6</span></div>
+    <div class="hs-row"><span class="hs-k">Interface</span><span class="hs-v">wlan0</span></div>
+    <div class="hs-row"><span class="hs-k">DHCP range</span><span class="hs-v">10.42.0.10–100</span></div>`;
+  v.appendChild(card);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SNAKE
+═══════════════════════════════════════════════════════════════ */
+const SCW=12,SCH=12,SGW=25,SGH=30;
+
+function buildSnake(v) {
+  v.appendChild(mkTbar('SNAKE', true));
+  const hdr = document.createElement('div');
+  hdr.className = 'snake-hdr';
+  hdr.innerHTML = '<span>SNAKE</span><span id="sc">Score: 0</span>';
+  v.appendChild(hdr);
+  const cv = document.createElement('canvas');
+  cv.width=SGW*SCW; cv.height=SGH*SCH;
+  cv.style.cssText='display:block;background:#000;image-rendering:pixelated;width:100%;flex:1;cursor:pointer;';
+  v.appendChild(cv);
+  const hint = document.createElement('div');
+  hint.className = 'snake-hint';
+  hint.textContent = 'Tap = pause · Arrow / WASD to steer · Q = back';
+  v.appendChild(hint);
+  startSnake(cv);
+}
+
+function startSnake(cv) {
+  const ctx = cv.getContext('2d');
+  sg = { snake:[{x:12,y:15},{x:11,y:15},{x:10,y:15}], dir:{x:1,y:0}, nd:{x:1,y:0}, food:null, score:0, alive:true, paused:false, iid:null };
+  const rnd=n=>Math.floor(Math.random()*n);
+  function placeFood(){
+    const occ=new Set(sg.snake.map(p=>p.x+','+p.y));
+    let p; do{p={x:rnd(SGW),y:rnd(SGH)}}while(occ.has(p.x+','+p.y));
+    sg.food=p;
+  }
+  placeFood();
+  function draw(){
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,cv.width,cv.height);
+    ctx.fillStyle='#0A170A';
+    for(let x=0;x<SGW;x++)for(let y=0;y<SGH;y++) ctx.fillRect(x*SCW+SCW/2-1,y*SCH+SCH/2-1,2,2);
+    if(sg.food){
+      ctx.fillStyle='#FF4757'; ctx.fillRect(sg.food.x*SCW+2,sg.food.y*SCH+2,SCW-4,SCH-4);
+      ctx.fillStyle='#FF8088'; ctx.fillRect(sg.food.x*SCW+3,sg.food.y*SCH+3,3,3);
+    }
+    sg.snake.forEach((s,i)=>{
+      ctx.fillStyle=i===0?'#1FCC7C':`hsl(145,55%,${28+(sg.snake.length-i)/sg.snake.length*22}%)`;
+      ctx.fillRect(s.x*SCW+1,s.y*SCH+1,SCW-2,SCH-2);
+      if(i===0){ctx.fillStyle='#000';ctx.fillRect(s.x*SCW+3,s.y*SCH+3,2,2);ctx.fillRect(s.x*SCW+SCW-5,s.y*SCH+3,2,2);}
+    });
+    if(!sg.alive){
+      ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillRect(0,0,cv.width,cv.height);
+      ctx.fillStyle='#FF4757';ctx.font='bold 15px monospace';ctx.textAlign='center';
+      ctx.fillText('GAME OVER',cv.width/2,cv.height/2-12);
+      ctx.fillStyle='#8B95A5';ctx.font='11px monospace';
+      ctx.fillText('Score: '+sg.score,cv.width/2,cv.height/2+6);
+      ctx.fillText('Tap to restart',cv.width/2,cv.height/2+22);
+    }
+    if(sg.paused&&sg.alive){
+      ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,0,cv.width,cv.height);
+      ctx.fillStyle='#1FCC7C';ctx.font='bold 13px monospace';ctx.textAlign='center';
+      ctx.fillText('PAUSED',cv.width/2,cv.height/2);
+      ctx.fillStyle='#445';ctx.font='10px monospace';ctx.fillText('tap to resume',cv.width/2,cv.height/2+16);
+    }
+    const sc=document.getElementById('sc'); if(sc) sc.textContent='Score: '+sg.score;
+  }
+  function step(){
+    if(!sg.alive||sg.paused) return;
+    sg.dir=sg.nd;
+    const h={x:sg.snake[0].x+sg.dir.x, y:sg.snake[0].y+sg.dir.y};
+    if(h.x<0||h.x>=SGW||h.y<0||h.y>=SGH){sg.alive=false;draw();return}
+    if(sg.snake.some(s=>s.x===h.x&&s.y===h.y)){sg.alive=false;draw();return}
+    sg.snake.unshift(h);
+    if(h.x===sg.food.x&&h.y===sg.food.y){sg.score+=10;placeFood();}
+    else sg.snake.pop();
+    draw();
+  }
+  sg.iid = setInterval(step,160);
+  draw();
+  cv.addEventListener('click',()=>{
+    if(!sg.alive){sg.snake=[{x:12,y:15},{x:11,y:15},{x:10,y:15}];sg.dir={x:1,y:0};sg.nd={x:1,y:0};sg.score=0;sg.alive=true;placeFood();}
+    else sg.paused=!sg.paused;
+  });
+}
+
+function killSnake(){
+  if(sg&&sg.iid){clearInterval(sg.iid);sg=null;}
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TETRIS  (matches modules/games/tetris.py logic)
+═══════════════════════════════════════════════════════════════ */
+const BX=8, BY=41; // board origin on canvas
+
+function buildTetris(v) {
+  v.appendChild(mkTbar('TETRIS', true));
+  const cv = document.createElement('canvas');
+  cv.id = 'tcv';
+  cv.width = 300; cv.height = 382;
+  cv.style.cssText = 'display:block;width:100%;background:#000;cursor:pointer;image-rendering:pixelated;';
+  v.appendChild(cv);
+  startTetris(cv);
+}
+
+function startTetris(cv) {
+  const ctx = cv.getContext('2d');
+  const PKEYS = Object.keys(TP);
+
+  function newPiece() {
+    const k = PKEYS[Math.floor(Math.random()*PKEYS.length)];
+    return { cells: TP[k].c.map(c=>[...c]), col: TP[k].col, px:3, py:-1 };
+  }
+
+  // Rotation matching tetris.py: [(maxY-y, x) for x,y in shape]
+  function rotateCW(cells) {
+    const maxY = Math.max(...cells.map(c=>c[1]));
+    return cells.map(([x,y])=>[maxY-y, x]);
+  }
+
+  function collide(cells, px, py, dx, dy) {
+    for (const [cx,cy] of cells) {
+      const nx=px+cx+dx, ny=py+cy+dy;
+      if (nx<0||nx>=TGW||ny>=TGH) return true;
+      if (ny>=0 && tg.board[ny][nx]) return true;
+    }
+    return false;
+  }
+
+  function ghostDY() {
+    let dy=0;
+    while (!collide(tg.piece.cells, tg.piece.px, tg.piece.py, 0, dy+1)) dy++;
+    return dy;
+  }
+
+  function clearLines() {
+    let cleared=0;
+    for (let r=TGH-1; r>=0; ) {
+      if (tg.board[r].every(c=>c!==null)) { tg.board.splice(r,1); tg.board.unshift(Array(TGW).fill(null)); cleared++; }
+      else r--;
+    }
+    // Scoring: [0,100,300,500,800][cleared] * level  (matches tetris.py)
+    tg.score += [0,100,300,500,800][Math.min(cleared,4)] * tg.level;
+    tg.lines += cleared;
+    tg.level  = Math.floor(tg.lines/10)+1;
+    tg.fallMs = Math.max(50, 500-(tg.level-1)*45);
+  }
+
+  function lock() {
+    for (const [cx,cy] of tg.piece.cells) {
+      const nx=tg.piece.px+cx, ny=tg.piece.py+cy;
+      if (ny>=0) tg.board[ny][nx]=tg.piece.col;
+    }
+    clearLines();
+    tg.piece = tg.next;
+    tg.next  = newPiece();
+    if (collide(tg.piece.cells, tg.piece.px, tg.piece.py, 0, 0)) tg.alive=false;
+  }
+
+  function drawCell(x,y,col) {
+    ctx.fillStyle=col;
+    ctx.fillRect(x+1,y+1,TCW-2,TCH-2);
+    ctx.fillStyle='rgba(255,255,255,.22)';
+    ctx.fillRect(x+1,y+1,TCW-2,2);
+    ctx.fillRect(x+1,y+1,2,TCH-2);
+    ctx.fillStyle='rgba(0,0,0,.28)';
+    ctx.fillRect(x+1,y+TCH-3,TCW-2,2);
+  }
+
+  function draw() {
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,300,382);
+    // Board background
+    ctx.fillStyle='#050D0D'; ctx.fillRect(BX,BY,TGW*TCW,TGH*TCH);
+    // Grid lines
+    ctx.strokeStyle='#0C1818'; ctx.lineWidth=1;
+    for(let c=0;c<=TGW;c++){ctx.beginPath();ctx.moveTo(BX+c*TCW,BY);ctx.lineTo(BX+c*TCW,BY+TGH*TCH);ctx.stroke();}
+    for(let r=0;r<=TGH;r++){ctx.beginPath();ctx.moveTo(BX,BY+r*TCH);ctx.lineTo(BX+TGW*TCW,BY+r*TCH);ctx.stroke();}
+    // Locked cells
+    for(let r=0;r<TGH;r++) for(let c=0;c<TGW;c++) { if(tg.board[r][c]) drawCell(BX+c*TCW,BY+r*TCH,tg.board[r][c]); }
+    // Ghost piece
+    if(tg.piece&&tg.alive){
+      const gy=tg.piece.py+ghostDY();
+      ctx.globalAlpha=0.2;
+      for(const [cx,cy] of tg.piece.cells){
+        const ny=gy+cy; if(ny<0) continue;
+        ctx.strokeStyle=tg.piece.col; ctx.lineWidth=1;
+        ctx.strokeRect(BX+(tg.piece.px+cx)*TCW+1,BY+ny*TCH+1,TCW-2,TCH-2);
+      }
+      ctx.globalAlpha=1;
+    }
+    // Active piece
+    if(tg.piece&&tg.alive){
+      for(const [cx,cy] of tg.piece.cells){ const ny=tg.piece.py+cy; if(ny>=0) drawCell(BX+(tg.piece.px+cx)*TCW,BY+ny*TCH,tg.piece.col); }
+    }
+    // Board border
+    ctx.strokeStyle='#1E3030'; ctx.lineWidth=1;
+    ctx.strokeRect(BX-1,BY-1,TGW*TCW+2,TGH*TCH+2);
+
+    // ── Side panel ──────────────────────────────────────────
+    const SX=BX+TGW*TCW+10, NW=4*12;
+    ctx.fillStyle='#3A4A4A'; ctx.font='9px monospace'; ctx.textAlign='left';
+    ctx.fillText('NEXT',SX,BY+12);
+    ctx.fillStyle='#050D0D'; ctx.fillRect(SX,BY+16,NW,NW);
+    ctx.strokeStyle='#1E3030'; ctx.lineWidth=1;
+    ctx.strokeRect(SX-1,BY+15,NW+2,NW+2);
+    if(tg.next){
+      const cs=tg.next.cells;
+      const minX=Math.min(...cs.map(c=>c[0])), maxX=Math.max(...cs.map(c=>c[0]));
+      const minY=Math.min(...cs.map(c=>c[1])), maxY=Math.max(...cs.map(c=>c[1]));
+      const ox=Math.floor((4-(maxX-minX+1))/2)-minX;
+      const oy=Math.floor((4-(maxY-minY+1))/2)-minY;
+      for(const [cx,cy] of cs){
+        const x=SX+(cx+ox)*12, y=BY+16+(cy+oy)*12;
+        ctx.fillStyle=tg.next.col; ctx.fillRect(x+1,y+1,10,10);
+        ctx.fillStyle='rgba(255,255,255,.2)'; ctx.fillRect(x+1,y+1,10,2); ctx.fillRect(x+1,y+1,2,10);
+      }
+    }
+    // Score / level / lines
+    let ty=BY+NW+28;
+    [['SCORE',tg.score],['LEVEL',tg.level],['LINES',tg.lines]].forEach(([lbl,val])=>{
+      ctx.fillStyle='#3A4A4A'; ctx.font='9px monospace'; ctx.fillText(lbl,SX,ty);
+      ctx.fillStyle='#E2E8F0'; ctx.font='bold 13px monospace'; ctx.fillText(val,SX,ty+14);
+      ty+=32;
+    });
+    // Controls
+    ctx.fillStyle='#1A2828'; ctx.font='8px monospace';
+    const hy=BY+TGH*TCH-36;
+    ctx.fillText('← → move',SX,hy);
+    ctx.fillText('↑ rotate',SX,hy+10);
+    ctx.fillText('↓ soft drop',SX,hy+20);
+    ctx.fillText('SPC hard drop',SX,hy+30);
+
+    // Below board
+    ctx.fillStyle='#142020'; ctx.font='8px monospace'; ctx.textAlign='left';
+    ctx.fillText('P = pause · Q = quit',BX,BY+TGH*TCH+12);
+
+    // Overlays
+    if(!tg.alive){
+      ctx.fillStyle='rgba(0,0,0,.72)'; ctx.fillRect(BX,BY,TGW*TCW,TGH*TCH);
+      ctx.fillStyle='#FF4757'; ctx.font='bold 14px monospace'; ctx.textAlign='center';
+      ctx.fillText('GAME OVER',BX+TGW*TCW/2,BY+TGH*TCH/2-10);
+      ctx.fillStyle='#8B95A5'; ctx.font='10px monospace';
+      ctx.fillText('Score: '+tg.score,BX+TGW*TCW/2,BY+TGH*TCH/2+6);
+      ctx.fillText('Space / Enter to restart',BX+TGW*TCW/2,BY+TGH*TCH/2+20);
+      ctx.textAlign='left';
+    }
+    if(tg.paused&&tg.alive){
+      ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(BX,BY,TGW*TCW,TGH*TCH);
+      ctx.fillStyle='#1FCC7C'; ctx.font='bold 13px monospace'; ctx.textAlign='center';
+      ctx.fillText('PAUSED',BX+TGW*TCW/2,BY+TGH*TCH/2-6);
+      ctx.fillStyle='#445'; ctx.font='10px monospace';
+      ctx.fillText('P to resume',BX+TGW*TCW/2,BY+TGH*TCH/2+10);
+      ctx.textAlign='left';
+    }
+  }
+
+  function restart() {
+    tg.board   = Array.from({length:TGH},()=>Array(TGW).fill(null));
+    tg.score=0; tg.level=1; tg.lines=0; tg.alive=true; tg.paused=false;
+    tg.fallMs=500; tg.acc=0; tg.softDrop=false;
+    tg.piece=newPiece(); tg.next=newPiece();
+  }
+
+  tg = { board:Array.from({length:TGH},()=>Array(TGW).fill(null)), piece:null, next:null, score:0, level:1, lines:0, alive:true, paused:false, softDrop:false, fallMs:500, acc:0, lastTs:0, rafId:null, kdown:null, kup:null };
+  tg.piece=newPiece(); tg.next=newPiece();
+
+  // Game loop using rAF + accumulated time
+  function loop(ts) {
+    if (!tg) return;
+    if (!tg.alive || tg.paused) { draw(); tg.rafId=requestAnimationFrame(loop); return; }
+    const dt = ts-(tg.lastTs||ts);
+    tg.lastTs = ts;
+    tg.acc += tg.softDrop ? dt*5 : dt;
+    if (tg.acc >= tg.fallMs) {
+      tg.acc -= tg.fallMs;
+      if (!collide(tg.piece.cells,tg.piece.px,tg.piece.py,0,1)) tg.piece.py++;
+      else lock();
+    }
+    draw();
+    tg.rafId = requestAnimationFrame(loop);
+  }
+  tg.rafId = requestAnimationFrame(loop);
+
+  // Keyboard handlers stored on tg so killTetris can remove them
+  tg.kdown = e => {
+    if (!tg) return;
+    if (e.key==='q'||e.key==='Escape') { e.preventDefault(); goBack(); return; }
+    if (!tg.alive) {
+      if (e.key===' '||e.key==='Enter') { e.preventDefault(); restart(); return; }
+      return;
+    }
+    if (e.key==='p'||e.key==='P') { tg.paused=!tg.paused; return; }
+    if (tg.paused) return;
+    if (e.key==='ArrowLeft') {
+      e.preventDefault();
+      if (!collide(tg.piece.cells,tg.piece.px,tg.piece.py,-1,0)) tg.piece.px--;
+    } else if (e.key==='ArrowRight') {
+      e.preventDefault();
+      if (!collide(tg.piece.cells,tg.piece.px,tg.piece.py,1,0)) tg.piece.px++;
+    } else if (e.key==='ArrowUp') {
+      e.preventDefault();
+      const rot=rotateCW(tg.piece.cells);
+      // Wall kick: try 0, -1, +1
+      for (const dx of [0,-1,1]) {
+        if (!collide(rot,tg.piece.px,tg.piece.py,dx,0)) { tg.piece.cells=rot; tg.piece.px+=dx; break; }
+      }
+    } else if (e.key==='ArrowDown') {
+      e.preventDefault();
+      tg.softDrop=true;
+    } else if (e.key===' ') {
+      e.preventDefault();
+      tg.piece.py += ghostDY();
+      lock();
+    }
+  };
+  tg.kup = e => { if (e.key==='ArrowDown') { e.preventDefault(); if(tg) tg.softDrop=false; } };
+
+  document.addEventListener('keydown', tg.kdown);
+  document.addEventListener('keyup',   tg.kup);
+}
+
+function killTetris() {
+  if (!tg) return;
+  if (tg.rafId) cancelAnimationFrame(tg.rafId);
+  if (tg.kdown) document.removeEventListener('keydown', tg.kdown);
+  if (tg.kup)   document.removeEventListener('keyup',   tg.kup);
+  tg = null;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NAVIGATION
+═══════════════════════════════════════════════════════════════ */
+function pushItem(it) {
+  // Save current cursor position
+  if (stack[stack.length-1]._sel === undefined) stack[stack.length-1]._sel = menuSel;
+  menuSel = 0;
+  if      (it.type==='snake')   stack.push({type:'snake',  title:'Snake'});
+  else if (it.type==='tetris')  stack.push({type:'tetris', title:'Tetris'});
+  else if (it.type==='hotspot') stack.push({type:'hotspot',title:'Hotspot'});
+  else if (it.type==='info')    stack.push({...it});
+  else if (it.menu)             stack.push({...it.menu, _sel:0});
+  else                          stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
+  render();
+}
+
+function goBack() {
+  if (stack.length > 1) {
+    stack.pop();
+    menuSel = stack[stack.length-1]._sel || 0;
+    render();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SIDE BUTTONS (hardware simulation)
+═══════════════════════════════════════════════════════════════ */
+function sKey(k) {
+  if (sg) {
+    // Snake steering
+    const m={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};
+    const d=m[k]; if(!d) return;
+    if(d.x!==-sg.dir.x||d.y!==-sg.dir.y) sg.nd=d;
+  } else if (tg) {
+    // Tetris: map hardware buttons to Tetris controls
+    if (k==='up'   && tg.kdown) tg.kdown({key:'ArrowUp',    preventDefault:()=>{}});
+    if (k==='down' && tg.kdown) tg.kdown({key:'ArrowDown',  preventDefault:()=>{}});
+    if (k==='select'&&tg.kdown) tg.kdown({key:' ',          preventDefault:()=>{}});
+  } else {
+    // Menu navigation
+    const cur = stack[stack.length-1];
+    const items = cur.items||[];
+    if (!items.length) return;
+    if (k==='up')    { menuSel=Math.max(0,menuSel-1); render(); }
+    if (k==='down')  { menuSel=Math.min(items.length-1,menuSel+1); render(); }
+    if (k==='select'){ pushItem(items[menuSel]); }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   UNIFIED KEYBOARD HANDLER
+═══════════════════════════════════════════════════════════════ */
+document.addEventListener('keydown', e => {
+  // Games have their own listeners attached directly — only handle menu here
+  if (tg || sg) return; // tetris/snake manage their own keys
+
+  const cur = stack[stack.length-1];
+  const items = cur.items||[];
+
+  if (e.key==='ArrowUp'||e.key==='w') {
+    e.preventDefault();
+    menuSel=Math.max(0,menuSel-1); render();
+  } else if (e.key==='ArrowDown'||e.key==='s') {
+    e.preventDefault();
+    menuSel=Math.min(items.length-1,menuSel+1); render();
+  } else if (e.key==='Enter'||e.key===' ') {
+    e.preventDefault();
+    if(items[menuSel]) pushItem(items[menuSel]);
+  } else if (e.key==='Escape'||e.key==='Backspace') {
+    e.preventDefault();
+    goBack();
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   CLOCK
+═══════════════════════════════════════════════════════════════ */
+function tick(){
+  const n=new Date(), el=document.getElementById('clk');
+  if(el) el.textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+}
+tick(); setInterval(tick,15000);
+
+/* ═══════════════════════════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════════════════════════ */
+render();
+</script>
