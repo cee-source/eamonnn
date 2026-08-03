@@ -272,6 +272,7 @@ const GDIFF={
   mines:{icon:'💣',name:'Minesweeper',opts:[{label:'Beginner',desc:'9×9 · 10 mines'},{label:'Intermediate',desc:'12×10 · 20 mines'},{label:'Expert',desc:'16×10 · 40 mines'}]},
   hangman:{icon:'😬',name:'Hangman',opts:[{label:'Easy',desc:'Short words (3–5 letters)'},{label:'Medium',desc:'Medium words (5–8)'},{label:'Hard',desc:'Long words (8–10)'}]},
   invaders:{icon:'👾',name:'Space Invaders',opts:[{label:'Recruit',desc:'3 rows · slow'},{label:'Soldier',desc:'4 rows · medium'},{label:'Commander',desc:'5 rows · fast'}]},
+  c4:{icon:'🔴',name:'Connect Four',opts:[{label:'Easy',desc:'AI picks randomly'},{label:'Medium',desc:'AI blocks & attacks'},{label:'Hard',desc:'Minimax depth 4'}]},
 };
 function inf(ico,title,body,badge){return{type:'info',ico,title,body,badge};}
 const MAIN={title:'PiFlip',items:[
@@ -329,6 +330,7 @@ const MAIN={title:'PiFlip',items:[
       {icon:'🏓',color:'#1FCC7C',label:'Pong vs AI',    desc:'First to 7',          gameKey:'pong-ai', hasDiff:true},
       {icon:'🏓',color:'#445566',label:'Pong 2 Player', desc:'W/S and ↑↓',         type:'pong-2p'},
       {icon:'❌',color:'#FF4757',label:'Tic-Tac-Toe',  desc:'3-in-a-row vs AI',    gameKey:'ttt',     hasDiff:true},
+      {icon:'🔴',color:'#FF4757',label:'Connect Four', desc:'4-in-a-row vs AI',    gameKey:'c4',      hasDiff:true},
     ]}},
   ]}},
   {icon:'⚙️',color:'#8B95A5',label:'Settings',desc:'Device configuration',  ...inf('⚙️','Settings','Brightness, WiFi SSID, device name,\nSPI bus, GPIO pin assignments.','config.ini')},
@@ -392,6 +394,7 @@ function render(){
     mines:buildMines,
     hangman:buildHangman,
     invaders:buildInvaders,
+    c4:buildC4,
   };
   if(dispatch[cur.type]) dispatch[cur.type](v,cur);
   else buildMenu(v,cur);
@@ -902,6 +905,100 @@ function build2048(v,cur){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   CONNECT FOUR
+═══════════════════════════════════════════════════════════ */
+function buildC4(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const dlbl=['EASY','MEDIUM','HARD'][d];
+  const COLS=7,ROWS=6,CS=38,OX=(GW-COLS*CS)/2,OY=50;
+  const[cv,ctx]=mkCv(v,'Connect Four — '+dlbl);
+  let board,turn,status,hover;
+  function rst(){board=Array.from({length:ROWS},()=>Array(COLS).fill(0));turn=1;status=0;hover=3;}
+  function drop(col){
+    if(status)return;
+    for(let r=ROWS-1;r>=0;r--){if(!board[r][col]){board[r][col]=turn;if(checkWin(r,col,turn))status=turn;else if(board[0].every(c=>c))status=3;else turn=turn===1?2:1;return true;}}
+    return false;
+  }
+  function checkWin(r,c,p){
+    const dirs=[[0,1],[1,0],[1,1],[1,-1]];
+    return dirs.some(([dr,dc])=>{
+      let count=1;
+      for(let s of[-1,1]){let nr=r+dr*s,nc=c+dc*s;while(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&board[nr][nc]===p){count++;nr+=dr*s;nc+=dc*s;}}
+      return count>=4;
+    });
+  }
+  function score4AI(b,p){
+    let s=0;const opp=p===1?2:1;
+    function lineScore(a){let mine=0,opp2=0;a.forEach(x=>{if(x===p)mine++;else if(x===opp)opp2++;});
+      if(opp2>0&&mine>0)return 0;if(mine===4)return 10000;if(mine===3)return 50;if(mine===2)return 5;if(opp2===4)return -10000;if(opp2===3)return -80;return 0;}
+    for(let r=0;r<ROWS;r++)for(let c=0;c<=COLS-4;c++)s+=lineScore([b[r][c],b[r][c+1],b[r][c+2],b[r][c+3]]);
+    for(let r=0;r<=ROWS-4;r++)for(let c=0;c<COLS;c++)s+=lineScore([b[r][c],b[r+1][c],b[r+2][c],b[r+3][c]]);
+    for(let r=0;r<=ROWS-4;r++)for(let c=0;c<=COLS-4;c++)s+=lineScore([b[r][c],b[r+1][c+1],b[r+2][c+2],b[r+3][c+3]]);
+    for(let r=3;r<ROWS;r++)for(let c=0;c<=COLS-4;c++)s+=lineScore([b[r][c],b[r-1][c+1],b[r-2][c+2],b[r-3][c+3]]);
+    return s;
+  }
+  function aiMove(){
+    if(d===0){// random
+      const valid=[];for(let c=0;c<COLS;c++)if(!board[0][c])valid.push(c);return valid[Math.floor(Math.random()*valid.length)];
+    }
+    // Try win or block
+    for(const p of[2,1]){for(let c=0;c<COLS;c++){if(board[0][c])continue;const nb=board.map(r=>[...r]);for(let r=ROWS-1;r>=0;r--){if(!nb[r][c]){nb[r][c]=p;if(checkWin(r,c,p))return c;nb[r][c]=0;break;}}}}
+    if(d===1){const valid=[];for(let c=0;c<COLS;c++)if(!board[0][c])valid.push(c);return valid[Math.floor(Math.random()*valid.length)];}
+    // Minimax depth 4
+    function mm(b,depth,p2,alpha,beta){
+      const opp=p2===2?1:2;
+      if(depth===0)return score4AI(b,2);
+      const moves=[];for(let c=0;c<COLS;c++)if(!b[0][c])moves.push(c);
+      if(!moves.length)return 0;
+      let best=p2===2?-Infinity:Infinity;
+      for(const c of moves){const nb=b.map(r=>[...r]);let rw=-1;for(let r=ROWS-1;r>=0;r--){if(!nb[r][c]){nb[r][c]=p2;rw=r;break;}}
+        if(rw>=0&&checkWin(rw,c,p2)){const sc=p2===2?9999:-9999;if(p2===2&&sc>best){best=sc;}else if(p2===1&&sc<best){best=sc;}nb[rw][c]=0;if(p2===2){alpha=Math.max(alpha,best);}else{beta=Math.min(beta,best);}if(alpha>=beta)break;continue;}
+        const sc=mm(nb,depth-1,opp,alpha,beta);nb[rw][c]=0;if(p2===2){if(sc>best){best=sc;}alpha=Math.max(alpha,best);}else{if(sc<best){best=sc;}beta=Math.min(beta,best);}if(alpha>=beta)break;}
+      return best;}
+    let bestScore=-Infinity,bestCol=3;
+    for(let c=0;c<COLS;c++){if(board[0][c])continue;const nb=board.map(r=>[...r]);let rw=-1;for(let r=ROWS-1;r>=0;r--){if(!nb[r][c]){nb[r][c]=2;rw=r;break;}}if(rw<0)continue;const sc=mm(nb,3,1,-Infinity,Infinity);nb[rw][c]=0;if(sc>bestScore){bestScore=sc;bestCol=c;}}
+    return bestCol;
+  }
+  function draw(){
+    ctx.fillStyle='#0B0F18';ctx.fillRect(0,0,GW,GH);
+    // Turn indicator
+    if(!status){ctx.fillStyle='#8B95A5';ctx.font='10px monospace';ctx.textAlign='center';ctx.fillText(turn===1?'Your turn (🔴)':'AI thinking…',GW/2,28);}
+    // Drop preview
+    if(!status&&turn===1&&hover!=null&&!board[0][hover]){ctx.fillStyle='rgba(255,71,87,.35)';ctx.beginPath();ctx.arc(OX+hover*CS+CS/2,OY-14,CS/2-5,0,Math.PI*2);ctx.fill();}
+    // Board bg
+    ctx.fillStyle='#1A3A8A';ctx.fillRect(OX-4,OY,COLS*CS+8,ROWS*CS+8);
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      const cx=OX+c*CS+CS/2,cy=OY+r*CS+CS/2,v2=board[r][c];
+      ctx.fillStyle=v2===1?'#FF4757':v2===2?'#FFD93D':'#0B0F18';
+      ctx.beginPath();ctx.arc(cx,cy,CS/2-3,0,Math.PI*2);ctx.fill();
+      if(v2){ctx.fillStyle='rgba(255,255,255,.15)';ctx.beginPath();ctx.arc(cx-4,cy-5,5,0,Math.PI*2);ctx.fill();}
+    }
+    if(status){
+      ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(0,0,GW,GH);
+      const msg=status===3?'DRAW!':(status===1?'YOU WIN! 🎉':'AI WINS!');
+      ctx.fillStyle=status===3?'#FFD93D':(status===1?'#1FCC7C':'#FF4757');
+      ctx.font='bold 20px monospace';ctx.textAlign='center';ctx.fillText(msg,GW/2,GH/2-12);
+      ctx.fillStyle='#8B95A5';ctx.font='11px monospace';ctx.fillText('R restart · Esc menu',GW/2,GH/2+12);
+    }
+    ctx.fillStyle='#1E2B3F';ctx.font='9px monospace';ctx.textAlign='center';
+    ctx.fillText('← → column · Space/Enter drop · R restart',GW/2,OY+ROWS*CS+22);
+  }
+  function playerDrop(col){if(status||turn!==1)return;if(drop(col)){draw();if(!status){setTimeout(()=>{if(!xg)return;drop(aiMove());draw();},300);}}}
+  rst();draw();
+  cv.addEventListener('mousemove',e=>{const rect=cv.getBoundingClientRect();const cx=(e.clientX-rect.left)*(GW/rect.width);hover=Math.floor((cx-OX)/CS);draw();});
+  cv.addEventListener('click',e=>{const rect=cv.getBoundingClientRect();const cx=(e.clientX-rect.left)*(GW/rect.width);const col=Math.floor((cx-OX)/CS);if(col>=0&&col<COLS){if(status){rst();draw();}else playerDrop(col);}});
+  xg={raf:null,iid:null};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){goBack();return;}if(e.key==='r'||e.key==='R'){rst();draw();return;}
+    if(e.key==='ArrowLeft')hover=Math.max(0,(hover||0)-1);
+    if(e.key==='ArrowRight')hover=Math.min(COLS-1,(hover||0)+1);
+    if(e.key===' '||e.key==='Enter'){e.preventDefault();if(status){rst();draw();}else playerDrop(hover||0);}
+    draw();
+  };
+  document.addEventListener('keydown',xg.kdown);
+}
+
+/* ═══════════════════════════════════════════════════════════
    SPACE INVADERS
 ═══════════════════════════════════════════════════════════ */
 function buildInvaders(v,cur){
@@ -1359,7 +1456,7 @@ function pushItem(it){
     render();return;
   }
   if(it.gameKey&&!it.hasDiff){stack.push({type:it.gameKey,diff:1});render();return;}
-  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders'];
+  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4'];
   if(it.type&&gameTypes.includes(it.type))stack.push({...it});
   else if(it.menu)stack.push({...it.menu,_sel:0});
   else stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
