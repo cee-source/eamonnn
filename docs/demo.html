@@ -270,6 +270,7 @@ const GDIFF={
   ttt:{icon:'❌',name:'Tic-Tac-Toe',opts:[{label:'Easy',desc:'AI moves randomly'},{label:'Medium',desc:'AI blocks your wins'},{label:'Hard',desc:'Perfect minimax AI'}]},
   simon:{icon:'🔵',name:'Simon Says',opts:[{label:'Easy',desc:'Slow flashes'},{label:'Normal',desc:'Medium speed'},{label:'Hard',desc:'Fast flashes'}]},
   mines:{icon:'💣',name:'Minesweeper',opts:[{label:'Beginner',desc:'9×9 · 10 mines'},{label:'Intermediate',desc:'12×10 · 20 mines'},{label:'Expert',desc:'16×10 · 40 mines'}]},
+  hangman:{icon:'😬',name:'Hangman',opts:[{label:'Easy',desc:'Short words (3–5 letters)'},{label:'Medium',desc:'Medium words (5–8)'},{label:'Hard',desc:'Long words (8–10)'}]},
 };
 function inf(ico,title,body,badge){return{type:'info',ico,title,body,badge};}
 const MAIN={title:'PiFlip',items:[
@@ -313,6 +314,7 @@ const MAIN={title:'PiFlip',items:[
       {icon:'🐦',color:'#FFD93D',label:'Flappy Bird',   desc:'Tap to flap',         gameKey:'flappy',  hasDiff:true},
       {icon:'🧱',color:'#FF8C42',label:'Breakout',      desc:'Break all the bricks',gameKey:'breakout',hasDiff:true},
       {icon:'🔵',color:'#2DA8FF',label:'Simon Says',    desc:'Remember the sequence',gameKey:'simon',   hasDiff:true},
+      {icon:'😬',color:'#FFD93D',label:'Hangman',       desc:'Guess the word',        gameKey:'hangman', hasDiff:true},
     ]}},
     {icon:'🧩',color:'#9B59B6',label:'Puzzle',desc:'Tetris · 2048',menu:{title:'Puzzle',items:[
       {icon:'🟦',color:'#2DA8FF',label:'Tetris',        desc:'7 pieces · ghost · levels',gameKey:'tetris',hasDiff:true},
@@ -386,6 +388,7 @@ function render(){
     ttt:buildTTT,
     simon:buildSimon,
     mines:buildMines,
+    hangman:buildHangman,
   };
   if(dispatch[cur.type]) dispatch[cur.type](v,cur);
   else buildMenu(v,cur);
@@ -896,6 +899,90 @@ function build2048(v,cur){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   HANGMAN
+═══════════════════════════════════════════════════════════ */
+function buildHangman(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const WORDS=[
+    ['cat','dog','pig','hen','fox','bee','ant','bat','emu','yak','ram','elk','asp','gnu','cod'],
+    ['ocean','tiger','piano','storm','flame','brave','clown','dwarf','zebra','globe','pixel','magic'],
+    ['junction','labyrinth','algorithm','frequency','chrysalis','synthesis','labyrinth','champagne'],
+  ];
+  const dlbl=['EASY','MEDIUM','HARD'][d];
+  const[cv,ctx]=mkCv(v,'Hangman — '+dlbl);
+  let word,guessed,wrong,maxWrong=6;
+  function rst(){const ws=WORDS[d];word=ws[Math.floor(Math.random()*ws.length)].toUpperCase();guessed=new Set();wrong=0;draw();}
+  function guess(ch){if(guessed.has(ch)||wrong>=maxWrong||won())return;guessed.add(ch);if(!word.includes(ch))wrong++;draw();}
+  function won(){return word.split('').every(c=>guessed.has(c));}
+  function lost(){return wrong>=maxWrong;}
+  function draw(){
+    ctx.fillStyle='#0B0F18';ctx.fillRect(0,0,GW,GH);
+    // Gallows
+    ctx.strokeStyle='#2A3A50';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(40,340);ctx.lineTo(160,340);ctx.stroke(); // base
+    ctx.beginPath();ctx.moveTo(80,340);ctx.lineTo(80,60);ctx.stroke(); // pole
+    ctx.beginPath();ctx.moveTo(80,60);ctx.lineTo(160,60);ctx.stroke(); // top
+    ctx.beginPath();ctx.moveTo(160,60);ctx.lineTo(160,90);ctx.stroke(); // rope
+    // Hangman parts
+    ctx.strokeStyle='#FF4757';ctx.lineWidth=3;
+    if(wrong>0){ctx.beginPath();ctx.arc(160,104,14,0,Math.PI*2);ctx.stroke();} // head
+    if(wrong>1){ctx.beginPath();ctx.moveTo(160,118);ctx.lineTo(160,175);ctx.stroke();} // body
+    if(wrong>2){ctx.beginPath();ctx.moveTo(160,130);ctx.lineTo(135,158);ctx.stroke();} // left arm
+    if(wrong>3){ctx.beginPath();ctx.moveTo(160,130);ctx.lineTo(185,158);ctx.stroke();} // right arm
+    if(wrong>4){ctx.beginPath();ctx.moveTo(160,175);ctx.lineTo(135,210);ctx.stroke();} // left leg
+    if(wrong>5){ctx.beginPath();ctx.moveTo(160,175);ctx.lineTo(185,210);ctx.stroke();} // right leg
+    // Word
+    const wlen=word.length,cw=Math.min(24,Math.floor(240/wlen)),wx=(GW-(wlen*cw))/2;
+    word.split('').forEach((ch,i)=>{
+      const x=wx+i*cw;
+      ctx.strokeStyle='#2A3A50';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x+2,250);ctx.lineTo(x+cw-4,250);ctx.stroke();
+      if(guessed.has(ch)||won()||lost()){ctx.fillStyle=won()?'#1FCC7C':'#E2E8F0';ctx.font=`bold ${Math.min(18,cw-2)}px monospace`;ctx.textAlign='center';ctx.fillText(ch,x+cw/2,244);}
+    });
+    // Wrong guesses
+    ctx.fillStyle='#8B95A5';ctx.font='10px monospace';ctx.textAlign='center';
+    const wrongs=[...guessed].filter(c=>!word.includes(c));
+    ctx.fillText('Wrong: '+wrongs.join(' '),GW/2,270);
+    ctx.fillStyle='#FF4757';ctx.font='bold 10px monospace';ctx.fillText(wrong+'/'+maxWrong+' wrong',GW/2,284);
+    // Keyboard
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach((ch,i)=>{
+      const row=Math.floor(i/9),col=i%9;
+      const kx=10+col*32,ky=296+row*28;
+      const isGuessed=guessed.has(ch);
+      ctx.fillStyle=isGuessed?(word.includes(ch)?'rgba(31,204,124,.3)':'rgba(255,71,87,.25)'):'rgba(255,255,255,.08)';
+      ctx.fillRect(kx,ky,28,22);
+      ctx.fillStyle=isGuessed?(word.includes(ch)?'#1FCC7C':'#FF4757'):'#E2E8F0';
+      ctx.font='bold 11px monospace';ctx.textAlign='center';ctx.fillText(ch,kx+14,ky+15);
+    });
+    if(won()||lost()){
+      ctx.fillStyle='rgba(0,0,0,.75)';ctx.fillRect(0,0,GW,GH);
+      ctx.fillStyle=won()?'#1FCC7C':'#FF4757';ctx.font='bold 20px monospace';ctx.textAlign='center';
+      ctx.fillText(won()?'YOU WIN!':'GAME OVER',GW/2,GH/2-20);
+      ctx.fillStyle='#E2E8F0';ctx.font='12px monospace';ctx.fillText('Word: '+word,GW/2,GH/2+4);
+      ctx.fillStyle='#8B95A5';ctx.fillText('R restart · Esc menu',GW/2,GH/2+24);
+    }
+  }
+  rst();
+  cv.addEventListener('click',e=>{
+    if(won()||lost()){rst();return;}
+    const rect=cv.getBoundingClientRect();
+    const cx=(e.clientX-rect.left)*(GW/rect.width),cy=(e.clientY-rect.top)*(GH/rect.height);
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach((ch,i)=>{
+      const row=Math.floor(i/9),col=i%9;
+      const kx=10+col*32,ky=296+row*28;
+      if(cx>=kx&&cx<=kx+28&&cy>=ky&&cy<=ky+22)guess(ch);
+    });
+  });
+  xg={raf:null,iid:null};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){e.preventDefault();goBack();return;}
+    if(e.key==='r'||e.key==='R'){rst();return;}
+    if(won()||lost())return;
+    const ch=e.key.toUpperCase();if(/^[A-Z]$/.test(ch)){e.preventDefault();guess(ch);}
+  };
+  document.addEventListener('keydown',xg.kdown);
+}
+
+/* ═══════════════════════════════════════════════════════════
    MINESWEEPER
 ═══════════════════════════════════════════════════════════ */
 function buildMines(v,cur){
@@ -1168,7 +1255,7 @@ function pushItem(it){
     render();return;
   }
   if(it.gameKey&&!it.hasDiff){stack.push({type:it.gameKey,diff:1});render();return;}
-  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines'];
+  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman'];
   if(it.type&&gameTypes.includes(it.type))stack.push({...it});
   else if(it.menu)stack.push({...it.menu,_sel:0});
   else stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
