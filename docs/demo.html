@@ -342,6 +342,8 @@ const GDIFF={
   anagram:{icon:'🔤',name:'Anagram',opts:[{label:'Easy',desc:'Short words · 60s'},{label:'Normal',desc:'Medium words · 45s'},{label:'Hard',desc:'Long words · 30s'}]},
   chainreact:{icon:'💥',name:'Chain Reaction',opts:[{label:'Easy',desc:'Random AI'},{label:'Normal',desc:'Smart AI'},{label:'Hard',desc:'Optimal AI'}]},
   astminer:{icon:'💎',name:'Asteroid Miner',opts:[{label:'Easy',desc:'Few asteroids · 300 fuel'},{label:'Normal',desc:'More asteroids'},{label:'Hard',desc:'Many · 200 fuel'}]},
+  tankbattle:{icon:'🪖',name:'Tank Battle',opts:[{label:'Easy',desc:'Slow AI · bouncing bullets'},{label:'Normal',desc:'Medium AI'},{label:'Hard',desc:'Fast aggressive AI'}]},
+  spelling:{icon:'📝',name:'Spelling Bee',opts:[{label:'Easy',desc:'Short words · 30s'},{label:'Normal',desc:'Medium · 25s'},{label:'Hard',desc:'Long · 20s'}]},
 };
 function inf(ico,title,body,badge){return{type:'info',ico,title,body,badge};}
 const MAIN={title:'PiFlip',items:[
@@ -483,6 +485,8 @@ const MAIN={title:'PiFlip',items:[
       {icon:'🔤',color:'#F39C12',label:'Anagram',        desc:'Unscramble the word',      gameKey:'anagram',  hasDiff:true},
       {icon:'💥',color:'#E74C3C',label:'Chain Reaction', desc:'Explode orbs · chain',     gameKey:'chainreact',hasDiff:true},
       {icon:'💎',color:'#00FFFF',label:'Asteroid Miner', desc:'Fly · collect crystals',   gameKey:'astminer', hasDiff:true},
+      {icon:'🪖',color:'#4A5568',label:'Tank Battle',    desc:'Shoot tanks in maze',      gameKey:'tankbattle',hasDiff:true},
+      {icon:'📝',color:'#F39C12',label:'Spelling Bee',   desc:'Spell the word from hint', gameKey:'spelling', hasDiff:true},
     ]}},
   ]}},
   {icon:'⚙️',color:'#8B95A5',label:'Settings',desc:'Device configuration',  ...inf('⚙️','Settings','Brightness, WiFi SSID, device name,\nSPI bus, GPIO pin assignments.','config.ini')},
@@ -616,6 +620,8 @@ function render(){
     anagram:buildAnagram,
     chainreact:buildChainReact,
     astminer:buildAstMiner,
+    tankbattle:buildTankBattle,
+    spelling:buildSpelling,
   };
   if(dispatch[cur.type]) dispatch[cur.type](v,cur);
   else buildMenu(v,cur);
@@ -6382,6 +6388,179 @@ function buildAstMiner(v,cur){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   TANK BATTLE
+═══════════════════════════════════════════════════════════ */
+function buildTankBattle(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const dlbl=['EASY','NORMAL','HARD'][d];
+  const[cv,ctx]=mkCv(v,'Tank Battle — '+dlbl);
+  const COLS10=15,ROWS10=11,CS14=18;
+  const OX15=Math.floor((GW-COLS10*CS14)/2),OY15=46;
+  // 1=wall,0=open
+  const MAP2=[
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,0,1,1,0,0,0,0,1,0,0,0,1,0,1],
+    [1,0,1,0,0,1,0,0,0,0,1,0,0,0,1],
+    [1,0,0,0,1,0,0,1,0,0,0,0,1,0,1],
+    [1,0,1,0,0,0,0,0,0,0,0,1,0,0,1],
+    [1,0,0,0,1,0,0,1,0,0,0,0,1,0,1],
+    [1,0,1,0,0,1,0,0,0,0,1,0,0,0,1],
+    [1,0,0,1,0,0,0,0,1,0,0,0,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  ];
+  let ptank={x:1,y:1,dir:0,hp:3},aitank={x:13,y:9,dir:Math.PI,hp:[2,3,3][d]};
+  let pbullets=[],aibullets=[],score=0,gameOver=false,winner3='';
+  let frame10=0;
+  const aiSpeed2=[80,60,40][d];
+  function canMove(x,y){return MAP2[Math.round(y)]&&MAP2[Math.round(y)][Math.round(x)]===0;}
+  function shootTank(tank,arr){arr.push({x:tank.x+Math.sin(tank.dir)*0.5,y:tank.y-Math.cos(tank.dir)*0.5,vx:Math.sin(tank.dir)*0.25,vy:-Math.cos(tank.dir)*0.25,bounces:2});}
+  function moveBullets(arr,tank,name){
+    arr.forEach(b=>{
+      b.x+=b.vx;b.y+=b.vy;
+      if(MAP2[Math.floor(b.y)]&&MAP2[Math.floor(b.y)][Math.floor(b.x)]===1){
+        // bounce
+        const nbx=b.x+b.vx,nby=b.y+b.vy;
+        const wallH=MAP2[Math.floor(b.y)]&&MAP2[Math.floor(b.y)][Math.floor(nbx)]===1;
+        const wallV=MAP2[Math.floor(nby)]&&MAP2[Math.floor(nby)][Math.floor(b.x)]===1;
+        if(wallH) b.vx*=-1; if(wallV) b.vy*=-1;
+        b.bounces--;
+      }
+    });
+    arr.forEach((b,i)=>{if(Math.hypot(b.x-tank.x,b.y-tank.y)<0.6){tank.hp--;if(tank.hp<=0){winner3=name+' wins!';gameOver=true;}arr.splice(i,1);}});
+    return arr.filter(b=>b.bounces>=0&&b.x>0&&b.x<COLS10-1&&b.y>0&&b.y<ROWS10-1);
+  }
+  function step(){
+    frame10++;
+    // AI simple pursuit
+    if(frame10%aiSpeed2===0){
+      const dx=ptank.x-aitank.x,dy=ptank.y-aitank.y;
+      aitank.dir=Math.atan2(dx,-dy);
+      const nx=aitank.x+Math.sin(aitank.dir)*0.7,ny=aitank.y-Math.cos(aitank.dir)*0.7;
+      if(canMove(nx,ny)){aitank.x=nx;aitank.y=ny;}
+      if(Math.random()<0.3) shootTank(aitank,aibullets);
+    }
+    pbullets=moveBullets(pbullets,aitank,'Player');
+    aibullets=moveBullets(aibullets,ptank,'AI');
+  }
+  const keys6={};
+  function draw(){
+    ctx.fillStyle='#2C3E50';ctx.fillRect(0,0,GW,GH);
+    for(let r=0;r<ROWS10;r++) for(let c=0;c<COLS10;c++){
+      if(MAP2[r][c]===1){ctx.fillStyle='#7F8C8D';ctx.fillRect(OX15+c*CS14,OY15+r*CS14,CS14,CS14);}
+      else{ctx.fillStyle='#1A2A1A';ctx.fillRect(OX15+c*CS14,OY15+r*CS14,CS14,CS14);}
+    }
+    function drawTank(tank,col){
+      const tx=OX15+tank.x*CS14,ty=OY15+tank.y*CS14;
+      ctx.save();ctx.translate(tx,ty);ctx.rotate(tank.dir);
+      ctx.fillStyle=col;ctx.fillRect(-7,-7,14,14);
+      ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(-3,-9,6,9);
+      ctx.restore();
+    }
+    drawTank(ptank,'#2ECC71');drawTank(aitank,'#E74C3C');
+    [...pbullets,...aibullets].forEach(b=>{ctx.fillStyle='#FFD700';ctx.beginPath();ctx.arc(OX15+b.x*CS14,OY15+b.y*CS14,3,0,Math.PI*2);ctx.fill();});
+    ctx.fillStyle='#fff';ctx.font='bold 12px monospace';ctx.textAlign='center';
+    ctx.fillText('HP: '+'❤'.repeat(ptank.hp)+'  AI: '+'❤'.repeat(aitank.hp),GW/2,22);
+    ctx.fillStyle='#aaa';ctx.font='10px monospace';ctx.fillText('Arrows=Move  Space=Shoot  Esc=Back',GW/2,GH-5);
+    if(gameOver){
+      ctx.fillStyle='rgba(0,0,0,0.8)';ctx.fillRect(30,GH/2-50,GW-60,100);
+      ctx.fillStyle=winner3.includes('Player')?'#2ECC71':'#E74C3C';ctx.font='bold 18px monospace';ctx.textAlign='center';
+      ctx.fillText(winner3.includes('Player')?'YOU WIN!':'DESTROYED!',GW/2,GH/2-14);
+      ctx.fillStyle='#fff';ctx.font='12px monospace';ctx.fillText('Enter=Retry  Esc=Back',GW/2,GH/2+20);
+    }
+    ctx.textAlign='left';
+  }
+  xg={raf:null,iid:setInterval(()=>{
+    if(!gameOver){
+      if(keys6['ArrowLeft']) ptank.dir-=0.06;
+      if(keys6['ArrowRight']) ptank.dir+=0.06;
+      if(keys6['ArrowUp']){const nx=ptank.x+Math.sin(ptank.dir)*0.08,ny=ptank.y-Math.cos(ptank.dir)*0.08;if(canMove(nx,ny)){ptank.x=nx;ptank.y=ny;}}
+      if(keys6['ArrowDown']){const nx=ptank.x-Math.sin(ptank.dir)*0.08,ny=ptank.y+Math.cos(ptank.dir)*0.08;if(canMove(nx,ny)){ptank.x=nx;ptank.y=ny;}}
+      step();
+    }
+    draw();
+  },16)};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){goBack();return;}
+    if(gameOver){if(e.key==='Enter'){killAll();buildTankBattle(v,cur);}return;}
+    keys6[e.key]=true;
+    if(e.key===' ') shootTank(ptank,pbullets);
+  };
+  xg.kup=e=>{keys6[e.key]=false;};
+  document.addEventListener('keydown',xg.kdown);document.addEventListener('keyup',xg.kup);draw();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SPELLING BEE
+═══════════════════════════════════════════════════════════ */
+function buildSpelling(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const dlbl=['EASY','NORMAL','HARD'][d];
+  const[cv,ctx]=mkCv(v,'Spelling Bee — '+dlbl);
+  const WORDS2=[
+    [{w:'apple',h:'A red fruit'},{w:'chair',h:'You sit on it'},{w:'house',h:'A home'},{w:'water',h:'H2O'},{w:'bread',h:'Made from flour'},{w:'cloud',h:'In the sky'},{w:'phone',h:'You call with it'},{w:'tiger',h:'Big striped cat'}],
+    [{w:'castle',h:'Medieval fortress'},{w:'jungle',h:'Dense forest'},{w:'silver',h:'Precious metal'},{w:'frozen',h:'Turned to ice'},{w:'garden',h:'Flowers grow here'},{w:'bridge',h:'Spans a river'},{w:'mirror',h:'Shows reflection'},{w:'window',h:'Light comes in'}],
+    [{w:'language',h:'System of words'},{w:'mountain',h:'High peak of rock'},{w:'umbrella',h:'Rain protection'},{w:'calendar',h:'Tracks days/months'},{w:'hospital',h:'Where sick go'},{w:'keyboard',h:'You type with it'},{w:'sandwich',h:'Bread with filling'},{w:'treasure',h:'Valuable hoard'}],
+  ][d];
+  let qi2=0,typed2='',score=0,correct2=0,total2=0,shown=false,gameOver=false;
+  let timer3=0,maxTime3=[30,25,20][d],timerIid2=null;
+  function newQ(){qi2=Math.floor(Math.random()*WORDS2.length);typed2='';shown=false;timer3=maxTime3;total2++;}
+  newQ();
+  timerIid2=setInterval(()=>{timer3--;if(timer3<=0){shown=true;setTimeout(()=>{if(!gameOver) newQ();},1500);}},1000);
+  function check(){
+    if(typed2.toLowerCase()===WORDS2[qi2].w){score+=WORDS2[qi2].w.length*15;correct2++;shown=true;setTimeout(()=>{if(!gameOver) newQ();},800);}
+    else{shown=true;setTimeout(()=>{shown=false;typed2='';},1000);}
+    if(correct2>=10) gameOver=true;
+  }
+  function draw(){
+    ctx.fillStyle='#0A1A2E';ctx.fillRect(0,0,GW,GH);
+    const q=WORDS2[qi2];
+    const t=timer3/maxTime3;
+    ctx.fillStyle='#333';ctx.fillRect(10,44,GW-20,8);
+    ctx.fillStyle=t>0.5?'#2ECC71':t>0.25?'#F39C12':'#E74C3C';ctx.fillRect(10,44,(GW-20)*t,8);
+    ctx.fillStyle='#FFD700';ctx.font='bold 15px monospace';ctx.textAlign='center';
+    ctx.fillText('Hint: '+q.h,GW/2,90);
+    // blanks
+    const letters=q.w.split('');
+    const bx=GW/2-letters.length*18;
+    letters.forEach((l,i)=>{
+      const reveal=shown||(i<typed2.length);
+      ctx.fillStyle=reveal?(typed2[i]&&typed2[i].toLowerCase()===l?'#2ECC71':'#E74C3C'):'rgba(255,255,255,0.15)';
+      ctx.fillRect(bx+i*36,130,30,40);
+      ctx.fillStyle='#fff';ctx.font='bold 22px monospace';ctx.textAlign='center';
+      ctx.fillText(reveal?l.toUpperCase():(typed2[i]?typed2[i].toUpperCase():'_'),bx+i*36+15,160);
+    });
+    ctx.fillStyle='#fff';ctx.font='13px monospace';ctx.textAlign='center';
+    ctx.fillText('Type your answer:',GW/2,200);
+    ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fillRect(GW/2-100,210,200,36);
+    ctx.fillStyle='#FFD700';ctx.font='bold 20px monospace';ctx.fillText(typed2.toUpperCase()||'_',GW/2,235);
+    ctx.fillStyle='#aaa';ctx.font='11px monospace';
+    ctx.fillText('Score:'+score+' Correct:'+correct2+'/'+total2,GW/2,28);
+    ctx.fillText('Type then Enter  Backspace=del  Esc=Back',GW/2,GH-5);
+    if(gameOver){
+      ctx.fillStyle='rgba(0,0,0,0.8)';ctx.fillRect(30,GH/2-55,GW-60,110);
+      ctx.fillStyle='#2ECC71';ctx.font='bold 20px monospace';ctx.textAlign='center';ctx.fillText('Spell Master!',GW/2,-14+GH/2);
+      ctx.fillStyle='#fff';ctx.font='13px monospace';ctx.fillText('Score: '+score,GW/2,10+GH/2);
+      ctx.fillText('Enter=Retry  Esc=Back',GW/2,34+GH/2);
+    }
+    ctx.textAlign='left';
+  }
+  xg={raf:null,iid:setInterval(draw,100)};
+  xg._tid2=timerIid2;
+  xg.kdown=e=>{
+    if(e.key==='Escape'){clearInterval(timerIid2);goBack();return;}
+    if(gameOver){if(e.key==='Enter'){clearInterval(timerIid2);killAll();buildSpelling(v,cur);}return;}
+    if(shown) return;
+    if(e.key==='Backspace') typed2=typed2.slice(0,-1);
+    else if(e.key==='Enter'&&typed2) check();
+    else if(e.key.length===1&&/[a-zA-Z]/.test(e.key)&&typed2.length<WORDS2[qi2].w.length) typed2+=e.key;
+    draw();
+  };
+  document.addEventListener('keydown',xg.kdown);draw();
+}
+
+/* ═══════════════════════════════════════════════════════════
    MEMORY MATCH
 ═══════════════════════════════════════════════════════════ */
 function buildMemory(v,cur){
@@ -7083,7 +7262,7 @@ function pushItem(it){
     render();return;
   }
   if(it.gameKey&&!it.hasDiff){stack.push({type:it.gameKey,diff:1});render();return;}
-  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4','mole','memory','asteroids','frogger','galaga','centipede','lunar','sokoban','lightsout','reversi','battleship','numguess','reaction','blackjack','slide','tron','wordle','mathflash','platform','life','rps','colormatch','darts','checkers','typing','mastermind','hanoi','nim','bubble','slot','bowling','mancala','sudoku','pacman','cardodge','fruitcatch','match3','missile','pinball','gravflip','poker','pipe','maze','numchain','runner','spaceshoot','yahtzee','war','hexgrid','craps','pixelart','gravball','wordsearch','colorflood','fusion','brickx','jumpjack','dodge','trivia','snakex','pong3','gridrush','blockstack','flappyx','virus','beattap','anagram','chainreact','astminer'];
+  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4','mole','memory','asteroids','frogger','galaga','centipede','lunar','sokoban','lightsout','reversi','battleship','numguess','reaction','blackjack','slide','tron','wordle','mathflash','platform','life','rps','colormatch','darts','checkers','typing','mastermind','hanoi','nim','bubble','slot','bowling','mancala','sudoku','pacman','cardodge','fruitcatch','match3','missile','pinball','gravflip','poker','pipe','maze','numchain','runner','spaceshoot','yahtzee','war','hexgrid','craps','pixelart','gravball','wordsearch','colorflood','fusion','brickx','jumpjack','dodge','trivia','snakex','pong3','gridrush','blockstack','flappyx','virus','beattap','anagram','chainreact','astminer','tankbattle','spelling'];
   if(it.type&&gameTypes.includes(it.type))stack.push({...it});
   else if(it.menu)stack.push({...it.menu,_sel:0});
   else stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
