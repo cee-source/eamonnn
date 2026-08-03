@@ -273,6 +273,7 @@ const GDIFF={
   hangman:{icon:'😬',name:'Hangman',opts:[{label:'Easy',desc:'Short words (3–5 letters)'},{label:'Medium',desc:'Medium words (5–8)'},{label:'Hard',desc:'Long words (8–10)'}]},
   invaders:{icon:'👾',name:'Space Invaders',opts:[{label:'Recruit',desc:'3 rows · slow'},{label:'Soldier',desc:'4 rows · medium'},{label:'Commander',desc:'5 rows · fast'}]},
   c4:{icon:'🔴',name:'Connect Four',opts:[{label:'Easy',desc:'AI picks randomly'},{label:'Medium',desc:'AI blocks & attacks'},{label:'Hard',desc:'Minimax depth 4'}]},
+  mole:{icon:'🐹',name:'Whack-a-Mole',opts:[{label:'Easy',desc:'Slow moles · 60s'},{label:'Normal',desc:'Medium speed · 45s'},{label:'Turbo',desc:'Fast moles · 30s'}]},
 };
 function inf(ico,title,body,badge){return{type:'info',ico,title,body,badge};}
 const MAIN={title:'PiFlip',items:[
@@ -316,6 +317,7 @@ const MAIN={title:'PiFlip',items:[
       {icon:'🐦',color:'#FFD93D',label:'Flappy Bird',   desc:'Tap to flap',         gameKey:'flappy',  hasDiff:true},
       {icon:'🧱',color:'#FF8C42',label:'Breakout',      desc:'Break all the bricks',gameKey:'breakout',hasDiff:true},
       {icon:'🔵',color:'#2DA8FF',label:'Simon Says',    desc:'Remember the sequence',gameKey:'simon',   hasDiff:true},
+      {icon:'🐹',color:'#FF8C42',label:'Whack-a-Mole', desc:'Hit the moles!',        gameKey:'mole',    hasDiff:true},
       {icon:'😬',color:'#FFD93D',label:'Hangman',       desc:'Guess the word',        gameKey:'hangman', hasDiff:true},
       {icon:'👾',color:'#FF4757',label:'Space Invaders',desc:'Shoot the aliens',       gameKey:'invaders',hasDiff:true},
     ]}},
@@ -361,7 +363,7 @@ function killAll(){
   if(pg){clearInterval(pg.iid);if(pg.kdown)document.removeEventListener('keydown',pg.kdown);if(pg.kup)document.removeEventListener('keyup',pg.kup);pg=null;}
   if(fg){if(fg.rafId)cancelAnimationFrame(fg.rafId);if(fg.kdown)document.removeEventListener('keydown',fg.kdown);fg=null;}
   if(cg){if(cg.kdown)document.removeEventListener('keydown',cg.kdown);cg=null;}
-  if(xg){if(xg.raf)cancelAnimationFrame(xg.raf);if(xg.iid)clearInterval(xg.iid);if(xg.kdown)document.removeEventListener('keydown',xg.kdown);if(xg.kup)document.removeEventListener('keyup',xg.kup);xg=null;}
+  if(xg){if(xg.raf)cancelAnimationFrame(xg.raf);if(xg.iid)clearInterval(xg.iid);if(xg._tid)clearInterval(xg._tid);if(xg.kdown)document.removeEventListener('keydown',xg.kdown);if(xg.kup)document.removeEventListener('keyup',xg.kup);xg=null;}
   if(dg){document.removeEventListener('keydown',dg);dg=null;}
 }
 /* Shared canvas setup for new games */
@@ -395,6 +397,7 @@ function render(){
     hangman:buildHangman,
     invaders:buildInvaders,
     c4:buildC4,
+    mole:buildMole,
   };
   if(dispatch[cur.type]) dispatch[cur.type](v,cur);
   else buildMenu(v,cur);
@@ -902,6 +905,90 @@ function build2048(v,cur){
     if(map[e.key]){e.preventDefault();move(...map[e.key]);}
   };
   document.addEventListener('keydown',xg.kdown);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   WHACK-A-MOLE
+═══════════════════════════════════════════════════════════ */
+function buildMole(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const dlbl=['EASY','NORMAL','TURBO'][d];
+  const DURATION=[60,45,30][d],UP_MS=[1200,800,450][d],MAX_UP=[2,3,4][d];
+  const[cv,ctx]=mkCv(v,'Whack-a-Mole — '+dlbl);
+  const HOLES=[[60,120],[150,120],[240,120],[60,220],[150,220],[240,220],[60,320],[150,320],[240,320]];
+  let moles,score,misses,timeLeft,tid,active;
+  function rst(){moles=HOLES.map(()=>({up:false,timer:0,whacked:false}));score=0;misses=0;timeLeft=DURATION;active=true;
+    if(tid)clearInterval(tid);
+    tid=setInterval(()=>{if(!xg){clearInterval(tid);return;}timeLeft--;if(timeLeft<=0){active=false;clearInterval(tid);draw();}else draw();},1000);
+  }
+  function spawnMoles(){
+    if(!active)return;
+    const up=moles.filter(m=>m.up).length;
+    if(up<MAX_UP){
+      const down=moles.map((m,i)=>(!m.up?i:-1)).filter(i=>i>=0);
+      if(down.length){const idx=down[Math.floor(Math.random()*down.length)];moles[idx].up=true;moles[idx].whacked=false;
+        setTimeout(()=>{if(!xg)return;if(!moles[idx].whacked){misses++;moles[idx].up=false;}draw();},UP_MS);}
+    }
+  }
+  function whack(idx){if(!active||!moles[idx].up||moles[idx].whacked)return;moles[idx].whacked=true;moles[idx].up=false;score+=10;draw();}
+  function draw(){
+    ctx.fillStyle='#0B1A0B';ctx.fillRect(0,0,GW,GH);
+    // Grass
+    ctx.fillStyle='#1A3A1A';ctx.fillRect(0,80,GW,GH-80);
+    ctx.fillStyle='#0F260F';
+    for(let i=0;i<10;i++){const x=i*32,w=20;ctx.fillRect(x,80,w,6);}
+    // HUD
+    ctx.fillStyle='#1FCC7C';ctx.font='bold 13px monospace';ctx.textAlign='left';ctx.fillText('SCORE: '+score,10,26);
+    ctx.textAlign='center';ctx.fillStyle=timeLeft<=10?'#FF4757':'#E2E8F0';ctx.fillText('⏱ '+timeLeft+'s',GW/2,26);
+    ctx.fillStyle='#FF4757';ctx.textAlign='right';ctx.fillText('MISS: '+misses,GW-10,26);
+    // Holes & moles
+    HOLES.forEach(([hx,hy],i)=>{
+      // Hole shadow
+      ctx.fillStyle='#0A1A0A';ctx.beginPath();ctx.ellipse(hx,hy+2,30,12,0,0,Math.PI*2);ctx.fill();
+      // Hole
+      ctx.fillStyle='#050D05';ctx.beginPath();ctx.ellipse(hx,hy,28,10,0,0,Math.PI*2);ctx.fill();
+      if(moles[i].up){
+        const bob=Math.sin(Date.now()/120)*2;
+        // Body
+        ctx.fillStyle='#8B4513';ctx.beginPath();ctx.ellipse(hx,hy-22+bob,18,22,0,0,Math.PI*2);ctx.fill();
+        // Face
+        ctx.fillStyle='#CD853F';ctx.beginPath();ctx.ellipse(hx,hy-30+bob,14,16,0,0,Math.PI*2);ctx.fill();
+        // Eyes
+        ctx.fillStyle='#000';ctx.beginPath();ctx.arc(hx-5,hy-34+bob,3,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(hx+5,hy-34+bob,3,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#FFF';ctx.beginPath();ctx.arc(hx-4,hy-35+bob,1.5,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(hx+6,hy-35+bob,1.5,0,Math.PI*2);ctx.fill();
+        // Nose
+        ctx.fillStyle='#FF69B4';ctx.beginPath();ctx.arc(hx,hy-30+bob,3,0,Math.PI*2);ctx.fill();
+        // Whacked flash
+        if(moles[i].whacked){ctx.fillStyle='rgba(255,215,0,.6)';ctx.beginPath();ctx.arc(hx,hy-28+bob,22,0,Math.PI*2);ctx.fill();}
+      }
+    });
+    // Hole numbers hint
+    ctx.fillStyle='rgba(255,255,255,.12)';ctx.font='9px monospace';ctx.textAlign='center';
+    HOLES.forEach(([hx,hy],i)=>ctx.fillText(i+1,hx,hy+5));
+    if(!active){
+      ctx.fillStyle='rgba(0,0,0,.75)';ctx.fillRect(0,0,GW,GH);
+      ctx.fillStyle='#1FCC7C';ctx.font='bold 20px monospace';ctx.textAlign='center';ctx.fillText('TIME UP!',GW/2,GH/2-22);
+      ctx.fillStyle='#FFD93D';ctx.font='bold 16px monospace';ctx.fillText('Score: '+score,GW/2,GH/2+2);
+      ctx.fillStyle='#8B95A5';ctx.font='11px monospace';ctx.fillText('Misses: '+misses,GW/2,GH/2+20);ctx.fillText('R restart · Esc menu',GW/2,GH/2+38);
+    }
+  }
+  rst();
+  const spawnId=setInterval(()=>{if(!xg){clearInterval(spawnId);return;}spawnMoles();draw();},300);
+  cv.addEventListener('click',e=>{
+    if(!active){rst();return;}
+    const rect=cv.getBoundingClientRect();const cx=(e.clientX-rect.left)*(GW/rect.width),cy=(e.clientY-rect.top)*(GH/rect.height);
+    HOLES.forEach(([hx,hy],i)=>{if(Math.hypot(cx-hx,cy-hy)<28)whack(i);});
+  });
+  xg={raf:null,iid:spawnId};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){if(tid)clearInterval(tid);goBack();return;}
+    if(e.key==='r'||e.key==='R'){rst();return;}
+    const n=parseInt(e.key);if(n>=1&&n<=9){e.preventDefault();whack(n-1);}
+  };
+  // Store tid for cleanup
+  xg._tid=tid;
+  document.addEventListener('keydown',xg.kdown);
+  draw();
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1456,7 +1543,7 @@ function pushItem(it){
     render();return;
   }
   if(it.gameKey&&!it.hasDiff){stack.push({type:it.gameKey,diff:1});render();return;}
-  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4'];
+  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4','mole'];
   if(it.type&&gameTypes.includes(it.type))stack.push({...it});
   else if(it.menu)stack.push({...it.menu,_sel:0});
   else stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
