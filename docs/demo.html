@@ -266,6 +266,7 @@ const GDIFF={
   'pong-ai':{icon:'🏓',name:'Pong vs AI',opts:[{label:'Rookie',desc:'Slow AI'},{label:'Standard',desc:'Medium AI'},{label:'Ace',desc:'Fast AI · hard to beat'}]},
   'chess-ai':{icon:'♟️',name:'Chess vs AI',opts:[{label:'Easy',desc:'Shallow search'},{label:'Medium',desc:'Depth 2 minimax'},{label:'Hard',desc:'Depth 3 (slow)'}]},
   breakout:{icon:'🧱',name:'Breakout',opts:[{label:'Casual',desc:'3 balls · wide paddle'},{label:'Classic',desc:'1 ball · standard'},{label:'Expert',desc:'1 ball · narrow · fast'}]},
+  g2048:{icon:'🔢',name:'2048',opts:[{label:'4×4',desc:'Classic board'},{label:'5×5',desc:'More room to play'},{label:'3×3',desc:'Tight · challenging'}]},
 };
 function inf(ico,title,body,badge){return{type:'info',ico,title,body,badge};}
 const MAIN={title:'PiFlip',items:[
@@ -309,8 +310,9 @@ const MAIN={title:'PiFlip',items:[
       {icon:'🐦',color:'#FFD93D',label:'Flappy Bird',   desc:'Tap to flap',         gameKey:'flappy',  hasDiff:true},
       {icon:'🧱',color:'#FF8C42',label:'Breakout',      desc:'Break all the bricks',gameKey:'breakout',hasDiff:true},
     ]}},
-    {icon:'🧩',color:'#9B59B6',label:'Puzzle',desc:'Tetris',menu:{title:'Puzzle',items:[
+    {icon:'🧩',color:'#9B59B6',label:'Puzzle',desc:'Tetris · 2048',menu:{title:'Puzzle',items:[
       {icon:'🟦',color:'#2DA8FF',label:'Tetris',        desc:'7 pieces · ghost · levels',gameKey:'tetris',hasDiff:true},
+      {icon:'🔢',color:'#FF8C42',label:'2048',          desc:'Slide tiles to merge',      gameKey:'g2048', hasDiff:true},
     ]}},
     {icon:'♟',color:'#5B9EFF',label:'Board',desc:'Chess · Pong',menu:{title:'Board',items:[
       {icon:'♟️',color:'#E2E8F0',label:'Chess vs AI',   desc:'Minimax AI',          gameKey:'chess-ai',hasDiff:true},
@@ -374,6 +376,7 @@ function render(){
     'chess-ai':(v,c)=>buildChess(v,true,c),'chess-2p':(v,c)=>buildChess(v,false,c),
     flappy:buildFlappy,info:buildInfo,hotspot:buildHotspot,
     breakout:buildBreakout,
+    g2048:build2048,
   };
   if(dispatch[cur.type]) dispatch[cur.type](v,cur);
   else buildMenu(v,cur);
@@ -815,6 +818,75 @@ function buildBreakout(v,cur){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   2048
+═══════════════════════════════════════════════════════════ */
+function build2048(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:0;
+  const SZ=[4,5,3][d];const dlbl=['4×4','5×5','3×3'][d];
+  const CS=Math.floor(290/SZ),GAP=4,OX=(GW-SZ*(CS+GAP)+GAP)/2,OY=36;
+  const COLS={0:'#1C2438',2:'#EEE4DA',4:'#EDE0C8',8:'#F2B179',16:'#F59563',32:'#F67C5F',64:'#F65E3B',128:'#EDCF72',256:'#EDCC61',512:'#EDC850',1024:'#EDC53F',2048:'#EDC22E'};
+  const TCOLS={0:'#8B95A5',2:'#776E65',4:'#776E65',8:'#F9F6F2',16:'#F9F6F2',32:'#F9F6F2',64:'#F9F6F2'};
+  let board,score,best=0,moved,won=false,over=false;
+  function mkBoard(){return Array.from({length:SZ},()=>Array(SZ).fill(0));}
+  function addTile(b){const empty=[];for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++)if(!b[r][c])empty.push([r,c]);if(!empty.length)return;const[r,c]=empty[Math.floor(Math.random()*empty.length)];b[r][c]=Math.random()<.9?2:4;}
+  function rst(){board=mkBoard();score=0;won=false;over=false;addTile(board);addTile(board);}
+  function slide(row){const a=row.filter(x=>x);for(let i=0;i<a.length-1;i++){if(a[i]===a[i+1]){a[i]*=2;score+=a[i];if(a[i]===2048)won=true;a[i+1]=0;i++;}}return [...a.filter(x=>x),...Array(SZ-a.filter(x=>x).length).fill(0)];}
+  function move(dr,dc){
+    moved=false;
+    const nb=board.map(r=>[...r]);
+    if(dc!==0){for(let r=0;r<SZ;r++){const row=dc===1?[...nb[r]].reverse():nb[r];const s=slide(row);const res=dc===1?s.reverse():s;for(let c=0;c<SZ;c++)if(nb[r][c]!==res[c])moved=true;nb[r]=res;}}
+    else{for(let c=0;c<SZ;c++){let col=[];for(let r=0;r<SZ;r++)col.push(nb[r][c]);const row=dr===1?[...col].reverse():col;const s=slide(row);const res=dr===1?s.reverse():s;for(let r=0;r<SZ;r++)if(nb[r][c]!==res[r])moved=true;for(let r=0;r<SZ;r++)nb[r][c]=res[r];}}
+    if(moved){board=nb;addTile(board);if(score>best)best=score;checkOver();}
+    draw();
+  }
+  function checkOver(){if(won)return;for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++){if(!board[r][c])return;if(c+1<SZ&&board[r][c]===board[r][c+1])return;if(r+1<SZ&&board[r][c]===board[r+1][c])return;}over=true;}
+  let cv2,ctx2;
+  function draw(){
+    const ctx=ctx2;
+    ctx.fillStyle='#0B0F18';ctx.fillRect(0,0,GW,GH);
+    // Header
+    ctx.fillStyle='#E2E8F0';ctx.font='bold 20px monospace';ctx.textAlign='left';ctx.fillText('2048',10,26);
+    ctx.font='10px monospace';ctx.fillStyle='#8B95A5';ctx.fillText(dlbl,10,40);
+    ctx.fillStyle='#1FCC7C';ctx.font='bold 11px monospace';ctx.textAlign='right';ctx.fillText('SCORE: '+score,GW-10,22);ctx.fillText('BEST: '+best,GW-10,36);
+    // Grid bg
+    ctx.fillStyle='#1C2438';ctx.beginPath();ctx.roundRect?ctx.roundRect(OX-GAP,OY-GAP,SZ*(CS+GAP)+GAP,SZ*(CS+GAP)+GAP,8):ctx.rect(OX-GAP,OY-GAP,SZ*(CS+GAP)+GAP,SZ*(CS+GAP)+GAP);ctx.fill();
+    // Cells
+    for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++){
+      const val=board[r][c];const x=OX+c*(CS+GAP),y=OY+r*(CS+GAP);
+      ctx.fillStyle=COLS[val]||(val>2048?'#3C3A32':'#1C2438');
+      ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,CS,CS,6):ctx.rect(x,y,CS,CS);ctx.fill();
+      if(val){
+        const fs=val>99?(val>999?(val>9999?9:11):13):16;
+        ctx.fillStyle=TCOLS[val]||'#F9F6F2';
+        ctx.font=`bold ${Math.floor(fs*(CS/60))}px monospace`;ctx.textAlign='center';
+        ctx.fillText(val,x+CS/2,y+CS/2+4);
+      }
+    }
+    // Hint
+    ctx.fillStyle='#1E2B3F';ctx.font='9px monospace';ctx.textAlign='center';
+    ctx.fillText('Arrow keys to slide · R restart · Esc menu',GW/2,OY+SZ*(CS+GAP)+GAP+14);
+    // Overlays
+    if(won||over){
+      ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillRect(0,0,GW,GH);
+      ctx.fillStyle=won?'#FFD93D':'#FF4757';ctx.font='bold 18px monospace';ctx.textAlign='center';
+      ctx.fillText(won?'YOU REACHED 2048!':'GAME OVER',GW/2,GH/2-14);
+      ctx.fillStyle='#E2E8F0';ctx.font='12px monospace';ctx.fillText('Score: '+score,GW/2,GH/2+6);
+      ctx.fillStyle='#8B95A5';ctx.fillText('R restart · Esc menu',GW/2,GH/2+24);
+    }
+  }
+  [cv2,ctx2]=mkCv(v,'2048 — '+dlbl);rst();draw();
+  xg={raf:null,iid:null};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){e.preventDefault();goBack();return;}
+    if(e.key==='r'||e.key==='R'){rst();draw();return;}
+    if(over&&!won)return;
+    const map={ArrowLeft:[0,-1],ArrowRight:[0,1],ArrowUp:[-1,0],ArrowDown:[1,0]};
+    if(map[e.key]){e.preventDefault();move(...map[e.key]);}
+  };
+  document.addEventListener('keydown',xg.kdown);
+}
+
+/* ═══════════════════════════════════════════════════════════
    NAVIGATION
 ═══════════════════════════════════════════════════════════ */
 function pushItem(it){
@@ -825,7 +897,7 @@ function pushItem(it){
     render();return;
   }
   if(it.gameKey&&!it.hasDiff){stack.push({type:it.gameKey,diff:1});render();return;}
-  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout'];
+  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048'];
   if(it.type&&gameTypes.includes(it.type))stack.push({...it});
   else if(it.menu)stack.push({...it.menu,_sel:0});
   else stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
