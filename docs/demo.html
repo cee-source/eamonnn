@@ -288,6 +288,8 @@ const GDIFF={
   reaction:{icon:'⚡',name:'Reaction Timer',opts:[{label:'Practice',desc:'5 rounds · slow'},{label:'Speed',desc:'7 rounds · medium'},{label:'Reflex',desc:'10 rounds · fast'}]},
   blackjack:{icon:'🃏',name:'Blackjack',opts:[{label:'Low Stakes',desc:'Start 50 chips · bet 5'},{label:'Classic',desc:'Start 100 chips · bet 10'},{label:'High Roller',desc:'Start 250 chips · bet 25'}]},
   slide:{icon:'🔲',name:'Sliding Puzzle',opts:[{label:'3×3',desc:'8-puzzle · easy'},{label:'4×4',desc:'15-puzzle · classic'},{label:'5×5',desc:'24-puzzle · hard'}]},
+  tron:{icon:'🏎',name:'Tron Light Cycles',opts:[{label:'Rookie',desc:'AI reacts slowly'},{label:'Racer',desc:'AI medium speed'},{label:'Champion',desc:'AI reacts fast'}]},
+  wordle:{icon:'🔤',name:'Word Guess',opts:[{label:'Easy',desc:'4-letter · 7 tries'},{label:'Normal',desc:'5-letter · 6 tries'},{label:'Hard',desc:'6-letter · 5 tries'}]},
 };
 function inf(ico,title,body,badge){return{type:'info',ico,title,body,badge};}
 const MAIN={title:'PiFlip',items:[
@@ -363,6 +365,8 @@ const MAIN={title:'PiFlip',items:[
       {icon:'⚡',color:'#FFD93D',label:'Reaction Timer',desc:'Test your reflexes',  gameKey:'reaction',  hasDiff:true},
       {icon:'🃏',color:'#FFD93D',label:'Blackjack',     desc:'Beat the dealer',     gameKey:'blackjack', hasDiff:true},
       {icon:'🔲',color:'#9B59B6',label:'Sliding Puzzle',desc:'Arrange the tiles',   gameKey:'slide',     hasDiff:true},
+      {icon:'🏎',color:'#1FCC7C',label:'Tron',          desc:'Light cycle duel vs AI',gameKey:'tron',    hasDiff:true},
+      {icon:'🔤',color:'#538D4E',label:'Word Guess',    desc:'Wordle-style word game',gameKey:'wordle',   hasDiff:true},
     ]}},
   ]}},
   {icon:'⚙️',color:'#8B95A5',label:'Settings',desc:'Device configuration',  ...inf('⚙️','Settings','Brightness, WiFi SSID, device name,\nSPI bus, GPIO pin assignments.','config.ini')},
@@ -442,6 +446,8 @@ function render(){
     reaction:buildReaction,
     blackjack:buildBlackjack,
     slide:buildSlide,
+    tron:buildTron,
+    wordle:buildWordle,
   };
   if(dispatch[cur.type]) dispatch[cur.type](v,cur);
   else buildMenu(v,cur);
@@ -1817,6 +1823,138 @@ function buildSlide(v,cur){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   TRON LIGHT CYCLES
+═══════════════════════════════════════════════════════════ */
+function buildTron(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const dlbl=['ROOKIE','RACER','CHAMPION'][d];
+  const[cv,ctx]=mkCv(v,'Tron — '+dlbl);
+  const COLS=30,ROWS=19,CS=10,OX=(GW-COLS*CS)/2,OY=(GH-ROWS*CS)/2;
+  const AI_REACT=[6,4,2][d];
+  let p1,p2,grid,dead,winner,frame;
+  function rst(){
+    grid=Array.from({length:ROWS},()=>Array(COLS).fill(0));
+    p1={x:5,y:Math.floor(ROWS/2),dx:1,dy:0,trail:[[5,Math.floor(ROWS/2)]],alive:true};
+    p2={x:COLS-6,y:Math.floor(ROWS/2),dx:-1,dy:0,trail:[[COLS-6,Math.floor(ROWS/2)]],alive:true};
+    dead=false;winner=null;frame=0;
+    grid[p1.y][p1.x]=1;grid[p2.y][p2.x]=2;
+  }
+  function safeDir(p,dx,dy){const nx=p.x+dx,ny=p.y+dy;return nx>=0&&nx<COLS&&ny>=0&&ny<ROWS&&!grid[ny][nx];}
+  function aiStep(){
+    frame++;if(frame%AI_REACT!==0)return;
+    const dirs=[[p2.dx,p2.dy],[-p2.dy,p2.dx],[p2.dy,-p2.dx]];
+    let chosen=[p2.dx,p2.dy];
+    let bestScore=-999;
+    dirs.forEach(([dx,dy])=>{if(!safeDir(p2,dx,dy))return;let s=0;const nx=p2.x+dx,ny=p2.y+dy;
+      [[0,1],[0,-1],[1,0],[-1,0]].forEach(([ddx,ddy])=>{const nx2=nx+ddx,ny2=ny+ddy;if(nx2>=0&&nx2<COLS&&ny2>=0&&ny2<ROWS&&!grid[ny2][nx2])s++;});
+      const chase=Math.abs(nx-p1.x)+Math.abs(ny-p1.y);s-=chase*.1;
+      if(s>bestScore){bestScore=s;chosen=[dx,dy];}});
+    [p2.dx,p2.dy]=chosen;
+  }
+  function step(){
+    if(dead)return;
+    aiStep();
+    [p1,p2].forEach((p,pi)=>{
+      if(!p.alive)return;
+      const nx=p.x+p.dx,ny=p.y+p.dy;
+      if(nx<0||nx>=COLS||ny<0||ny>=ROWS||grid[ny][nx]){p.alive=false;winner=pi===0?'AI':'You';dead=true;return;}
+      p.x=nx;p.y=ny;grid[ny][nx]=pi+1;p.trail.push([nx,ny]);
+    });
+  }
+  function draw(){
+    ctx.fillStyle='#010810';ctx.fillRect(0,0,GW,GH);
+    ctx.fillStyle='#0A1025';ctx.fillRect(OX,OY,COLS*CS,ROWS*CS);
+    // Trails
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      if(!grid[r][c])continue;
+      const x=OX+c*CS,y=OY+r*CS;
+      ctx.fillStyle=grid[r][c]===1?'rgba(31,204,124,0.9)':'rgba(45,168,255,0.9)';
+      ctx.fillRect(x+1,y+1,CS-2,CS-2);
+    }
+    // Heads
+    if(p1.alive){ctx.fillStyle='#FFD93D';ctx.fillRect(OX+p1.x*CS,OY+p1.y*CS,CS,CS);}
+    if(p2.alive){ctx.fillStyle='#FF4757';ctx.fillRect(OX+p2.x*CS,OY+p2.y*CS,CS,CS);}
+    ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,0,GW,OY);
+    ctx.fillStyle='#1FCC7C';ctx.font='bold 10px monospace';ctx.textAlign='left';ctx.fillText('⬛ YOU',8,22);
+    ctx.fillStyle='#2DA8FF';ctx.textAlign='right';ctx.fillText('AI ⬛',GW-8,22);
+    ctx.fillStyle='#1E2B3F';ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText('↑↓←→ steer · R restart',GW/2,GH-6);
+    if(dead){ctx.fillStyle='rgba(0,0,0,.8)';ctx.fillRect(0,0,GW,GH);ctx.fillStyle=winner==='You'?'#FF4757':'#1FCC7C';ctx.font='bold 18px monospace';ctx.textAlign='center';ctx.fillText(winner==='You'?'CRASHED!':'AI CRASHED!',GW/2,GH/2-16);ctx.fillStyle='#8B95A5';ctx.font='11px monospace';ctx.fillText('R restart · Esc menu',GW/2,GH/2+10);}
+  }
+  rst();
+  xg={raf:null,iid:setInterval(()=>{step();draw();},80)};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){goBack();return;}if(e.key==='r'||e.key==='R'){rst();return;}
+    if(e.key==='ArrowUp'&&p1.dy===0){e.preventDefault();p1.dx=0;p1.dy=-1;}
+    if(e.key==='ArrowDown'&&p1.dy===0){e.preventDefault();p1.dx=0;p1.dy=1;}
+    if(e.key==='ArrowLeft'&&p1.dx===0){e.preventDefault();p1.dx=-1;p1.dy=0;}
+    if(e.key==='ArrowRight'&&p1.dx===0){e.preventDefault();p1.dx=1;p1.dy=0;}
+  };
+  document.addEventListener('keydown',xg.kdown);draw();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   WORD GUESS (WORDLE-STYLE)
+═══════════════════════════════════════════════════════════ */
+function buildWordle(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const dlbl=['EASY','NORMAL','HARD'][d];
+  const[cv,ctx]=mkCv(v,'Word Guess — '+dlbl);
+  const WORDS5=['CRANE','SLATE','TRACE','PLANT','GLOBE','BRAVE','FIRST','HOUSE','LIGHT','MAGIC','WATER','FLAME','BLOOD','SCORE','FIELD','STORM','DREAM','GHOST','SPEED','HEART','SWORD','STONE','NIGHT','STARS','CLOUD','TIGER','EAGLE','SOLAR','RIVER','CROWN'];
+  const WORDS4=['BOLD','FIRE','WIND','RAIN','GOLD','DARK','BLUE','JUMP','FAST','TREE','BEAR','STAR','ROCK','WAVE','DEEP'];
+  const WORDS6=['PLANET','CASTLE','DRAGON','BRIDGE','SILVER','FROZEN','MYSTIC','GOLDEN','WINTER','SPRING','BATTLE','FOREST','GARDEN','CANDLE','KNIGHT'];
+  const LEN=[4,5,6][d],TRIES=[7,6,5][d];
+  const WLIST=d===0?WORDS4:d===1?WORDS5:WORDS6;
+  let secret,guesses,cur2,done;
+  function rst(){secret=WLIST[Math.floor(Math.random()*WLIST.length)];guesses=[];cur2='';done=false;}
+  function submit(){
+    if(cur2.length!==LEN)return;
+    guesses.push(cur2);if(cur2===secret||guesses.length>=TRIES)done=true;cur2='';draw();
+  }
+  function colorOf(word,i){
+    if(word[i]===secret[i])return'#538D4E';
+    if(secret.includes(word[i]))return'#B59F3B';
+    return'#3A3A3C';
+  }
+  const CS=Math.floor(240/LEN),OX=(GW-LEN*CS)/2,OY=44;
+  function draw(){
+    ctx.fillStyle='#121213';ctx.fillRect(0,0,GW,GH);
+    ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,0,GW,38);
+    ctx.fillStyle='#E2E8F0';ctx.font='bold 13px monospace';ctx.textAlign='center';ctx.fillText(LEN+'-letter word · '+TRIES+' tries',GW/2,24);
+    for(let row=0;row<TRIES;row++){
+      const word=guesses[row]||'';const isCur=row===guesses.length&&!done;
+      for(let col=0;col<LEN;col++){
+        const x=OX+col*CS+2,y=OY+row*(CS+4)+2,s=CS-4;
+        const ch=isCur?(cur2[col]||''):(word[col]||'');
+        const bg=word?colorOf(word,col):'#1A1A1C';
+        ctx.fillStyle=bg;ctx.fillRect(x,y,s,s);
+        ctx.strokeStyle=isCur&&col<cur2.length?'#8B95A5':'#3A3A3C';ctx.lineWidth=2;ctx.strokeRect(x,y,s,s);
+        if(ch){ctx.fillStyle='#FFF';ctx.font=`bold ${CS>40?22:18}px monospace`;ctx.textAlign='center';ctx.fillText(ch,x+s/2,y+s/2+7);}
+      }
+    }
+    ctx.fillStyle='#1E2B3F';ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText('Type letters · Enter=guess · Backspace · R=new',GW/2,GH-6);
+    if(done){
+      const won=guesses[guesses.length-1]===secret;
+      ctx.fillStyle='rgba(0,0,0,.85)';ctx.fillRect(0,0,GW,GH);
+      ctx.fillStyle=won?'#538D4E':'#FF4757';ctx.font='bold 20px monospace';ctx.textAlign='center';ctx.fillText(won?'CORRECT!':'TOO BAD',GW/2,GH/2-30);
+      if(!won){ctx.fillStyle='#E2E8F0';ctx.font='bold 16px monospace';ctx.fillText(secret,GW/2,GH/2-4);}
+      ctx.fillStyle='#8B95A5';ctx.font='11px monospace';if(won)ctx.fillText('Solved in '+guesses.length+'/'+ TRIES,GW/2,GH/2-4);
+      ctx.fillText('R new word · Esc menu',GW/2,GH/2+20);
+    }
+  }
+  rst();
+  xg={raf:null,iid:null};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){goBack();return;}if(e.key==='r'||e.key==='R'){rst();draw();return;}
+    if(done)return;
+    if(e.key==='Enter'){submit();return;}
+    if(e.key==='Backspace'){cur2=cur2.slice(0,-1);draw();return;}
+    if(e.key.length===1&&e.key>='a'&&e.key<='z'&&cur2.length<LEN){cur2+=e.key.toUpperCase();draw();}
+    if(e.key.length===1&&e.key>='A'&&e.key<='Z'&&cur2.length<LEN){cur2+=e.key;draw();}
+  };
+  document.addEventListener('keydown',xg.kdown);draw();
+}
+
+/* ═══════════════════════════════════════════════════════════
    MEMORY MATCH
 ═══════════════════════════════════════════════════════════ */
 function buildMemory(v,cur){
@@ -2518,7 +2656,7 @@ function pushItem(it){
     render();return;
   }
   if(it.gameKey&&!it.hasDiff){stack.push({type:it.gameKey,diff:1});render();return;}
-  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4','mole','memory','asteroids','frogger','galaga','centipede','lunar','sokoban','lightsout','reversi','battleship','numguess','reaction','blackjack','slide'];
+  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4','mole','memory','asteroids','frogger','galaga','centipede','lunar','sokoban','lightsout','reversi','battleship','numguess','reaction','blackjack','slide','tron','wordle'];
   if(it.type&&gameTypes.includes(it.type))stack.push({...it});
   else if(it.menu)stack.push({...it.menu,_sel:0});
   else stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
