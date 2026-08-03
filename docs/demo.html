@@ -333,6 +333,9 @@ const GDIFF={
   dodge:{icon:'🔴',name:'Dodge Ball',opts:[{label:'Easy',desc:'3 balls · slow'},{label:'Normal',desc:'5 balls · medium'},{label:'Hard',desc:'8 balls · fast'}]},
   trivia:{icon:'❓',name:'Trivia Quiz',opts:[{label:'Easy',desc:'5 questions · 30s each'},{label:'Normal',desc:'8 questions · 20s each'},{label:'Hard',desc:'12 questions · 12s each'}]},
   snakex:{icon:'🐍',name:'Snake Extreme',opts:[{label:'Easy',desc:'Portals · slow'},{label:'Normal',desc:'Portals + obstacles'},{label:'Hard',desc:'Many obstacles · fast'}]},
+  pong3:{icon:'🏓',name:'Pong 3-Ball',opts:[{label:'Easy',desc:'Slow AI'},{label:'Normal',desc:'Medium AI'},{label:'Hard',desc:'Fast AI · speeding balls'}]},
+  gridrush:{icon:'⚡',name:'Grid Rush',opts:[{label:'Easy',desc:'Slow trap spread'},{label:'Normal',desc:'Medium'},{label:'Hard',desc:'Fast traps'}]},
+  blockstack:{icon:'🏗️',name:'Block Stacker',opts:[{label:'Easy',desc:'Slow blocks'},{label:'Normal',desc:'Medium speed'},{label:'Hard',desc:'Fast · accelerating'}]},
 };
 function inf(ico,title,body,badge){return{type:'info',ico,title,body,badge};}
 const MAIN={title:'PiFlip',items:[
@@ -465,6 +468,9 @@ const MAIN={title:'PiFlip',items:[
       {icon:'🔴',color:'#E74C3C',label:'Dodge Ball',     desc:'Avoid the balls',         gameKey:'dodge',    hasDiff:true},
       {icon:'❓',color:'#3498DB',label:'Trivia Quiz',    desc:'Answer quickly',          gameKey:'trivia',   hasDiff:true},
       {icon:'🐍',color:'#2ECC71',label:'Snake Extreme',  desc:'Portals + obstacles',     gameKey:'snakex',   hasDiff:true},
+      {icon:'🏓',color:'#4FC3F7',label:'Pong 3-Ball',    desc:'Three balls at once',      gameKey:'pong3',    hasDiff:true},
+      {icon:'⚡',color:'#FFD700',label:'Grid Rush',      desc:'Fill cells · avoid traps', gameKey:'gridrush', hasDiff:true},
+      {icon:'🏗️',color:'#F39C12',label:'Block Stacker',  desc:'Time the drop',           gameKey:'blockstack',hasDiff:true},
     ]}},
   ]}},
   {icon:'⚙️',color:'#8B95A5',label:'Settings',desc:'Device configuration',  ...inf('⚙️','Settings','Brightness, WiFi SSID, device name,\nSPI bus, GPIO pin assignments.','config.ini')},
@@ -589,6 +595,9 @@ function render(){
     dodge:buildDodge,
     trivia:buildTrivia,
     snakex:buildSnakeX,
+    pong3:buildPong3,
+    gridrush:buildGridRush,
+    blockstack:buildBlockStack,
   };
   if(dispatch[cur.type]) dispatch[cur.type](v,cur);
   else buildMenu(v,cur);
@@ -5669,6 +5678,215 @@ function buildSnakeX(v,cur){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   PONG 3-BALL
+═══════════════════════════════════════════════════════════ */
+function buildPong3(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const dlbl=['EASY','NORMAL','HARD'][d];
+  const[cv,ctx]=mkCv(v,'Pong 3-Ball — '+dlbl);
+  const PH=80,PW=8;
+  let lY=GH/2,rY=GH/2;
+  let balls3=[
+    {x:GW/2,y:GH/2,vx:-4,vy:3},
+    {x:GW/2,y:GH/3,vx:3,vy:-2},
+    {x:GW/2,y:GH*2/3,vx:-3,vy:-3},
+  ];
+  let lScore=0,rScore=0,gameOver=false,winner='';
+  const aiSpeed=[3,4,5][d];
+  const keys4={};
+  function step(){
+    if(keys4['ArrowUp']) lY=Math.max(PH/2,lY-5);
+    if(keys4['ArrowDown']) lY=Math.min(GH-PH/2,lY+5);
+    // AI
+    const target=balls3.reduce((best,b)=>Math.abs(b.x-GW)<Math.abs(best.x-GW)?b:best,balls3[0]);
+    rY+=(target.y-rY>0?1:-1)*Math.min(aiSpeed,Math.abs(target.y-rY));
+    rY=Math.max(PH/2,Math.min(GH-PH/2,rY));
+    balls3.forEach((b,i)=>{
+      b.x+=b.vx;b.y+=b.vy;
+      if(b.y<44){b.y=44;b.vy=Math.abs(b.vy);}
+      if(b.y>GH){b.y=GH;b.vy=-Math.abs(b.vy);}
+      // left paddle
+      if(b.x<20&&Math.abs(b.y-lY)<PH/2){b.x=20;b.vx=Math.abs(b.vx)*(1+d*0.05);b.vy+=((b.y-lY)/PH)*3;}
+      // right paddle
+      if(b.x>GW-20&&Math.abs(b.y-rY)<PH/2){b.x=GW-20;b.vx=-Math.abs(b.vx)*(1+d*0.05);}
+      if(b.x<-20){rScore++;balls3[i]={x:GW/2,y:44+Math.random()*(GH-88),vx:4,vy:(Math.random()-0.5)*6};}
+      if(b.x>GW+20){lScore++;balls3[i]={x:GW/2,y:44+Math.random()*(GH-88),vx:-4,vy:(Math.random()-0.5)*6};}
+    });
+    if(lScore>=7){gameOver=true;winner='AI Wins!';}
+    if(rScore>=7){gameOver=true;winner='You Win!';}
+  }
+  function draw(){
+    ctx.fillStyle='#000';ctx.fillRect(0,0,GW,GH);
+    ctx.setLineDash([10,10]);ctx.strokeStyle='#444';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(GW/2,44);ctx.lineTo(GW/2,GH);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#fff';ctx.fillRect(10,lY-PH/2,PW,PH);
+    ctx.fillStyle='#4FC3F7';ctx.fillRect(GW-10-PW,rY-PH/2,PW,PH);
+    balls3.forEach((b,i)=>{
+      const cols=['#E74C3C','#2ECC71','#FFD700'];
+      ctx.beginPath();ctx.arc(b.x,b.y,7,0,Math.PI*2);ctx.fillStyle=cols[i];ctx.fill();
+    });
+    ctx.fillStyle='#fff';ctx.font='bold 18px monospace';ctx.textAlign='center';
+    ctx.fillText(lScore+' : '+rScore,GW/2,26);
+    ctx.fillStyle='#aaa';ctx.font='10px monospace';ctx.fillText('↑↓=Move  Esc=Back',GW/2,GH-5);
+    if(gameOver){
+      ctx.fillStyle='rgba(0,0,0,0.8)';ctx.fillRect(30,GH/2-50,GW-60,100);
+      ctx.fillStyle='#FFD700';ctx.font='bold 20px monospace';ctx.textAlign='center';ctx.fillText(winner,GW/2,GH/2-12);
+      ctx.fillStyle='#fff';ctx.font='13px monospace';ctx.fillText('Enter=Retry  Esc=Back',GW/2,GH/2+20);
+    }
+    ctx.textAlign='left';
+  }
+  xg={raf:null,iid:setInterval(()=>{if(!gameOver)step();draw();},16)};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){goBack();return;}
+    if(gameOver){if(e.key==='Enter'){killAll();buildPong3(v,cur);}return;}
+    keys4[e.key]=true;
+  };
+  xg.kup=e=>{keys4[e.key]=false;};
+  document.addEventListener('keydown',xg.kdown);document.addEventListener('keyup',xg.kup);draw();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   GRID RUSH
+═══════════════════════════════════════════════════════════ */
+function buildGridRush(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const dlbl=['EASY','NORMAL','HARD'][d];
+  const[cv,ctx]=mkCv(v,'Grid Rush — '+dlbl);
+  // Fill grid cells before timer runs out, avoid traps
+  const COLS7=8,ROWS7=7,CS11=34;
+  const OX12=Math.floor((GW-COLS7*CS11)/2),OY12=52;
+  let grid11=Array.from({length:ROWS7},()=>Array(COLS7).fill(0)); // 0=empty,1=filled,2=trap
+  let px5=0,py5=ROWS7-1;
+  let score=0,timers=Array.from({length:ROWS7},()=>Array(COLS7).fill(0));
+  let gameOver=false,frame7=0;
+  const spawnRate=[80,60,45][d];
+  function spawnTrap(){
+    let r=Math.floor(Math.random()*ROWS7),c=Math.floor(Math.random()*COLS7);
+    if(grid11[r][c]===0&&!(r===py5&&c===px5)) grid11[r][c]=2;
+  }
+  grid11[py5][px5]=1;score++;
+  function step(){
+    frame7++;
+    if(frame7%spawnRate===0) spawnTrap();
+    // traps spread occasionally
+    if(frame7%(spawnRate*2)===0){
+      for(let r=0;r<ROWS7;r++) for(let c=0;c<COLS7;c++){
+        if(grid11[r][c]===2){
+          const dirs2=[[0,1],[0,-1],[1,0],[-1,0]];
+          const d2=dirs2[Math.floor(Math.random()*4)];
+          const nr=r+d2[0],nc=c+d2[1];
+          if(nr>=0&&nr<ROWS7&&nc>=0&&nc<COLS7&&grid11[nr][nc]===0) grid11[nr][nc]=2;
+        }
+      }
+    }
+    if(grid11[py5][px5]===2) gameOver=true;
+    const empty=grid11.flat().filter(c2=>c2===0).length;
+    const traps=grid11.flat().filter(c2=>c2===2).length;
+    if(traps>COLS7*ROWS7*0.6) gameOver=true;
+  }
+  function draw(){
+    ctx.fillStyle='#0A0A1A';ctx.fillRect(0,0,GW,GH);
+    for(let r=0;r<ROWS7;r++) for(let c=0;c<COLS7;c++){
+      const x=OX12+c*CS11,y=OY12+r*CS11,v2=grid11[r][c];
+      const isSel=r===py5&&c===px5;
+      ctx.fillStyle=v2===1?'#2ECC71':v2===2?'#E74C3C':'#1A1A2E';
+      ctx.fillRect(x+2,y+2,CS11-4,CS11-4);
+      if(isSel){ctx.strokeStyle='#FFD700';ctx.lineWidth=2;ctx.strokeRect(x+2,y+2,CS11-4,CS11-4);}
+      if(v2===2){ctx.fillStyle='#FF8C00';ctx.font='16px serif';ctx.textAlign='center';ctx.fillText('⚠',x+CS11/2,y+CS11/2+6);}
+    }
+    ctx.fillStyle='#fff';ctx.font='bold 13px monospace';ctx.textAlign='center';
+    ctx.fillText('Score: '+score,GW/2,22);
+    ctx.fillStyle='#aaa';ctx.font='10px monospace';ctx.fillText('Arrows=Move  Esc=Back',GW/2,GH-5);
+    if(gameOver){
+      ctx.fillStyle='rgba(0,0,0,0.8)';ctx.fillRect(30,GH/2-50,GW-60,100);
+      ctx.fillStyle='#E74C3C';ctx.font='bold 20px monospace';ctx.textAlign='center';ctx.fillText('TRAPPED!',GW/2,GH/2-14);
+      ctx.fillStyle='#fff';ctx.font='13px monospace';ctx.fillText('Score: '+score,GW/2,GH/2+10);
+      ctx.fillText('Enter=Retry  Esc=Back',GW/2,GH/2+34);
+    }
+    ctx.textAlign='left';
+  }
+  xg={raf:null,iid:setInterval(()=>{if(!gameOver) step();draw();},16)};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){goBack();return;}
+    if(gameOver){if(e.key==='Enter'){killAll();buildGridRush(v,cur);}return;}
+    let nr=py5,nc=px5;
+    if(e.key==='ArrowUp') nr=Math.max(0,py5-1);
+    else if(e.key==='ArrowDown') nr=Math.min(ROWS7-1,py5+1);
+    else if(e.key==='ArrowLeft') nc=Math.max(0,px5-1);
+    else if(e.key==='ArrowRight') nc=Math.min(COLS7-1,px5+1);
+    if(nr!==py5||nc!==px5){
+      py5=nr;px5=nc;
+      if(grid11[py5][px5]===0){grid11[py5][px5]=1;score++;}
+      else if(grid11[py5][px5]===2){gameOver=true;}
+    }
+    draw();
+  };
+  document.addEventListener('keydown',xg.kdown);draw();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BLOCK STACKER
+═══════════════════════════════════════════════════════════ */
+function buildBlockStack(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const dlbl=['EASY','NORMAL','HARD'][d];
+  const[cv,ctx]=mkCv(v,'Block Stacker — '+dlbl);
+  // Sliding blocks you must stop at right time to stack
+  let stack=[{x:GW/2,w:100,y:GH-40}];
+  let current={x:10,w:100,y:0,moving:true,dir:1};
+  let speed6=[2,3.5,5][d],score=0,gameOver=false;
+  function dropBlock(){
+    const prev=stack[stack.length-1];
+    const left=Math.max(current.x,prev.x),right=Math.min(current.x+current.w,prev.x+prev.w);
+    const overlap=right-left;
+    if(overlap<=0){gameOver=true;return;}
+    score++;
+    const newY=prev.y-30;
+    stack.push({x:left,w:overlap,y:newY});
+    current={x:10,w:overlap,y:newY-30,moving:true,dir:1};
+    speed6=Math.min([2,3.5,5][d]+score*0.1,[8,10,12][d]);
+  }
+  function step(){
+    if(!current.moving) return;
+    current.x+=speed6*current.dir;
+    if(current.x<10){current.dir=1;}
+    if(current.x+current.w>GW-10){current.dir=-1;}
+  }
+  const cameraShift=()=>stack.length>8?(stack.length-8)*30:0;
+  function draw(){
+    ctx.fillStyle='#0A1A2E';ctx.fillRect(0,0,GW,GH);
+    const cam=cameraShift();
+    stack.forEach((b,i)=>{
+      const t=i/stack.length;
+      ctx.fillStyle=`hsl(${200+t*160},70%,50%)`;
+      ctx.fillRect(b.x,b.y+cam,b.w,28);
+      ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;ctx.strokeRect(b.x,b.y+cam,b.w,28);
+    });
+    // current block
+    const cy=current.y+cam;
+    ctx.fillStyle='#FFD700';ctx.fillRect(current.x,cy,current.w,28);
+    ctx.strokeStyle='#FF8C00';ctx.lineWidth=2;ctx.strokeRect(current.x,cy,current.w,28);
+    ctx.fillStyle='#fff';ctx.font='bold 14px monospace';ctx.textAlign='center';
+    ctx.fillText('Score: '+score,GW/2,22);
+    ctx.fillStyle='#aaa';ctx.font='10px monospace';ctx.fillText('Space/Enter=Drop  Esc=Back',GW/2,GH-5);
+    if(gameOver){
+      ctx.fillStyle='rgba(0,0,0,0.8)';ctx.fillRect(30,GH/2-50,GW-60,100);
+      ctx.fillStyle='#E74C3C';ctx.font='bold 20px monospace';ctx.textAlign='center';ctx.fillText('MISSED!',GW/2,GH/2-14);
+      ctx.fillStyle='#fff';ctx.font='13px monospace';ctx.fillText('Score: '+score,GW/2,GH/2+10);
+      ctx.fillText('Enter=Retry  Esc=Back',GW/2,GH/2+34);
+    }
+    ctx.textAlign='left';
+  }
+  xg={raf:null,iid:setInterval(()=>{if(!gameOver)step();draw();},16)};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){goBack();return;}
+    if(gameOver){if(e.key==='Enter'){killAll();buildBlockStack(v,cur);}return;}
+    if(e.key===' '||e.key==='Enter') dropBlock();
+  };
+  document.addEventListener('keydown',xg.kdown);draw();
+}
+
+/* ═══════════════════════════════════════════════════════════
    MEMORY MATCH
 ═══════════════════════════════════════════════════════════ */
 function buildMemory(v,cur){
@@ -6370,7 +6588,7 @@ function pushItem(it){
     render();return;
   }
   if(it.gameKey&&!it.hasDiff){stack.push({type:it.gameKey,diff:1});render();return;}
-  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4','mole','memory','asteroids','frogger','galaga','centipede','lunar','sokoban','lightsout','reversi','battleship','numguess','reaction','blackjack','slide','tron','wordle','mathflash','platform','life','rps','colormatch','darts','checkers','typing','mastermind','hanoi','nim','bubble','slot','bowling','mancala','sudoku','pacman','cardodge','fruitcatch','match3','missile','pinball','gravflip','poker','pipe','maze','numchain','runner','spaceshoot','yahtzee','war','hexgrid','craps','pixelart','gravball','wordsearch','colorflood','fusion','brickx','jumpjack','dodge','trivia','snakex'];
+  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4','mole','memory','asteroids','frogger','galaga','centipede','lunar','sokoban','lightsout','reversi','battleship','numguess','reaction','blackjack','slide','tron','wordle','mathflash','platform','life','rps','colormatch','darts','checkers','typing','mastermind','hanoi','nim','bubble','slot','bowling','mancala','sudoku','pacman','cardodge','fruitcatch','match3','missile','pinball','gravflip','poker','pipe','maze','numchain','runner','spaceshoot','yahtzee','war','hexgrid','craps','pixelart','gravball','wordsearch','colorflood','fusion','brickx','jumpjack','dodge','trivia','snakex','pong3','gridrush','blockstack'];
   if(it.type&&gameTypes.includes(it.type))stack.push({...it});
   else if(it.menu)stack.push({...it.menu,_sel:0});
   else stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
