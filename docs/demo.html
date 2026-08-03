@@ -91,6 +91,20 @@ body{background:radial-gradient(ellipse at top,#0D1420 0%,#050709 70%);min-heigh
 .game-hint{height:18px;display:flex;align-items:center;justify-content:center;font-family:monospace;font-size:9px;color:#2A3A2A;flex-shrink:0;background:#050A05;}
 .snake-hdr{height:28px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:#050D05;font-family:'Courier New',monospace;font-size:12px;color:var(--acc);flex-shrink:0;border-bottom:1px solid #0D1E0D;}
 
+/* ── Difficulty screen ── */
+.diff-wrap{flex:1;display:flex;flex-direction:column;padding:14px 12px;gap:9px;overflow-y:auto;scrollbar-width:none;}
+.diff-ico{font-size:40px;text-align:center;}
+.diff-name{font-size:14px;font-family:'Courier New',monospace;font-weight:700;color:var(--txt);text-align:center;margin-bottom:2px;}
+.diff-opt{display:flex;align-items:center;gap:11px;padding:11px 13px;background:var(--elev);border:1px solid var(--brd);border-radius:8px;cursor:pointer;transition:all .1s;}
+.diff-opt:hover{border-color:rgba(31,204,124,.35);background:rgba(31,204,124,.04);}
+.diff-opt.sel{border-color:var(--acc);background:rgba(31,204,124,.1);}
+.diff-radio{width:16px;height:16px;border-radius:50%;border:2px solid var(--mut);flex-shrink:0;position:relative;}
+.diff-opt.sel .diff-radio{border-color:var(--acc);}
+.diff-opt.sel .diff-radio::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:8px;height:8px;border-radius:50%;background:var(--acc);}
+.diff-lbl{font-size:12px;font-family:'Courier New',monospace;font-weight:700;color:var(--txt);}
+.diff-desc{font-size:10px;color:var(--mut);margin-top:2px;}
+.diff-start{padding:12px;background:rgba(31,204,124,.12);border:1px solid rgba(31,204,124,.35);border-radius:8px;text-align:center;cursor:pointer;font-family:'Courier New',monospace;font-size:13px;font-weight:700;color:var(--acc);transition:background .1s;letter-spacing:.5px;}
+.diff-start:hover{background:rgba(31,204,124,.22);}
 /* ── Below device ── */
 .chips{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:20px;max-width:380px;}
 .chip{background:rgba(31,204,124,.06);border:1px solid rgba(31,204,124,.18);color:var(--mut);font-family:'Courier New',monospace;font-size:10px;padding:3px 9px;border-radius:20px;}
@@ -237,10 +251,22 @@ function aiMv(st){
 ═══════════════════════════════════════════════════════════ */
 const TP={I:{c:[[0,1],[1,1],[2,1],[3,1]],col:'#00E5E5'},O:{c:[[0,0],[1,0],[0,1],[1,1]],col:'#E5E500'},T:{c:[[0,1],[1,1],[2,1],[1,0]],col:'#9500E5'},S:{c:[[0,1],[1,1],[1,0],[2,0]],col:'#00E500'},Z:{c:[[0,0],[1,0],[1,1],[2,1]],col:'#E50000'},J:{c:[[0,0],[0,1],[1,1],[2,1]],col:'#0000E5'},L:{c:[[2,0],[0,1],[1,1],[2,1]],col:'#E59500'}};
 const TGW=10,TGH=20,TCW=15,TCH=15;
+const GW=300,GH=382; /* game canvas size */
 
 /* ═══════════════════════════════════════════════════════════
    MENU DATA
 ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   DIFFICULTY CONFIGS
+═══════════════════════════════════════════════════════════ */
+const GDIFF={
+  snake:{icon:'🐍',name:'Snake',opts:[{label:'Easy',desc:'Slow · no walls'},{label:'Normal',desc:'Standard speed'},{label:'Hard',desc:'Fast + walls'}]},
+  flappy:{icon:'🐦',name:'Flappy Bird',opts:[{label:'Easy',desc:'Wide gaps · slow'},{label:'Normal',desc:'Classic Flappy'},{label:'Hard',desc:'Narrow gaps · fast'}]},
+  tetris:{icon:'🟦',name:'Tetris',opts:[{label:'Level 1',desc:'Slow start'},{label:'Level 5',desc:'Medium speed'},{label:'Level 10',desc:'Fast from start'}]},
+  'pong-ai':{icon:'🏓',name:'Pong vs AI',opts:[{label:'Rookie',desc:'Slow AI'},{label:'Standard',desc:'Medium AI'},{label:'Ace',desc:'Fast AI · hard to beat'}]},
+  'chess-ai':{icon:'♟️',name:'Chess vs AI',opts:[{label:'Easy',desc:'Shallow search'},{label:'Medium',desc:'Depth 2 minimax'},{label:'Hard',desc:'Depth 3 (slow)'}]},
+  breakout:{icon:'🧱',name:'Breakout',opts:[{label:'Casual',desc:'3 balls · wide paddle'},{label:'Classic',desc:'1 ball · standard'},{label:'Expert',desc:'1 ball · narrow · fast'}]},
+};
 function inf(ico,title,body,badge){return{type:'info',ico,title,body,badge};}
 const MAIN={title:'PiFlip',items:[
   {icon:'📡',color:'#FF8C42',label:'Sub-GHz',desc:'433 / 315 / 868 MHz',menu:{title:'Sub-GHz',items:[
@@ -277,14 +303,21 @@ const MAIN={title:'PiFlip',items:[
     {icon:'📡',label:'Share Signal',  desc:'Broadcast capture',  ...inf('📡','Share Signal','Capture a Sub-GHz signal first.','Ready')},
     {icon:'🌐',label:'Hotspot',       desc:'PiFlip-Mesh WiFi AP',type:'hotspot'},
   ]}},
-  {icon:'🎮',color:'#FF6B81',label:'Games',desc:'Snake · Tetris · Pong · Chess · Flappy',menu:{title:'Games',items:[
-    {icon:'🐍',label:'Snake',         desc:'Classic snake',              type:'snake'},
-    {icon:'🟦',label:'Tetris',        desc:'7 pieces · ghost · levels',  type:'tetris'},
-    {icon:'🏓',label:'Pong vs AI',    desc:'First to 7 · W/S to move',   type:'pong-ai'},
-    {icon:'🏓',label:'Pong 2 Player', desc:'W/S and ↑↓ arrows',         type:'pong-2p'},
-    {icon:'♟️', label:'Chess vs AI',  desc:'Minimax depth 2',            type:'chess-ai'},
-    {icon:'♟️', label:'Chess 2 Player',desc:'Click to select & move',    type:'chess-2p'},
-    {icon:'🐦',label:'Flappy Bird',   desc:'Space / click to flap',      type:'flappy'},
+  {icon:'🎮',color:'#FF6B81',label:'Games',desc:'Arcade · Puzzle · Board · 8 games',menu:{title:'Games',items:[
+    {icon:'🕹',color:'#FF6B81',label:'Arcade',desc:'Snake · Flappy · Breakout',menu:{title:'Arcade',items:[
+      {icon:'🐍',color:'#1FCC7C',label:'Snake',         desc:'Classic snake',       gameKey:'snake',   hasDiff:true},
+      {icon:'🐦',color:'#FFD93D',label:'Flappy Bird',   desc:'Tap to flap',         gameKey:'flappy',  hasDiff:true},
+      {icon:'🧱',color:'#FF8C42',label:'Breakout',      desc:'Break all the bricks',gameKey:'breakout',hasDiff:true},
+    ]}},
+    {icon:'🧩',color:'#9B59B6',label:'Puzzle',desc:'Tetris',menu:{title:'Puzzle',items:[
+      {icon:'🟦',color:'#2DA8FF',label:'Tetris',        desc:'7 pieces · ghost · levels',gameKey:'tetris',hasDiff:true},
+    ]}},
+    {icon:'♟',color:'#5B9EFF',label:'Board',desc:'Chess · Pong',menu:{title:'Board',items:[
+      {icon:'♟️',color:'#E2E8F0',label:'Chess vs AI',   desc:'Minimax AI',          gameKey:'chess-ai',hasDiff:true},
+      {icon:'♟️',color:'#8B95A5',label:'Chess 2 Player',desc:'Click to move',       type:'chess-2p'},
+      {icon:'🏓',color:'#1FCC7C',label:'Pong vs AI',    desc:'First to 7',          gameKey:'pong-ai', hasDiff:true},
+      {icon:'🏓',color:'#445566',label:'Pong 2 Player', desc:'W/S and ↑↓',         type:'pong-2p'},
+    ]}},
   ]}},
   {icon:'⚙️',color:'#8B95A5',label:'Settings',desc:'Device configuration',  ...inf('⚙️','Settings','Brightness, WiFi SSID, device name,\nSPI bus, GPIO pin assignments.','config.ini')},
   {icon:'🐱',color:'#FFD93D',label:'Cats',    desc:'Nyan cat · loaf · walk',...inf('🐱','Cat Animations','Three animations: Nyan cat, bread loaf, and walking cat.','very important')},
@@ -295,7 +328,7 @@ const MAIN={title:'PiFlip',items:[
    STATE
 ═══════════════════════════════════════════════════════════ */
 let stack=[MAIN],menuSel=0,hotspotOn=false;
-let sg=null,tg=null,pg=null,fg=null,cg=null;
+let sg=null,tg=null,pg=null,fg=null,cg=null,xg=null,dg=null;
 // Simulated device state for widgets
 const dev={bat:72,wifi:3,btOn:false,sig:2};
 
@@ -314,6 +347,15 @@ function killAll(){
   if(pg){clearInterval(pg.iid);if(pg.kdown)document.removeEventListener('keydown',pg.kdown);if(pg.kup)document.removeEventListener('keyup',pg.kup);pg=null;}
   if(fg){if(fg.rafId)cancelAnimationFrame(fg.rafId);if(fg.kdown)document.removeEventListener('keydown',fg.kdown);fg=null;}
   if(cg){if(cg.kdown)document.removeEventListener('keydown',cg.kdown);cg=null;}
+  if(xg){if(xg.raf)cancelAnimationFrame(xg.raf);if(xg.iid)clearInterval(xg.iid);if(xg.kdown)document.removeEventListener('keydown',xg.kdown);if(xg.kup)document.removeEventListener('keyup',xg.kup);xg=null;}
+  if(dg){document.removeEventListener('keydown',dg);dg=null;}
+}
+/* Shared canvas setup for new games */
+function mkCv(v,title){
+  v.appendChild(mkTbar(title,true));
+  const cv=document.createElement('canvas');cv.width=GW;cv.height=GH;
+  cv.style.cssText='display:block;flex:1;background:#0A0A15;';v.appendChild(cv);
+  return[cv,cv.getContext('2d')];
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -325,7 +367,14 @@ function render(){
   el.innerHTML='';
   const v=document.createElement('div');
   v.style.cssText='display:flex;flex-direction:column;height:100%;';
-  const dispatch={snake:buildSnake,tetris:buildTetris,'pong-ai':v=>buildPong(v,true),'pong-2p':v=>buildPong(v,false),'chess-ai':v=>buildChess(v,true),'chess-2p':v=>buildChess(v,false),flappy:buildFlappy,info:buildInfo,hotspot:buildHotspot};
+  const dispatch={
+    diff:buildDiffScreen,
+    snake:buildSnake,tetris:buildTetris,
+    'pong-ai':(v,c)=>buildPong(v,true,c),'pong-2p':(v,c)=>buildPong(v,false,c),
+    'chess-ai':(v,c)=>buildChess(v,true,c),'chess-2p':(v,c)=>buildChess(v,false,c),
+    flappy:buildFlappy,info:buildInfo,hotspot:buildHotspot,
+    breakout:buildBreakout,
+  };
   if(dispatch[cur.type]) dispatch[cur.type](v,cur);
   else buildMenu(v,cur);
   el.appendChild(v);
@@ -396,13 +445,16 @@ function buildHotspot(v){
    SNAKE
 ═══════════════════════════════════════════════════════════ */
 const SCW=12,SCH=12,SGW=25,SGH=30;
-function buildSnake(v){
-  v.appendChild(mkTbar('SNAKE',true));
+function buildSnake(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const spd=[200,130,70][d];const walls=d===2;
+  const dlabel=['EASY','NORMAL','HARD'][d];
+  v.appendChild(mkTbar('SNAKE — '+dlabel,true));
   const hdr=document.createElement('div');hdr.className='snake-hdr';hdr.innerHTML='<span>SNAKE</span><span id="sc">Score: 0</span>';v.appendChild(hdr);
   const cv=document.createElement('canvas');cv.width=SGW*SCW;cv.height=SGH*SCH;cv.className='game-canvas';cv.style.flex='1';v.appendChild(cv);
   const hint=document.createElement('div');hint.className='game-hint';hint.textContent='Tap = pause · Arrow/WASD to steer · Q = back';v.appendChild(hint);
   const ctx=cv.getContext('2d');const rnd=n=>Math.floor(Math.random()*n);
-  sg={snake:[{x:12,y:15},{x:11,y:15},{x:10,y:15}],dir:{x:1,y:0},nd:{x:1,y:0},food:null,score:0,alive:true,paused:false,iid:null};
+  sg={snake:[{x:12,y:15},{x:11,y:15},{x:10,y:15}],dir:{x:1,y:0},nd:{x:1,y:0},food:null,score:0,alive:true,paused:false,iid:null,walls};
   function food(){const occ=new Set(sg.snake.map(p=>p.x+','+p.y));let p;do{p={x:rnd(SGW),y:rnd(SGH)}}while(occ.has(p.x+','+p.y));sg.food=p;}food();
   function draw(){
     ctx.fillStyle='#000';ctx.fillRect(0,0,cv.width,cv.height);
@@ -413,8 +465,8 @@ function buildSnake(v){
     if(sg.paused&&sg.alive){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,0,cv.width,cv.height);ctx.fillStyle='#1FCC7C';ctx.font='bold 13px monospace';ctx.textAlign='center';ctx.fillText('PAUSED',cv.width/2,cv.height/2);}
     const sc=document.getElementById('sc');if(sc)sc.textContent='Score: '+sg.score;
   }
-  function step(){if(!sg.alive||sg.paused)return;sg.dir=sg.nd;const h={x:sg.snake[0].x+sg.dir.x,y:sg.snake[0].y+sg.dir.y};if(h.x<0||h.x>=SGW||h.y<0||h.y>=SGH){sg.alive=false;draw();return;}if(sg.snake.some(s=>s.x===h.x&&s.y===h.y)){sg.alive=false;draw();return;}sg.snake.unshift(h);if(h.x===sg.food.x&&h.y===sg.food.y){sg.score+=10;food();}else sg.snake.pop();draw();}
-  sg.iid=setInterval(step,160);draw();
+  function step(){if(!sg.alive||sg.paused)return;sg.dir=sg.nd;const h={x:sg.snake[0].x+sg.dir.x,y:sg.snake[0].y+sg.dir.y};if(sg.walls&&(h.x<0||h.x>=SGW||h.y<0||h.y>=SGH)){sg.alive=false;draw();return;}h.x=(h.x+SGW)%SGW;h.y=(h.y+SGH)%SGH;if(sg.snake.some(s=>s.x===h.x&&s.y===h.y)){sg.alive=false;draw();return;}sg.snake.unshift(h);if(h.x===sg.food.x&&h.y===sg.food.y){sg.score+=10;food();}else sg.snake.pop();draw();}
+  sg.iid=setInterval(step,spd);draw();
   cv.addEventListener('click',()=>{if(!sg)return;if(!sg.alive){sg.snake=[{x:12,y:15},{x:11,y:15},{x:10,y:15}];sg.dir={x:1,y:0};sg.nd={x:1,y:0};sg.score=0;sg.alive=true;food();}else sg.paused=!sg.paused;});
 }
 
@@ -652,11 +704,128 @@ function startChess(cv,vsAI){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   DIFFICULTY SCREEN
+═══════════════════════════════════════════════════════════ */
+function buildDiffScreen(v,cur){
+  const cfg=GDIFF[cur.gameKey];if(!cfg){goBack();return;}
+  v.appendChild(mkTbar(cfg.name,true));
+  const wrap=document.createElement('div');wrap.className='diff-wrap';
+  let sel=cur._ds!=null?cur._ds:1;
+  function redraw(){
+    wrap.innerHTML=`<div class="diff-ico">${cfg.icon}</div><div class="diff-name">${cfg.name}</div>`;
+    cfg.opts.forEach((opt,i)=>{
+      const d=document.createElement('div');d.className='diff-opt'+(i===sel?' sel':'');
+      d.innerHTML=`<div class="diff-radio"></div><div><div class="diff-lbl">${opt.label}</div><div class="diff-desc">${opt.desc}</div></div>`;
+      d.onclick=()=>{sel=i;cur._ds=i;redraw();};
+      wrap.appendChild(d);
+    });
+    const btn=document.createElement('div');btn.className='diff-start';btn.textContent='▶  START GAME';
+    btn.onclick=()=>{stack.pop();stack.push({type:cur.gameKey,diff:sel});render();};
+    wrap.appendChild(btn);
+  }
+  redraw();v.appendChild(wrap);
+  dg=e=>{
+    if(e.key==='ArrowUp'||e.key==='w'){e.preventDefault();sel=Math.max(0,sel-1);cur._ds=sel;redraw();}
+    else if(e.key==='ArrowDown'||e.key==='s'){e.preventDefault();sel=Math.min(cfg.opts.length-1,sel+1);cur._ds=sel;redraw();}
+    else if(e.key==='Enter'||e.key===' '){e.preventDefault();stack.pop();stack.push({type:cur.gameKey,diff:sel});render();}
+    else if(e.key==='Escape'||e.key==='Backspace'){e.preventDefault();goBack();}
+  };
+  document.addEventListener('keydown',dg);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BREAKOUT
+═══════════════════════════════════════════════════════════ */
+function buildBreakout(v,cur){
+  const d=cur.diff||1;
+  const PW=[70,50,36][d], BALLS=[3,1,1][d], SPD=[3.5,4.5,5.5][d];
+  const ROWS=6,COLS=10,BW=28,BH=10,BX0=5,BY0=6;
+  const BCOLS=['#FF4757','#FF8C42','#FFD93D','#1FCC7C','#2DA8FF','#9B59B6'];
+  const[cv,ctx]=mkCv(v,'Breakout');
+  let bricks,px,bx,by,bvx,bvy,lives,score,won,lost;
+  function rst(){
+    bricks=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)bricks.push({x:BX0+c*(BW+1),y:BY0+r*(BH+4),col:BCOLS[r],alive:true});
+    px=GW/2;bx=GW/2;by=GH-56;bvx=SPD*(Math.random()>.5?1:-1);bvy=-SPD;lives=BALLS;score=0;won=false;lost=false;
+  }
+  rst();
+  function draw(){
+    ctx.fillStyle='#0A0A15';ctx.fillRect(0,0,GW,GH);
+    // HUD
+    ctx.fillStyle='#1FCC7C';ctx.font='bold 11px monospace';ctx.textAlign='left';ctx.fillText('SCORE: '+score,8,20);
+    ctx.textAlign='center';ctx.fillText(['CASUAL','CLASSIC','EXPERT'][d],GW/2,20);
+    ctx.textAlign='right';ctx.fillText('BALLS: '+lives,GW-8,20);
+    // Bricks
+    bricks.forEach(b=>{if(!b.alive)return;ctx.fillStyle=b.col;ctx.fillRect(b.x,b.y,BW,BH);ctx.fillStyle='rgba(255,255,255,.25)';ctx.fillRect(b.x,b.y,BW,3);ctx.fillRect(b.x,b.y,2,BH);});
+    // Paddle
+    ctx.fillStyle='#E2E8F0';ctx.beginPath();ctx.roundRect&&ctx.roundRect(px-PW/2,GH-22,PW,8,4);if(!ctx.roundRect){ctx.fillRect(px-PW/2,GH-22,PW,8);}ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.4)';ctx.fillRect(px-PW/2,GH-22,PW,3);
+    // Ball
+    ctx.fillStyle='#FFD93D';ctx.beginPath();ctx.arc(bx,by,7,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(255,255,255,.5)';ctx.beginPath();ctx.arc(bx-2,by-2,2,0,Math.PI*2);ctx.fill();
+    // Overlays
+    if(won){
+      ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(0,0,GW,GH);
+      ctx.fillStyle='#1FCC7C';ctx.font='bold 18px monospace';ctx.textAlign='center';ctx.fillText('YOU WIN!',GW/2,GH/2-14);
+      ctx.fillStyle='#E2E8F0';ctx.font='12px monospace';ctx.fillText('Score: '+score,GW/2,GH/2+6);
+      ctx.fillStyle='#8B95A5';ctx.fillText('R restart · Esc menu',GW/2,GH/2+24);
+    }
+    if(lost){
+      ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(0,0,GW,GH);
+      ctx.fillStyle='#FF4757';ctx.font='bold 18px monospace';ctx.textAlign='center';ctx.fillText('GAME OVER',GW/2,GH/2-14);
+      ctx.fillStyle='#E2E8F0';ctx.font='12px monospace';ctx.fillText('Score: '+score,GW/2,GH/2+6);
+      ctx.fillStyle='#8B95A5';ctx.fillText('R restart · Esc menu',GW/2,GH/2+24);
+    }
+  }
+  function step(){
+    if(won||lost)return;
+    if(xg.keys.left)px=Math.max(PW/2,px-5);
+    if(xg.keys.right)px=Math.min(GW-PW/2,px+5);
+    bx+=bvx;by+=bvy;
+    if(bx-7<=0){bx=7;bvx=Math.abs(bvx);}
+    if(bx+7>=GW){bx=GW-7;bvx=-Math.abs(bvx);}
+    if(by-7<=28){by=35;bvy=Math.abs(bvy);}
+    // Paddle
+    if(by+7>=GH-22&&by-7<=GH-14&&bx>=px-PW/2&&bx<=px+PW/2){
+      const rel=(bx-(px-PW/2))/PW-.5;bvx=rel*SPD*2.5;bvy=-Math.abs(bvy)-0.1;by=GH-29;
+    }
+    // Out of bounds
+    if(by>GH+20){lives--;if(lives<=0)lost=true;else{bx=GW/2;by=GH-56;bvx=SPD*(Math.random()>.5?1:-1);bvy=-SPD;}}
+    // Bricks
+    for(const b of bricks){
+      if(!b.alive)continue;
+      if(bx+7>b.x&&bx-7<b.x+BW&&by+7>b.y&&by-7<b.y+BH){
+        b.alive=false;score+=10;
+        const ovX=Math.min(bx+7-b.x,b.x+BW-(bx-7));
+        const ovY=Math.min(by+7-b.y,b.y+BH-(by-7));
+        if(ovX<ovY)bvx=-bvx;else bvy=-bvy;
+        break;
+      }
+    }
+    if(bricks.every(b=>!b.alive))won=true;
+  }
+  xg={keys:{},iid:setInterval(()=>{step();draw();},16),raf:null};
+  xg.kdown=e=>{
+    if(e.key==='Escape'||e.key==='q'){e.preventDefault();goBack();return;}
+    if((e.key==='r'||e.key==='R')&&(won||lost)){rst();return;}
+    if(e.key==='ArrowLeft'||e.key==='a')xg.keys.left=true;
+    if(e.key==='ArrowRight'||e.key==='d')xg.keys.right=true;
+  };
+  xg.kup=e=>{if(e.key==='ArrowLeft'||e.key==='a')delete xg.keys.left;if(e.key==='ArrowRight'||e.key==='d')delete xg.keys.right;};
+  document.addEventListener('keydown',xg.kdown);document.addEventListener('keyup',xg.kup);
+  draw();
+}
+
+/* ═══════════════════════════════════════════════════════════
    NAVIGATION
 ═══════════════════════════════════════════════════════════ */
 function pushItem(it){
   stack[stack.length-1]._sel=menuSel;menuSel=0;
-  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info'];
+  if(it.hasDiff&&it.gameKey){
+    // Show difficulty selection screen
+    stack.push({type:'diff',gameKey:it.gameKey,_ds:1});
+    render();return;
+  }
+  if(it.gameKey&&!it.hasDiff){stack.push({type:it.gameKey,diff:1});render();return;}
+  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout'];
   if(it.type&&gameTypes.includes(it.type))stack.push({...it});
   else if(it.menu)stack.push({...it.menu,_sel:0});
   else stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
