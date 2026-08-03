@@ -269,6 +269,7 @@ const GDIFF={
   g2048:{icon:'🔢',name:'2048',opts:[{label:'4×4',desc:'Classic board'},{label:'5×5',desc:'More room to play'},{label:'3×3',desc:'Tight · challenging'}]},
   ttt:{icon:'❌',name:'Tic-Tac-Toe',opts:[{label:'Easy',desc:'AI moves randomly'},{label:'Medium',desc:'AI blocks your wins'},{label:'Hard',desc:'Perfect minimax AI'}]},
   simon:{icon:'🔵',name:'Simon Says',opts:[{label:'Easy',desc:'Slow flashes'},{label:'Normal',desc:'Medium speed'},{label:'Hard',desc:'Fast flashes'}]},
+  mines:{icon:'💣',name:'Minesweeper',opts:[{label:'Beginner',desc:'9×9 · 10 mines'},{label:'Intermediate',desc:'12×10 · 20 mines'},{label:'Expert',desc:'16×10 · 40 mines'}]},
 };
 function inf(ico,title,body,badge){return{type:'info',ico,title,body,badge};}
 const MAIN={title:'PiFlip',items:[
@@ -316,6 +317,7 @@ const MAIN={title:'PiFlip',items:[
     {icon:'🧩',color:'#9B59B6',label:'Puzzle',desc:'Tetris · 2048',menu:{title:'Puzzle',items:[
       {icon:'🟦',color:'#2DA8FF',label:'Tetris',        desc:'7 pieces · ghost · levels',gameKey:'tetris',hasDiff:true},
       {icon:'🔢',color:'#FF8C42',label:'2048',          desc:'Slide tiles to merge',      gameKey:'g2048', hasDiff:true},
+      {icon:'💣',color:'#FF4757',label:'Minesweeper',   desc:'Find the mines',            gameKey:'mines', hasDiff:true},
     ]}},
     {icon:'♟',color:'#5B9EFF',label:'Board',desc:'Chess · Pong',menu:{title:'Board',items:[
       {icon:'♟️',color:'#E2E8F0',label:'Chess vs AI',   desc:'Minimax AI',          gameKey:'chess-ai',hasDiff:true},
@@ -383,6 +385,7 @@ function render(){
     g2048:build2048,
     ttt:buildTTT,
     simon:buildSimon,
+    mines:buildMines,
   };
   if(dispatch[cur.type]) dispatch[cur.type](v,cur);
   else buildMenu(v,cur);
@@ -893,6 +896,96 @@ function build2048(v,cur){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   MINESWEEPER
+═══════════════════════════════════════════════════════════ */
+function buildMines(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  // [cols, rows, mines]
+  const CFG=[[9,9,10],[12,10,20],[16,10,40]][d];
+  const[COLS,ROWS,MINES]=CFG,dlbl=['BEGINNER','INTERMEDIATE','EXPERT'][d];
+  const CS=Math.floor(290/COLS),OX=(GW-COLS*CS)/2,OY=42;
+  const[cv,ctx]=mkCv(v,'Minesweeper — '+dlbl);
+  let grid,revealed,flagged,mines,started,dead,won,remaining,t=0,tid=null;
+  function rst(){
+    grid=Array.from({length:ROWS},()=>Array(COLS).fill(0));
+    revealed=Array.from({length:ROWS},()=>Array(COLS).fill(false));
+    flagged=Array.from({length:ROWS},()=>Array(COLS).fill(false));
+    mines=new Set();started=false;dead=false;won=false;t=0;remaining=ROWS*COLS-MINES;
+    if(tid){clearInterval(tid);tid=null;}draw();
+  }
+  function initMines(sr,sc){
+    while(mines.size<MINES){const r=Math.floor(Math.random()*ROWS),c=Math.floor(Math.random()*COLS);if(!(r===sr&&c===sc))mines.add(r+','+c);}
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){if(mines.has(r+','+c)){grid[r][c]=-1;continue;}let n=0;for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){const nr=r+dr,nc=c+dc;if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&mines.has(nr+','+nc))n++;}grid[r][c]=n;}
+    started=true;tid=setInterval(()=>{if(!xg)return;t++;draw();},1000);
+  }
+  function reveal(r,c){
+    if(r<0||r>=ROWS||c<0||c>=COLS||revealed[r][c]||flagged[r][c])return;
+    revealed[r][c]=true;remaining--;
+    if(grid[r][c]===0){for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)reveal(r+dr,c+dc);}
+  }
+  function click(r,c,flag){
+    if(dead||won)return;
+    if(flag){if(!revealed[r][c])flagged[r][c]=!flagged[r][c];draw();return;}
+    if(flagged[r][c])return;
+    if(!started)initMines(r,c);
+    if(mines.has(r+','+c)){dead=true;revealed[r][c]=true;if(tid){clearInterval(tid);tid=null;}draw();return;}
+    reveal(r,c);if(remaining<=0){won=true;if(tid){clearInterval(tid);tid=null;}}draw();
+  }
+  const NCOLS=['','#2DA8FF','#1FCC7C','#FF4757','#0000FF','#800000','#008080','#000','#888'];
+  function draw(){
+    ctx.fillStyle='#0B0F18';ctx.fillRect(0,0,GW,GH);
+    // Header
+    ctx.fillStyle='#FF4757';ctx.font='bold 12px monospace';ctx.textAlign='left';
+    ctx.fillText('💣 '+(MINES-[...flagged].flat().filter(Boolean).length),8,22);
+    ctx.fillStyle='#1FCC7C';ctx.font='bold 12px monospace';ctx.textAlign='center';ctx.fillText(dlbl,GW/2,22);
+    ctx.fillStyle='#2DA8FF';ctx.textAlign='right';ctx.fillText('⏱ '+t+'s',GW-8,22);
+    // Grid
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      const x=OX+c*CS,y=OY+r*CS;
+      if(revealed[r][c]){
+        ctx.fillStyle=dead&&mines.has(r+','+c)&&revealed[r][c]?'#FF4757':'#1A2438';ctx.fillRect(x,y,CS-1,CS-1);
+        if(grid[r][c]===-1){ctx.fillStyle='#0B0F18';ctx.font=`bold ${CS-4}px serif`;ctx.textAlign='center';ctx.fillText('💣',x+CS/2,y+CS-2);}
+        else if(grid[r][c]>0){ctx.fillStyle=NCOLS[grid[r][c]];ctx.font=`bold ${Math.floor(CS*.55)}px monospace`;ctx.textAlign='center';ctx.fillText(grid[r][c],x+CS/2,y+CS/2+Math.floor(CS*.2));}
+      } else {
+        ctx.fillStyle='#2A3A50';ctx.fillRect(x,y,CS-1,CS-1);
+        ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(x,y,CS-1,2);ctx.fillRect(x,y,2,CS-1);
+        ctx.fillStyle='rgba(0,0,0,.2)';ctx.fillRect(x,y+CS-3,CS-1,2);ctx.fillRect(x+CS-3,y,2,CS-1);
+        if(flagged[r][c]){ctx.font=`${Math.floor(CS*.6)}px serif`;ctx.textAlign='center';ctx.fillText('🚩',x+CS/2,y+CS-3);}
+      }
+    }
+    if(won||dead){
+      ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillRect(0,0,GW,GH);
+      ctx.fillStyle=won?'#1FCC7C':'#FF4757';ctx.font='bold 18px monospace';ctx.textAlign='center';
+      ctx.fillText(won?'YOU WIN! 🎉':'BOOM! 💥',GW/2,GH/2-16);
+      ctx.fillStyle='#E2E8F0';ctx.font='11px monospace';ctx.fillText('Time: '+t+'s',GW/2,GH/2+4);
+      ctx.fillStyle='#8B95A5';ctx.fillText('R restart · Esc menu',GW/2,GH/2+22);
+    }
+  }
+  rst();
+  let rightHeld=false;
+  cv.addEventListener('contextmenu',e=>{e.preventDefault();});
+  cv.addEventListener('mousedown',e=>{
+    if(e.button===2)rightHeld=true;
+  });
+  cv.addEventListener('mouseup',e=>{
+    if(dead||won){rst();return;}
+    const rect=cv.getBoundingClientRect();
+    const cx=(e.clientX-rect.left)*(GW/rect.width),cy=(e.clientY-rect.top)*(GH/rect.height);
+    const col=Math.floor((cx-OX)/CS),row=Math.floor((cy-OY)/CS);
+    if(row>=0&&row<ROWS&&col>=0&&col<COLS){
+      if(e.button===2||rightHeld){click(row,col,true);rightHeld=false;}
+      else click(row,col,false);
+    }
+  });
+  xg={raf:null,iid:null};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){e.preventDefault();if(tid)clearInterval(tid);goBack();}
+    if(e.key==='r'||e.key==='R')rst();
+  };
+  document.addEventListener('keydown',xg.kdown);
+}
+
+/* ═══════════════════════════════════════════════════════════
    SIMON SAYS
 ═══════════════════════════════════════════════════════════ */
 function buildSimon(v,cur){
@@ -1075,7 +1168,7 @@ function pushItem(it){
     render();return;
   }
   if(it.gameKey&&!it.hasDiff){stack.push({type:it.gameKey,diff:1});render();return;}
-  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon'];
+  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines'];
   if(it.type&&gameTypes.includes(it.type))stack.push({...it});
   else if(it.menu)stack.push({...it.menu,_sel:0});
   else stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
