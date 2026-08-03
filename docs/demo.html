@@ -336,6 +336,9 @@ const GDIFF={
   pong3:{icon:'🏓',name:'Pong 3-Ball',opts:[{label:'Easy',desc:'Slow AI'},{label:'Normal',desc:'Medium AI'},{label:'Hard',desc:'Fast AI · speeding balls'}]},
   gridrush:{icon:'⚡',name:'Grid Rush',opts:[{label:'Easy',desc:'Slow trap spread'},{label:'Normal',desc:'Medium'},{label:'Hard',desc:'Fast traps'}]},
   blockstack:{icon:'🏗️',name:'Block Stacker',opts:[{label:'Easy',desc:'Slow blocks'},{label:'Normal',desc:'Medium speed'},{label:'Hard',desc:'Fast · accelerating'}]},
+  flappyx:{icon:'🐦',name:'Flappy Extreme',opts:[{label:'Easy',desc:'Wide gaps · coins'},{label:'Normal',desc:'Standard'},{label:'Hard',desc:'Narrow · fast'}]},
+  virus:{icon:'🦠',name:'Virus Spread',opts:[{label:'Easy',desc:'5 cures to stop spread'},{label:'Normal',desc:'4 cures'},{label:'Hard',desc:'3 cures only'}]},
+  beattap:{icon:'🎵',name:'Beat Tap',opts:[{label:'Easy',desc:'Slow notes · 5 miss ok'},{label:'Normal',desc:'Medium · 4 miss'},{label:'Hard',desc:'Fast · 3 miss'}]},
 };
 function inf(ico,title,body,badge){return{type:'info',ico,title,body,badge};}
 const MAIN={title:'PiFlip',items:[
@@ -471,6 +474,9 @@ const MAIN={title:'PiFlip',items:[
       {icon:'🏓',color:'#4FC3F7',label:'Pong 3-Ball',    desc:'Three balls at once',      gameKey:'pong3',    hasDiff:true},
       {icon:'⚡',color:'#FFD700',label:'Grid Rush',      desc:'Fill cells · avoid traps', gameKey:'gridrush', hasDiff:true},
       {icon:'🏗️',color:'#F39C12',label:'Block Stacker',  desc:'Time the drop',           gameKey:'blockstack',hasDiff:true},
+      {icon:'🐦',color:'#FFD700',label:'Flappy Extreme', desc:'Coins + obstacles',        gameKey:'flappyx',  hasDiff:true},
+      {icon:'🦠',color:'#E74C3C',label:'Virus Spread',   desc:'Cure the infection',       gameKey:'virus',    hasDiff:true},
+      {icon:'🎵',color:'#9B59B6',label:'Beat Tap',       desc:'Match the rhythm',         gameKey:'beattap',  hasDiff:true},
     ]}},
   ]}},
   {icon:'⚙️',color:'#8B95A5',label:'Settings',desc:'Device configuration',  ...inf('⚙️','Settings','Brightness, WiFi SSID, device name,\nSPI bus, GPIO pin assignments.','config.ini')},
@@ -598,6 +604,9 @@ function render(){
     pong3:buildPong3,
     gridrush:buildGridRush,
     blockstack:buildBlockStack,
+    flappyx:buildFlappyX,
+    virus:buildVirus,
+    beattap:buildBeatTap,
   };
   if(dispatch[cur.type]) dispatch[cur.type](v,cur);
   else buildMenu(v,cur);
@@ -5887,6 +5896,230 @@ function buildBlockStack(v,cur){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   FLAPPY EXTREME (obstacles + coins)
+═══════════════════════════════════════════════════════════ */
+function buildFlappyX(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const dlbl=['EASY','NORMAL','HARD'][d];
+  const[cv,ctx]=mkCv(v,'Flappy Extreme — '+dlbl);
+  let by2=GH/2,bvy=0,score=0,coins2=[],pipes2=[],frame8=0,gameOver=false,started=false;
+  const grav4=0.4+d*0.1,jumpStr2=-(7+d);
+  const gap4=[150,120,90][d];
+  const pSpeed=[2,3,4][d];
+  function spawnPipe(){
+    const topH=60+Math.random()*(GH-gap4-100);
+    pipes2.push({x:GW+20,top:topH,bot:topH+gap4});
+    // coin in middle
+    coins2.push({x:GW+20+80,y:topH+gap4/2,collected:false});
+  }
+  function step(){
+    frame8++;
+    if(!started) return;
+    bvy+=grav4;by2+=bvy;
+    pipes2.forEach(p=>p.x-=pSpeed);
+    coins2.forEach(c=>c.x-=pSpeed);
+    if(frame8%70===0) spawnPipe();
+    pipes2=pipes2.filter(p=>p.x>-40);
+    coins2=coins2.filter(c=>c.x>-20);
+    // collision
+    if(by2<44||by2>GH-10){gameOver=true;return;}
+    for(const p of pipes2){
+      if(70>p.x&&50<p.x+20&&(by2-8<p.top||by2+8>p.bot)){gameOver=true;return;}
+    }
+    for(const c of coins2){
+      if(!c.collected&&Math.hypot(c.x-70,c.y-by2)<16){c.collected=true;score+=5;}
+    }
+    if(pipes2.some(p=>Math.abs(p.x-70)<pSpeed)) score++;
+  }
+  function draw(){
+    const g=ctx.createLinearGradient(0,0,0,GH);g.addColorStop(0,'#87CEEB');g.addColorStop(1,'#98D9C2');
+    ctx.fillStyle=g;ctx.fillRect(0,0,GW,GH);
+    pipes2.forEach(p=>{
+      ctx.fillStyle='#228B22';
+      ctx.fillRect(p.x,44,20,p.top-44);ctx.fillRect(p.x-4,p.top-16,28,16);
+      ctx.fillRect(p.x,p.bot,20,GH-p.bot);ctx.fillRect(p.x-4,p.bot,28,16);
+    });
+    coins2.forEach(c=>{
+      if(c.collected) return;
+      ctx.fillStyle='#FFD700';ctx.beginPath();ctx.arc(c.x,c.y,8,0,Math.PI*2);ctx.fill();
+    });
+    // bird
+    ctx.fillStyle='#FFD700';ctx.beginPath();ctx.arc(70,by2,12,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#FF8C00';ctx.beginPath();ctx.moveTo(82,by2);ctx.lineTo(90,by2-3);ctx.lineTo(90,by2+3);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#fff';ctx.font='bold 13px monospace';ctx.textAlign='center';
+    ctx.fillText('Score: '+score,GW/2,24);
+    if(!started){ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(40,GH/2-30,GW-80,60);ctx.fillStyle='#fff';ctx.font='bold 14px monospace';ctx.fillText('Space/Up = Flap!',GW/2,GH/2+5);}
+    ctx.fillStyle='#aaa';ctx.font='10px monospace';ctx.fillText('Space/Up=Flap  Esc=Back',GW/2,GH-5);
+    if(gameOver){
+      ctx.fillStyle='rgba(0,0,0,0.8)';ctx.fillRect(30,GH/2-50,GW-60,100);
+      ctx.fillStyle='#E74C3C';ctx.font='bold 22px monospace';ctx.textAlign='center';ctx.fillText('CRASHED!',GW/2,GH/2-14);
+      ctx.fillStyle='#fff';ctx.font='13px monospace';ctx.fillText('Score: '+score,GW/2,GH/2+10);
+      ctx.fillText('Enter=Retry  Esc=Back',GW/2,GH/2+34);
+    }
+    ctx.textAlign='left';
+  }
+  xg={raf:null,iid:setInterval(()=>{step();draw();},16)};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){goBack();return;}
+    if(gameOver){if(e.key==='Enter'){killAll();buildFlappyX(v,cur);}return;}
+    if(e.key===' '||e.key==='ArrowUp'){if(!started) started=true;bvy=jumpStr2;}
+  };
+  document.addEventListener('keydown',xg.kdown);draw();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   VIRUS SPREAD (strategy puzzle)
+═══════════════════════════════════════════════════════════ */
+function buildVirus(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const dlbl=['EASY','NORMAL','HARD'][d];
+  const[cv,ctx]=mkCv(v,'Virus Spread — '+dlbl);
+  // Place cures to stop virus from spreading to all cells
+  const COLS8=10,ROWS8=8,CS12=26;
+  const OX13=Math.floor((GW-COLS8*CS12)/2),OY13=54;
+  let grid12=Array.from({length:ROWS8},()=>Array(COLS8).fill(0)); // 0=healthy,1=infected,2=cured
+  // Start with a cluster of infection
+  [[4,5],[4,6],[5,5],[5,6],[3,5]].forEach(([r,c])=>{if(r<ROWS8&&c<COLS8) grid12[r][c]=1;});
+  let cures=[5,4,3][d],turn3=0,gameOver=false,won9=false;
+  let selR7=0,selC7=0;
+  function spreadVirus(){
+    const toInfect=[];
+    for(let r=0;r<ROWS8;r++) for(let c=0;c<COLS8;c++){
+      if(grid12[r][c]===1){
+        [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(([nr,nc])=>{
+          if(nr>=0&&nr<ROWS8&&nc>=0&&nc<COLS8&&grid12[nr][nc]===0) toInfect.push([nr,nc]);
+        });
+      }
+    }
+    toInfect.forEach(([r,c])=>grid12[r][c]=1);
+  }
+  function checkWin(){
+    const infected=grid12.flat().filter(x=>x===1).length;
+    if(infected===0) won9=true;
+    else if(grid12.flat().every(x=>x!==0)) gameOver=true;
+  }
+  function draw(){
+    ctx.fillStyle='#0A1A0A';ctx.fillRect(0,0,GW,GH);
+    for(let r=0;r<ROWS8;r++) for(let c=0;c<COLS8;c++){
+      const x=OX13+c*CS12,y=OY13+r*CS12,v2=grid12[r][c];
+      const isSel=r===selR7&&c===selC7;
+      ctx.fillStyle=v2===0?'#1A2E1A':v2===1?'#C0392B':'#2471A3';
+      ctx.fillRect(x+2,y+2,CS12-4,CS12-4);
+      if(isSel){ctx.strokeStyle='#FFD700';ctx.lineWidth=2;ctx.strokeRect(x+1,y+1,CS12-2,CS12-2);}
+      if(v2===1){ctx.fillStyle='rgba(255,0,0,0.4)';ctx.beginPath();ctx.arc(x+CS12/2,y+CS12/2,CS12/3,0,Math.PI*2);ctx.fill();}
+      if(v2===2){ctx.fillStyle='#5DADE2';ctx.font='13px serif';ctx.textAlign='center';ctx.fillText('✚',x+CS12/2,y+CS12/2+4);}
+    }
+    ctx.fillStyle='#fff';ctx.font='bold 12px monospace';ctx.textAlign='center';
+    ctx.fillText('Turn:'+turn3+'  Cures left:'+cures,GW/2,22);
+    ctx.fillStyle='#aaa';ctx.font='10px monospace';ctx.fillText('Arrows=Move  Enter=Cure  Esc=Back',GW/2,GH-5);
+    if(won9||gameOver){
+      ctx.fillStyle='rgba(0,0,0,0.8)';ctx.fillRect(30,GH/2-50,GW-60,100);
+      ctx.fillStyle=won9?'#2ECC71':'#E74C3C';ctx.font='bold 20px monospace';ctx.textAlign='center';
+      ctx.fillText(won9?'CURED!':'INFECTED!',GW/2,GH/2-14);
+      ctx.fillStyle='#fff';ctx.font='13px monospace';ctx.fillText('Turns: '+turn3,GW/2,GH/2+10);
+      ctx.fillText('Enter=Retry  Esc=Back',GW/2,GH/2+34);
+    }
+    ctx.textAlign='left';
+  }
+  xg={raf:null,iid:null};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){goBack();return;}
+    if(won9||gameOver){if(e.key==='Enter'){killAll();buildVirus(v,cur);}return;}
+    if(e.key==='ArrowUp') selR7=Math.max(0,selR7-1);
+    else if(e.key==='ArrowDown') selR7=Math.min(ROWS8-1,selR7+1);
+    else if(e.key==='ArrowLeft') selC7=Math.max(0,selC7-1);
+    else if(e.key==='ArrowRight') selC7=Math.min(COLS8-1,selC7+1);
+    else if(e.key==='Enter'&&cures>0&&grid12[selR7][selC7]===1){
+      grid12[selR7][selC7]=2;cures--;
+      // also cure adjacent
+      [[selR7-1,selC7],[selR7+1,selC7],[selR7,selC7-1],[selR7,selC7+1]].forEach(([r,c])=>{
+        if(r>=0&&r<ROWS8&&c>=0&&c<COLS8&&grid12[r][c]===1) grid12[r][c]=2;
+      });
+      spreadVirus();turn3++;checkWin();
+    }
+    draw();
+  };
+  document.addEventListener('keydown',xg.kdown);draw();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BEAT TAP (rhythm game)
+═══════════════════════════════════════════════════════════ */
+function buildBeatTap(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const dlbl=['EASY','NORMAL','HARD'][d];
+  const[cv,ctx]=mkCv(v,'Beat Tap — '+dlbl);
+  // Arrows fall from top; hit matching key when they reach the bottom zone
+  const LANES2=4,laneW2=(GW-40)/LANES2;
+  const KEYS=['ArrowLeft','ArrowDown','ArrowUp','ArrowRight'];
+  const SYMBOLS=['←','↓','↑','→'];
+  const HIT_Y=GH-60,NOTE_SPEED=[4,6,8][d];
+  let notes=[],score=0,combo=0,misses=0,frame9=0,gameOver=false;
+  const spawn=[120,90,65][d];
+  function spawnNote(){
+    const l=Math.floor(Math.random()*LANES2);
+    notes.push({lane:l,y:-20});
+  }
+  function step(){
+    frame9++;
+    if(frame9%spawn===0) spawnNote();
+    notes.forEach(n=>n.y+=NOTE_SPEED);
+    // auto-miss if passed
+    notes=notes.filter(n=>{
+      if(n.y>HIT_Y+30){misses++;combo=0;if(misses>=[5,4,3][d]) gameOver=true;return false;}
+      return true;
+    });
+  }
+  function tryHit(key){
+    const li=KEYS.indexOf(key);if(li<0) return;
+    const note=notes.find(n=>n.lane===li&&Math.abs(n.y-HIT_Y)<35);
+    if(note){
+      const acc=Math.abs(note.y-HIT_Y);
+      const pts=acc<10?100:acc<20?70:40;
+      score+=pts*(1+combo/10);combo++;
+      notes=notes.filter(n=>n!==note);
+    } else {misses++;combo=0;if(misses>=[5,4,3][d]) gameOver=true;}
+  }
+  function draw(){
+    ctx.fillStyle='#0A0A1A';ctx.fillRect(0,0,GW,GH);
+    // lanes
+    for(let l=0;l<LANES2;l++){
+      const x=20+l*laneW2;
+      ctx.fillStyle='rgba(255,255,255,0.05)';ctx.fillRect(x,44,laneW2-4,GH-44);
+      ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=1;ctx.strokeRect(x,44,laneW2-4,GH-44);
+      // hit zone
+      ctx.strokeStyle='rgba(255,215,0,0.5)';ctx.lineWidth=2;ctx.strokeRect(x,HIT_Y-20,laneW2-4,40);
+      ctx.fillStyle='rgba(255,255,255,0.7)';ctx.font='bold 22px monospace';ctx.textAlign='center';
+      ctx.fillText(SYMBOLS[l],x+laneW2/2,GH-12);
+    }
+    // notes
+    notes.forEach(n=>{
+      const x=20+n.lane*laneW2+laneW2/2;
+      const acc=Math.abs(n.y-HIT_Y);
+      ctx.fillStyle=acc<10?'#2ECC71':acc<20?'#FFD700':'#4FC3F7';
+      ctx.beginPath();ctx.arc(x,n.y,16,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fff';ctx.font='bold 18px monospace';ctx.textAlign='center';ctx.fillText(SYMBOLS[n.lane],x,n.y+6);
+    });
+    ctx.fillStyle='#fff';ctx.font='bold 13px monospace';ctx.textAlign='center';
+    ctx.fillText('Score:'+Math.floor(score)+'  Combo:'+combo+'x  Misses:'+misses,GW/2,22);
+    if(gameOver){
+      ctx.fillStyle='rgba(0,0,0,0.8)';ctx.fillRect(30,GH/2-50,GW-60,100);
+      ctx.fillStyle='#E74C3C';ctx.font='bold 20px monospace';ctx.textAlign='center';ctx.fillText('MISSED TOO MANY!',GW/2,GH/2-14);
+      ctx.fillStyle='#fff';ctx.font='13px monospace';ctx.fillText('Score: '+Math.floor(score),GW/2,GH/2+10);
+      ctx.fillText('Enter=Retry  Esc=Back',GW/2,GH/2+34);
+    }
+    ctx.textAlign='left';
+  }
+  xg={raf:null,iid:setInterval(()=>{if(!gameOver)step();draw();},16)};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){goBack();return;}
+    if(gameOver){if(e.key==='Enter'){killAll();buildBeatTap(v,cur);}return;}
+    if(KEYS.includes(e.key)) tryHit(e.key);
+  };
+  document.addEventListener('keydown',xg.kdown);draw();
+}
+
+/* ═══════════════════════════════════════════════════════════
    MEMORY MATCH
 ═══════════════════════════════════════════════════════════ */
 function buildMemory(v,cur){
@@ -6588,7 +6821,7 @@ function pushItem(it){
     render();return;
   }
   if(it.gameKey&&!it.hasDiff){stack.push({type:it.gameKey,diff:1});render();return;}
-  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4','mole','memory','asteroids','frogger','galaga','centipede','lunar','sokoban','lightsout','reversi','battleship','numguess','reaction','blackjack','slide','tron','wordle','mathflash','platform','life','rps','colormatch','darts','checkers','typing','mastermind','hanoi','nim','bubble','slot','bowling','mancala','sudoku','pacman','cardodge','fruitcatch','match3','missile','pinball','gravflip','poker','pipe','maze','numchain','runner','spaceshoot','yahtzee','war','hexgrid','craps','pixelart','gravball','wordsearch','colorflood','fusion','brickx','jumpjack','dodge','trivia','snakex','pong3','gridrush','blockstack'];
+  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4','mole','memory','asteroids','frogger','galaga','centipede','lunar','sokoban','lightsout','reversi','battleship','numguess','reaction','blackjack','slide','tron','wordle','mathflash','platform','life','rps','colormatch','darts','checkers','typing','mastermind','hanoi','nim','bubble','slot','bowling','mancala','sudoku','pacman','cardodge','fruitcatch','match3','missile','pinball','gravflip','poker','pipe','maze','numchain','runner','spaceshoot','yahtzee','war','hexgrid','craps','pixelart','gravball','wordsearch','colorflood','fusion','brickx','jumpjack','dodge','trivia','snakex','pong3','gridrush','blockstack','flappyx','virus','beattap'];
   if(it.type&&gameTypes.includes(it.type))stack.push({...it});
   else if(it.menu)stack.push({...it.menu,_sel:0});
   else stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
