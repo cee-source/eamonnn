@@ -274,6 +274,7 @@ const GDIFF={
   invaders:{icon:'👾',name:'Space Invaders',opts:[{label:'Recruit',desc:'3 rows · slow'},{label:'Soldier',desc:'4 rows · medium'},{label:'Commander',desc:'5 rows · fast'}]},
   c4:{icon:'🔴',name:'Connect Four',opts:[{label:'Easy',desc:'AI picks randomly'},{label:'Medium',desc:'AI blocks & attacks'},{label:'Hard',desc:'Minimax depth 4'}]},
   mole:{icon:'🐹',name:'Whack-a-Mole',opts:[{label:'Easy',desc:'Slow moles · 60s'},{label:'Normal',desc:'Medium speed · 45s'},{label:'Turbo',desc:'Fast moles · 30s'}]},
+  memory:{icon:'🃏',name:'Memory Match',opts:[{label:'Easy',desc:'4×3 grid · 6 pairs'},{label:'Normal',desc:'4×4 grid · 8 pairs'},{label:'Hard',desc:'5×4 grid · 10 pairs'}]},
 };
 function inf(ico,title,body,badge){return{type:'info',ico,title,body,badge};}
 const MAIN={title:'PiFlip',items:[
@@ -325,6 +326,7 @@ const MAIN={title:'PiFlip',items:[
       {icon:'🟦',color:'#2DA8FF',label:'Tetris',        desc:'7 pieces · ghost · levels',gameKey:'tetris',hasDiff:true},
       {icon:'🔢',color:'#FF8C42',label:'2048',          desc:'Slide tiles to merge',      gameKey:'g2048', hasDiff:true},
       {icon:'💣',color:'#FF4757',label:'Minesweeper',   desc:'Find the mines',            gameKey:'mines', hasDiff:true},
+      {icon:'🃏',color:'#9B59B6',label:'Memory Match',  desc:'Flip and match pairs',       gameKey:'memory',hasDiff:true},
     ]}},
     {icon:'♟',color:'#5B9EFF',label:'Board',desc:'Chess · Pong',menu:{title:'Board',items:[
       {icon:'♟️',color:'#E2E8F0',label:'Chess vs AI',   desc:'Minimax AI',          gameKey:'chess-ai',hasDiff:true},
@@ -398,6 +400,7 @@ function render(){
     invaders:buildInvaders,
     c4:buildC4,
     mole:buildMole,
+    memory:buildMemory,
   };
   if(dispatch[cur.type]) dispatch[cur.type](v,cur);
   else buildMenu(v,cur);
@@ -904,6 +907,72 @@ function build2048(v,cur){
     const map={ArrowLeft:[0,-1],ArrowRight:[0,1],ArrowUp:[-1,0],ArrowDown:[1,0]};
     if(map[e.key]){e.preventDefault();move(...map[e.key]);}
   };
+  document.addEventListener('keydown',xg.kdown);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MEMORY MATCH
+═══════════════════════════════════════════════════════════ */
+function buildMemory(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const dlbl=['EASY','NORMAL','HARD'][d];
+  // [cols, rows] — pairs = cols*rows/2
+  const CFG=[[4,3],[4,4],[5,4]][d];
+  const[COLS,ROWS]=CFG,TOTAL=COLS*ROWS;
+  const EMOJIS=['🐶','🐱','🐸','🦊','🐼','🦁','🐨','🦋','🌸','🍕'];
+  const CS=Math.floor(270/COLS),OX=(GW-COLS*CS)/2,OY=44;
+  const[cv,ctx]=mkCv(v,'Memory Match — '+dlbl);
+  let cards,flipped,matched,moves,lock;
+  function rst(){
+    const pairs=Array.from({length:TOTAL/2},(_,i)=>EMOJIS[i%EMOJIS.length]);
+    const deck=[...pairs,...pairs].sort(()=>Math.random()-.5);
+    cards=deck.map((e,i)=>({emoji:e,face:false,matched:false,r:Math.floor(i/COLS),c:i%COLS}));
+    flipped=[];matched=0;moves=0;lock=false;draw();
+  }
+  function flip(idx){
+    if(lock||cards[idx].face||cards[idx].matched)return;
+    cards[idx].face=true;flipped.push(idx);draw();
+    if(flipped.length===2){moves++;lock=true;
+      const[a,b]=flipped;
+      if(cards[a].emoji===cards[b].emoji){cards[a].matched=cards[b].matched=true;matched+=2;flipped=[];lock=false;draw();}
+      else setTimeout(()=>{if(!xg)return;cards[a].face=cards[b].face=false;flipped=[];lock=false;draw();},900);}
+  }
+  function draw(){
+    ctx.fillStyle='#0B0F18';ctx.fillRect(0,0,GW,GH);
+    ctx.fillStyle='#1FCC7C';ctx.font='bold 11px monospace';ctx.textAlign='left';ctx.fillText('Moves: '+moves,10,28);
+    ctx.fillStyle='#8B95A5';ctx.textAlign='right';ctx.fillText(matched/2+'/'+(TOTAL/2)+' pairs',GW-10,28);
+    cards.forEach((card,i)=>{
+      const x=OX+card.c*CS,y=OY+card.r*CS,cw=CS-4,ch=CS-4;
+      if(card.matched){
+        ctx.fillStyle='rgba(31,204,124,.18)';ctx.fillRect(x+2,y+2,cw,ch);
+        ctx.font=`${Math.floor(CS*.5)}px serif`;ctx.textAlign='center';ctx.fillText(card.emoji,x+CS/2,y+CS/2+Math.floor(CS*.18));
+      } else if(card.face){
+        ctx.fillStyle='#1C2E4A';ctx.fillRect(x+2,y+2,cw,ch);
+        ctx.strokeStyle='#2DA8FF';ctx.lineWidth=2;ctx.strokeRect(x+2,y+2,cw,ch);
+        ctx.font=`${Math.floor(CS*.5)}px serif`;ctx.textAlign='center';ctx.fillText(card.emoji,x+CS/2,y+CS/2+Math.floor(CS*.18));
+      } else {
+        ctx.fillStyle='#1A2438';ctx.fillRect(x+2,y+2,cw,ch);
+        ctx.fillStyle='rgba(255,255,255,.06)';ctx.fillRect(x+2,y+2,cw,3);ctx.fillRect(x+2,y+2,3,ch);
+        ctx.fillStyle='rgba(45,168,255,.15)';ctx.font=`${Math.floor(CS*.4)}px serif`;ctx.textAlign='center';ctx.fillText('?',x+CS/2,y+CS/2+Math.floor(CS*.15));
+      }
+    });
+    if(matched===TOTAL){
+      ctx.fillStyle='rgba(0,0,0,.75)';ctx.fillRect(0,0,GW,GH);
+      ctx.fillStyle='#1FCC7C';ctx.font='bold 20px monospace';ctx.textAlign='center';ctx.fillText('YOU WIN! 🎉',GW/2,GH/2-18);
+      ctx.fillStyle='#E2E8F0';ctx.font='12px monospace';ctx.fillText('Moves: '+moves,GW/2,GH/2+4);
+      ctx.fillStyle='#8B95A5';ctx.fillText('R restart · Esc menu',GW/2,GH/2+22);
+    }
+    ctx.fillStyle='#1E2B3F';ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText('Click to flip cards',GW/2,OY+ROWS*CS+14);
+  }
+  rst();
+  cv.addEventListener('click',e=>{
+    if(matched===TOTAL){rst();return;}
+    const rect=cv.getBoundingClientRect();const cx=(e.clientX-rect.left)*(GW/rect.width),cy=(e.clientY-rect.top)*(GH/rect.height);
+    const col=Math.floor((cx-OX)/CS),row=Math.floor((cy-OY)/CS);
+    if(row>=0&&row<ROWS&&col>=0&&col<COLS)flip(row*COLS+col);
+  });
+  xg={raf:null,iid:null};
+  xg.kdown=e=>{if(e.key==='Escape'){goBack();return;}if(e.key==='r'||e.key==='R'){rst();}};
   document.addEventListener('keydown',xg.kdown);
 }
 
@@ -1543,7 +1612,7 @@ function pushItem(it){
     render();return;
   }
   if(it.gameKey&&!it.hasDiff){stack.push({type:it.gameKey,diff:1});render();return;}
-  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4','mole'];
+  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4','mole','memory'];
   if(it.type&&gameTypes.includes(it.type))stack.push({...it});
   else if(it.menu)stack.push({...it.menu,_sel:0});
   else stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
