@@ -86,6 +86,51 @@ body{background:radial-gradient(ellipse at top,#0D1420 0%,#050709 70%);min-heigh
 .hs-toggle.off:hover{background:rgba(31,204,124,.18)}
 .hs-toggle.act{background:rgba(255,71,87,.09);border-color:rgba(255,71,87,.35);color:var(--dan);}
 
+/* ── BLE Spam ── */
+.ble-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.ble-tabs{display:flex;border-bottom:1px solid var(--brd);flex-shrink:0;}
+.ble-tab{flex:1;padding:8px 0;text-align:center;font-family:'Courier New',monospace;font-size:10px;color:var(--mut);cursor:pointer;border-bottom:2px solid transparent;transition:.15s;letter-spacing:.3px;}
+.ble-tab.act{color:var(--acc);border-bottom-color:var(--acc);}
+.ble-log{flex:1;overflow-y:auto;padding:5px 8px;font-family:'Courier New',monospace;font-size:9.5px;line-height:1.6;scrollbar-width:none;background:rgba(0,0,0,.25);}
+.ble-log::-webkit-scrollbar{display:none}
+.ble-ll{color:var(--acc);opacity:0;animation:bfade .4s forwards;}
+.ble-ll.err{color:var(--dan);}
+.ble-ll.warn{color:var(--warn);}
+@keyframes bfade{to{opacity:1}}
+.ble-footer{padding:7px 10px;border-top:1px solid var(--brd);flex-shrink:0;background:var(--surf);}
+.ble-stats{display:flex;justify-content:space-between;margin-bottom:6px;font-family:'Courier New',monospace;font-size:9px;color:var(--mut);}
+.ble-stat-v{color:var(--acc);font-weight:700;}
+.ble-stat-v.warn{color:var(--warn);}
+/* ── Custom Popup ── */
+.cp-wrap{flex:1;display:flex;flex-direction:column;gap:0;overflow-y:auto;scrollbar-width:none;}
+.cp-wrap::-webkit-scrollbar{display:none}
+.cp-section{padding:8px 10px;border-bottom:1px solid var(--brd);}
+.cp-section-title{font-family:'Courier New',monospace;font-size:9px;color:var(--mut);letter-spacing:.8px;margin-bottom:6px;}
+.cp-tabs{display:flex;gap:4px;}
+.cp-tab{flex:1;padding:6px 4px;text-align:center;background:var(--elev);border:1px solid var(--brd);border-radius:6px;font-family:'Courier New',monospace;font-size:10px;color:var(--mut);cursor:pointer;transition:.12s;}
+.cp-tab.act{border-color:var(--acc);color:var(--acc);background:rgba(31,204,124,.1);}
+.cp-models{display:flex;flex-direction:column;gap:3px;}
+.cp-model{padding:6px 10px;background:var(--elev);border:1px solid var(--brd);border-radius:6px;font-family:'Courier New',monospace;font-size:10px;color:var(--mut);cursor:pointer;display:flex;align-items:center;gap:7px;transition:.1s;}
+.cp-model.sel{border-color:var(--acc);color:var(--txt);}
+.cp-model-ico{font-size:14px;flex-shrink:0;}
+.cp-name-row{display:flex;align-items:center;gap:8px;background:var(--elev);border:1px solid var(--brd);border-radius:6px;padding:8px 10px;cursor:pointer;}
+.cp-name-row.sel{border-color:var(--acc);}
+.cp-name-lbl{font-family:'Courier New',monospace;font-size:9px;color:var(--mut);flex-shrink:0;white-space:nowrap;}
+.cp-name-val{font-family:'Courier New',monospace;font-size:12px;color:var(--txt);flex:1;letter-spacing:.5px;}
+.cp-name-cur{display:inline-block;border-bottom:2px solid var(--acc);animation:cur .8s step-end infinite;}
+@keyframes cur{0%,100%{opacity:1}50%{opacity:0}}
+.cp-preview-box{background:rgba(0,0,0,.35);border:1px solid var(--brd);border-radius:8px;padding:10px;}
+.cp-preview-lbl{font-family:'Courier New',monospace;font-size:9px;color:var(--mut);letter-spacing:.8px;margin-bottom:7px;}
+.cp-notif{background:#1c1c2e;border:1px solid #2d2d50;border-radius:10px;padding:9px 11px;display:flex;gap:9px;align-items:flex-start;transition:all .25s;}
+.cp-notif.flash{background:#1a2e1a;border-color:#1FCC7C;}
+.cp-notif-ico{font-size:26px;flex-shrink:0;margin-top:1px;}
+.cp-notif-body{flex:1;min-width:0;}
+.cp-notif-title{font-size:12px;font-weight:700;color:#fff;font-family:system-ui;}
+.cp-notif-sub{font-size:10px;color:#aaa;margin-top:2px;font-family:system-ui;line-height:1.4;}
+.cp-notif-time{font-size:9px;color:#666;margin-top:4px;font-family:monospace;}
+.cp-send-btn{margin:10px;padding:11px;text-align:center;border-radius:8px;cursor:pointer;font-family:'Courier New',monospace;font-size:12px;font-weight:700;letter-spacing:1px;transition:all .15s;border:1px solid;background:rgba(45,168,255,.09);border-color:rgba(45,168,255,.35);color:var(--blu);}
+.cp-send-btn:hover{background:rgba(45,168,255,.18);}
+.cp-send-btn.sending{background:rgba(31,204,124,.12);border-color:rgba(31,204,124,.4);color:var(--acc);}
 /* ── Game canvases ── */
 .game-canvas{display:block;width:100%;background:#000;image-rendering:pixelated;}
 .game-hint{height:18px;display:flex;align-items:center;justify-content:center;font-family:monospace;font-size:9px;color:#2A3A2A;flex-shrink:0;background:#050A05;}
@@ -395,6 +440,8 @@ const MAIN={title:'PiFlip',items:[
     {icon:'⌨️',label:'BT HID Keyboard', desc:'Wireless typing',...inf('⌨️','BT Keyboard Mode','Pi presents itself as a Bluetooth HID keyboard.','BT 4.2')},
     {icon:'🖥️', label:'USB HID Keyboard',desc:'Wired HID',     ...inf('🔌','USB HID Mode','Connect via micro-USB. Pi appears as a keyboard.','HID')},
     {icon:'🎧',label:'Audio Devices',   desc:'Pair headphones',...inf('🎧','Bluetooth Audio','Requires pulseaudio-module-bluetooth.\nNote: WiFi & BT share one antenna.','A2DP')},
+    {icon:'📡',label:'BLE Spam',        desc:'Flood nearby devices',type:'blespam'},
+    {icon:'🪟',label:'Custom Popup',    desc:'Craft a BLE notification',type:'custompopup'},
   ]}},
   {icon:'🔗',color:'#1FCC7C',label:'BlueNet',desc:'Mesh LAN between PiFlips',menu:{title:'BlueNet',items:[
     {icon:'🔍',label:'Discover Peers',desc:'Find nearby PiFlips',...inf('🔍','Scanning…','Broadcasting on UDP 42424\nNo other PiFlips found.','0 peers')},
@@ -590,7 +637,7 @@ function render(){
     snake:buildSnake,tetris:buildTetris,
     'pong-ai':(v,c)=>buildPong(v,true,c),'pong-2p':(v,c)=>buildPong(v,false,c),
     'chess-ai':(v,c)=>buildChess(v,true,c),'chess-2p':(v,c)=>buildChess(v,false,c),
-    flappy:buildFlappy,info:buildInfo,hotspot:buildHotspot,
+    flappy:buildFlappy,info:buildInfo,hotspot:buildHotspot,blespam:buildBleSpam,custompopup:buildCustomPopup,
     breakout:buildBreakout,
     g2048:build2048,
     ttt:buildTTT,
@@ -759,6 +806,232 @@ function buildHotspot(v){
   const card=document.createElement('div');card.className='hs-card';
   card.innerHTML=`<div class="hs-row"><span class="hs-k">Status</span><span class="hs-v ${hotspotOn?'on':''}">${hotspotOn?'● ACTIVE':'○ OFF'}</span></div><div class="hs-row"><span class="hs-k">SSID</span><span class="hs-v">PiFlip-Mesh</span></div><div class="hs-row"><span class="hs-k">Password</span><span class="hs-v">piflip123</span></div><div class="hs-row"><span class="hs-k">AP IP</span><span class="hs-v">${hotspotOn?'10.42.0.1':'—'}</span></div><div class="hs-row"><span class="hs-k">Channel</span><span class="hs-v">6</span></div><div class="hs-row"><span class="hs-k">Interface</span><span class="hs-v">wlan0</span></div><div class="hs-row"><span class="hs-k">DHCP</span><span class="hs-v">10.42.0.10–100</span></div>`;
   v.appendChild(card);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BLE SPAM
+═══════════════════════════════════════════════════════════ */
+function buildBleSpam(v){
+  v.appendChild(mkTbar('BLE Spam',true));
+  const TYPES=[
+    {id:'apple', label:'Apple',  icon:'🍎', color:'#ffffff',
+     packets:['AirDrop request','AirPods Pro nearby','Apple Watch pairing','Apple TV detected','Magic Keyboard found','AirPods Max nearby','HomePod mini','iBeacon 0x004C']},
+    {id:'samsung',label:'Samsung',icon:'📱', color:'#1428A0',
+     packets:['Galaxy Buds2 Pro','Galaxy Watch5 pair','Galaxy Buds Live','SmartTag+ found','Galaxy Buds FE','Quick Share offer','Fast Pair 0x2C7A','Galaxy Ring nearby']},
+    {id:'google', label:'Google', icon:'🔵', color:'#4285F4',
+     packets:['Pixel Buds Pro','Fast Pair 0x0649','Chromecast found','Pixel Watch pair','Nest Mini nearby','Fast Pair 0x01C2','Pixel Buds A-Ser','Android Share']},
+    {id:'windows',label:'Windows',icon:'🪟', color:'#00A4EF',
+     packets:['Swift Pair request','Xbox Controller','Surface Headphones','Arc Mouse nearby','Swift Pair 0x0001','MS Ergonomic KB','Surface Earbuds','Bluetooth LE adv']},
+  ];
+  let activeType=0,running=false,pkts=0,hits=0,iid=null;
+  function randMac(){return Array.from({length:6},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0').toUpperCase()).join(':');}
+  function randRssi(){return -(Math.floor(Math.random()*40)+50);}
+
+  const wrap=document.createElement('div');wrap.className='ble-wrap';
+
+  // tabs
+  const tabs=document.createElement('div');tabs.className='ble-tabs';
+  TYPES.forEach((t,i)=>{
+    const tb=document.createElement('div');tb.className='ble-tab'+(i===activeType?' act':'');
+    tb.textContent=t.icon+' '+t.label;
+    tb.onclick=()=>{if(running)return;activeType=i;tabs.querySelectorAll('.ble-tab').forEach((el,j)=>el.classList.toggle('act',j===i));updatePreview();};
+    tabs.appendChild(tb);
+  });
+  wrap.appendChild(tabs);
+
+  // log
+  const log=document.createElement('div');log.className='ble-log';
+  const placeholder=document.createElement('div');placeholder.style.cssText='color:var(--mut);font-size:10px;padding:10px 0;text-align:center;';
+  placeholder.textContent='Press START to begin flooding...';
+  log.appendChild(placeholder);
+  wrap.appendChild(log);
+
+  function addLine(text,cls=''){
+    const line=document.createElement('div');line.className='ble-ll'+(cls?' '+cls:'');
+    line.textContent=text;log.appendChild(line);
+    if(log.children.length>120)log.removeChild(log.firstChild);
+    log.scrollTop=log.scrollHeight;
+  }
+
+  // footer
+  const footer=document.createElement('div');footer.className='ble-footer';
+  const stats=document.createElement('div');stats.className='ble-stats';
+  stats.innerHTML=`<span>Packets: <span class="ble-stat-v" id="bs-pkts">0</span></span><span>Type: <span class="ble-stat-v" id="bs-type">${TYPES[0].label}</span></span><span>Hits: <span class="ble-stat-v warn" id="bs-hits">0</span></span>`;
+  const btn=document.createElement('div');btn.className='hs-toggle off';btn.id='bs-btn';btn.textContent='▶  START SPAM';
+  btn.onclick=()=>{
+    running=!running;
+    if(running){
+      btn.className='hs-toggle act';btn.textContent='■  STOP SPAM';
+      if(placeholder.parentNode)log.removeChild(placeholder);
+      addLine(`[INIT] Channel: 37/38/39  Power: +4dBm  Mode: ADV_NONCONN`);
+      addLine(`[INIT] Target: ${TYPES[activeType].label} BLE advertisements`);
+      iid=setInterval(()=>{
+        pkts++;const t=TYPES[activeType];
+        const pkt=t.packets[Math.floor(Math.random()*t.packets.length)];
+        const mac=randMac();const rssi=randRssi();
+        const isHit=Math.random()<0.15;if(isHit)hits++;
+        const line=`[TX] ${mac}  ${pkt.padEnd(24)}  ${rssi}dBm${isHit?' ✓':''}`;
+        addLine(line,isHit?'warn':'');
+        document.getElementById('bs-pkts').textContent=pkts;
+        document.getElementById('bs-hits').textContent=hits;
+      },180);
+    }else{
+      clearInterval(iid);iid=null;
+      btn.className='hs-toggle off';btn.textContent='▶  START SPAM';
+      addLine(`[STOP] Sent ${pkts} packets  Hits: ${hits}  Elapsed: ${Math.round(pkts*0.18)}s`,'warn');
+    }
+  };
+  function updatePreview(){document.getElementById('bs-type').textContent=TYPES[activeType].label;}
+  footer.appendChild(stats);footer.appendChild(btn);
+  wrap.appendChild(footer);
+  v.appendChild(wrap);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CUSTOM POPUP
+═══════════════════════════════════════════════════════════ */
+function buildCustomPopup(v){
+  v.appendChild(mkTbar('Custom Popup',true));
+
+  const DEVICES=[
+    {id:'apple', label:'Apple', icon:'🍎',
+     models:[
+       {ico:'🎧',name:'AirPods Pro',sub:'Tap to connect to your iPhone'},
+       {ico:'⌚',name:'Apple Watch',sub:'Bring Apple Watch near iPhone'},
+       {ico:'📺',name:'Apple TV',  sub:'Use iPhone to set up this Apple TV'},
+       {ico:'🏠',name:'HomePod',   sub:'Tap to set up HomePod with your Apple ID'},
+       {ico:'⌨️',name:'Magic KB',  sub:'Bluetooth keyboard wants to pair'},
+     ]},
+    {id:'samsung',label:'Samsung',icon:'📱',
+     models:[
+       {ico:'🎧',name:'Galaxy Buds2 Pro',sub:'Connect to your Galaxy phone'},
+       {ico:'⌚',name:'Galaxy Watch5',   sub:'Pair with your Samsung device'},
+       {ico:'🎵',name:'Galaxy Buds Live',sub:'Tap to connect'},
+       {ico:'📡',name:'SmartTag+',       sub:'Register this SmartTag to your account'},
+       {ico:'💻',name:'Galaxy Book',     sub:'Quick Share — file ready to receive'},
+     ]},
+    {id:'google', label:'Google', icon:'🔵',
+     models:[
+       {ico:'🎧',name:'Pixel Buds Pro',sub:'Tap to pair with this device'},
+       {ico:'⌚',name:'Pixel Watch',   sub:'Tap to connect via Fast Pair'},
+       {ico:'📺',name:'Chromecast',    sub:'Set up this Chromecast with Google TV'},
+       {ico:'🏠',name:'Nest Mini',     sub:'Tap to set up with Google Home'},
+       {ico:'🔊',name:'Pixel Buds A', sub:'Fast Pair — tap to connect'},
+     ]},
+    {id:'windows',label:'Windows',icon:'🪟',
+     models:[
+       {ico:'🎮',name:'Xbox Controller',   sub:'New device found — tap to pair'},
+       {ico:'🎧',name:'Surface Headphones',sub:'Connect Surface Headphones via Swift Pair'},
+       {ico:'🖱️',name:'Arc Mouse',         sub:'New Bluetooth mouse found nearby'},
+       {ico:'👂',name:'Surface Earbuds',   sub:'Surface Earbuds want to pair'},
+       {ico:'⌨️',name:'Designer KB',       sub:'Swift Pair — tap to connect keyboard'},
+     ]},
+  ];
+
+  let selType=0,selModel=0,customName='PiFlip',namePos=0,editingName=false,sending=false;
+
+  const wrap=document.createElement('div');wrap.className='cp-wrap';
+
+  // — Type selector —
+  const sec1=document.createElement('div');sec1.className='cp-section';
+  const l1=document.createElement('div');l1.className='cp-section-title';l1.textContent='DEVICE TYPE';
+  const typeTabs=document.createElement('div');typeTabs.className='cp-tabs';
+  DEVICES.forEach((d,i)=>{
+    const t=document.createElement('div');t.className='cp-tab'+(i===selType?' act':'');
+    t.innerHTML=d.icon+'<br>'+d.label;t.style.fontSize='9px';t.style.lineHeight='1.4';
+    t.onclick=()=>{selType=i;selModel=0;refresh();};
+    typeTabs.appendChild(t);
+  });
+  sec1.appendChild(l1);sec1.appendChild(typeTabs);wrap.appendChild(sec1);
+
+  // — Model list —
+  const sec2=document.createElement('div');sec2.className='cp-section';
+  const l2=document.createElement('div');l2.className='cp-section-title';l2.textContent='MODEL';
+  const modelList=document.createElement('div');modelList.className='cp-models';
+  sec2.appendChild(l2);sec2.appendChild(modelList);wrap.appendChild(sec2);
+
+  // — Custom name —
+  const sec3=document.createElement('div');sec3.className='cp-section';
+  const l3=document.createElement('div');l3.className='cp-section-title';l3.textContent='BROADCAST NAME';
+  const nameRow=document.createElement('div');nameRow.className='cp-name-row';
+  nameRow.innerHTML=`<span class="cp-name-lbl">Name:</span><span class="cp-name-val" id="cp-name-disp">${customName}</span>`;
+  nameRow.onclick=()=>{editingName=!editingName;nameRow.classList.toggle('sel',editingName);renderName();};
+  sec3.appendChild(l3);sec3.appendChild(nameRow);wrap.appendChild(sec3);
+
+  // — Preview —
+  const sec4=document.createElement('div');sec4.className='cp-section';
+  const previewBox=document.createElement('div');previewBox.className='cp-preview-box';
+  const previewLbl=document.createElement('div');previewLbl.className='cp-preview-lbl';previewLbl.textContent='PREVIEW';
+  const notif=document.createElement('div');notif.className='cp-notif';notif.id='cp-notif';
+  previewBox.appendChild(previewLbl);previewBox.appendChild(notif);sec4.appendChild(previewBox);wrap.appendChild(sec4);
+
+  // — Send button —
+  const sendBtn=document.createElement('div');sendBtn.className='cp-send-btn';sendBtn.id='cp-send';
+  sendBtn.textContent='📡  SEND POPUP';
+  sendBtn.onclick=()=>{
+    if(sending)return;sending=true;
+    sendBtn.className='cp-send-btn sending';sendBtn.textContent='✓  SENDING…';
+    notif.classList.add('flash');
+    setTimeout(()=>{
+      sendBtn.className='cp-send-btn';sendBtn.textContent='📡  SEND POPUP';
+      notif.classList.remove('flash');sending=false;
+    },1800);
+  };
+  wrap.appendChild(sendBtn);
+  v.appendChild(wrap);
+
+  function renderName(){
+    const disp=document.getElementById('cp-name-disp');
+    if(!disp)return;
+    if(editingName){
+      let html='';
+      for(let i=0;i<customName.length;i++){
+        if(i===namePos)html+=`<span class="cp-name-cur">${customName[i]}</span>`;
+        else html+=customName[i];
+      }
+      if(namePos>=customName.length)html+=`<span class="cp-name-cur"> </span>`;
+      disp.innerHTML=html;
+    }else{disp.textContent=customName||'(empty)';}
+    updateNotif();
+  }
+
+  function updateNotif(){
+    const dev=DEVICES[selType];const model=dev.models[selModel];
+    const name=customName||model.name;
+    notif.innerHTML=`<div class="cp-notif-ico">${model.ico}</div><div class="cp-notif-body"><div class="cp-notif-title">${name}</div><div class="cp-notif-sub">${model.sub}</div><div class="cp-notif-time">now · via Bluetooth</div></div>`;
+  }
+
+  function refresh(){
+    typeTabs.querySelectorAll('.cp-tab').forEach((t,i)=>t.classList.toggle('act',i===selType));
+    modelList.innerHTML='';
+    DEVICES[selType].models.forEach((m,i)=>{
+      const el=document.createElement('div');el.className='cp-model'+(i===selModel?' sel':'');
+      el.innerHTML=`<span class="cp-model-ico">${m.ico}</span>${m.name}`;
+      el.onclick=()=>{selModel=i;refresh();};
+      modelList.appendChild(el);
+    });
+    renderName();
+  }
+
+  // keyboard nav
+  const kh=e=>{
+    if(e.key==='Escape'&&!editingName){goBack();return;}
+    if(editingName){
+      if(e.key==='Escape'){editingName=false;nameRow.classList.remove('sel');renderName();return;}
+      if(e.key==='ArrowLeft'){namePos=Math.max(0,namePos-1);}
+      else if(e.key==='ArrowRight'){namePos=Math.min(customName.length,namePos+1);}
+      else if(e.key==='ArrowUp'){const c=customName[namePos];if(c){const n=(c.charCodeAt(0)-32+1)%95+32;customName=customName.slice(0,namePos)+String.fromCharCode(n)+customName.slice(namePos+1);}}
+      else if(e.key==='ArrowDown'){const c=customName[namePos];if(c){const n=(c.charCodeAt(0)-32+94)%95+32;customName=customName.slice(0,namePos)+String.fromCharCode(n)+customName.slice(namePos+1);}}
+      else if(e.key==='Backspace'){customName=customName.slice(0,namePos-1)+customName.slice(namePos);namePos=Math.max(0,namePos-1);}
+      else if(e.key.length===1&&customName.length<16){customName=customName.slice(0,namePos)+e.key+customName.slice(namePos);namePos++;}
+      renderName();return;
+    }
+  };
+  document.addEventListener('keydown',kh);
+  const origGoBack=v._kh;v._kh=kh;
+  const origRemove=v.remove.bind(v);
+  v.remove=()=>{document.removeEventListener('keydown',kh);origRemove();};
+  refresh();
 }
 
 /* ═══════════════════════════════════════════════════════════
