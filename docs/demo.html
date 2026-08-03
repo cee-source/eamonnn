@@ -267,6 +267,7 @@ const GDIFF={
   'chess-ai':{icon:'♟️',name:'Chess vs AI',opts:[{label:'Easy',desc:'Shallow search'},{label:'Medium',desc:'Depth 2 minimax'},{label:'Hard',desc:'Depth 3 (slow)'}]},
   breakout:{icon:'🧱',name:'Breakout',opts:[{label:'Casual',desc:'3 balls · wide paddle'},{label:'Classic',desc:'1 ball · standard'},{label:'Expert',desc:'1 ball · narrow · fast'}]},
   g2048:{icon:'🔢',name:'2048',opts:[{label:'4×4',desc:'Classic board'},{label:'5×5',desc:'More room to play'},{label:'3×3',desc:'Tight · challenging'}]},
+  ttt:{icon:'❌',name:'Tic-Tac-Toe',opts:[{label:'Easy',desc:'AI moves randomly'},{label:'Medium',desc:'AI blocks your wins'},{label:'Hard',desc:'Perfect minimax AI'}]},
 };
 function inf(ico,title,body,badge){return{type:'info',ico,title,body,badge};}
 const MAIN={title:'PiFlip',items:[
@@ -319,6 +320,7 @@ const MAIN={title:'PiFlip',items:[
       {icon:'♟️',color:'#8B95A5',label:'Chess 2 Player',desc:'Click to move',       type:'chess-2p'},
       {icon:'🏓',color:'#1FCC7C',label:'Pong vs AI',    desc:'First to 7',          gameKey:'pong-ai', hasDiff:true},
       {icon:'🏓',color:'#445566',label:'Pong 2 Player', desc:'W/S and ↑↓',         type:'pong-2p'},
+      {icon:'❌',color:'#FF4757',label:'Tic-Tac-Toe',  desc:'3-in-a-row vs AI',    gameKey:'ttt',     hasDiff:true},
     ]}},
   ]}},
   {icon:'⚙️',color:'#8B95A5',label:'Settings',desc:'Device configuration',  ...inf('⚙️','Settings','Brightness, WiFi SSID, device name,\nSPI bus, GPIO pin assignments.','config.ini')},
@@ -377,6 +379,7 @@ function render(){
     flappy:buildFlappy,info:buildInfo,hotspot:buildHotspot,
     breakout:buildBreakout,
     g2048:build2048,
+    ttt:buildTTT,
   };
   if(dispatch[cur.type]) dispatch[cur.type](v,cur);
   else buildMenu(v,cur);
@@ -887,6 +890,111 @@ function build2048(v,cur){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   TIC-TAC-TOE
+═══════════════════════════════════════════════════════════ */
+function buildTTT(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const dlbl=['EASY','MEDIUM','HARD'][d];
+  const[cv,ctx]=mkCv(v,'Tic-Tac-Toe — '+dlbl);
+  let board,xTurn,status; // status: ''|'X'|'O'|'draw'
+  const SZ=3,CS=70,OX=(GW-SZ*CS)/2,OY=60;
+  function rst(){board=Array(9).fill('');xTurn=true;status='';}
+  function wins(b,p){const W=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];return W.some(([a,b2,c])=>b[a]===p&&b[b2]===p&&b[c]===p);}
+  function full(b){return b.every(c=>c);}
+  // Minimax for Hard
+  function mmx(b,isX){
+    if(wins(b,'X'))return 10;if(wins(b,'O'))return -10;if(full(b))return 0;
+    const scores=b.map((_,i)=>{if(b[i])return null;const nb=[...b];nb[i]=isX?'X':'O';return mmx(nb,!isX);}).filter(s=>s!==null);
+    return isX?Math.max(...scores):Math.min(...scores);
+  }
+  function aiMove(){
+    if(status||xTurn)return;
+    let idx;
+    if(d===0){// random
+      const empty=board.map((_,i)=>i).filter(i=>!board[i]);idx=empty[Math.floor(Math.random()*empty.length)];
+    } else if(d===1){// block wins first
+      // Try to win
+      for(let i=0;i<9;i++){if(!board[i]){const t=[...board];t[i]='O';if(wins(t,'O')){idx=i;break;}}}
+      // Block player
+      if(idx==null)for(let i=0;i<9;i++){if(!board[i]){const t=[...board];t[i]='X';if(wins(t,'X')){idx=i;break;}}}
+      // Center then random
+      if(idx==null){const empty=board.map((_,i)=>i).filter(i=>!board[i]);idx=empty.includes(4)?4:empty[Math.floor(Math.random()*empty.length)];}
+    } else {// minimax
+      let best=Infinity,bestIdx=0;
+      board.forEach((_,i)=>{if(board[i])return;const nb=[...board];nb[i]='O';const s=mmx(nb,true);if(s<best){best=s;bestIdx=i;}});
+      idx=bestIdx;
+    }
+    if(idx!=null){board[idx]='O';checkEnd();}
+    draw();
+  }
+  function checkEnd(){if(wins(board,'X'))status='X';else if(wins(board,'O'))status='O';else if(full(board))status='draw';}
+  function click(i){if(status||!xTurn||board[i])return;board[i]='X';xTurn=false;checkEnd();draw();if(!status)setTimeout(aiMove,250);}
+  function draw(){
+    ctx.fillStyle='#0B0F18';ctx.fillRect(0,0,GW,GH);
+    // Title
+    ctx.fillStyle='#8B95A5';ctx.font='10px monospace';ctx.textAlign='center';
+    ctx.fillText(status?'':xTurn?'Your turn (X)':'AI thinking…',GW/2,28);
+    // Grid
+    ctx.strokeStyle='#1E2B3F';ctx.lineWidth=3;
+    [1,2].forEach(i=>{
+      ctx.beginPath();ctx.moveTo(OX+i*CS,OY);ctx.lineTo(OX+i*CS,OY+SZ*CS);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(OX,OY+i*CS);ctx.lineTo(OX+SZ*CS,OY+i*CS);ctx.stroke();
+    });
+    // Pieces
+    board.forEach((p,i)=>{
+      if(!p)return;
+      const cx=OX+(i%3)*CS+CS/2,cy=OY+Math.floor(i/3)*CS+CS/2;
+      if(p==='X'){
+        ctx.strokeStyle='#2DA8FF';ctx.lineWidth=4;
+        const off=CS*.28;
+        ctx.beginPath();ctx.moveTo(cx-off,cy-off);ctx.lineTo(cx+off,cy+off);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(cx+off,cy-off);ctx.lineTo(cx-off,cy+off);ctx.stroke();
+      } else {
+        ctx.strokeStyle='#FF4757';ctx.lineWidth=4;
+        ctx.beginPath();ctx.arc(cx,cy,CS*.28,0,Math.PI*2);ctx.stroke();
+      }
+    });
+    // Highlight winning line
+    const W=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    if(status==='X'||status==='O'){
+      const wl=W.find(([a,b2,c])=>board[a]===status&&board[b2]===status&&board[c]===status);
+      if(wl){
+        const[a,,c]=wl;
+        const ax=OX+(a%3)*CS+CS/2,ay=OY+Math.floor(a/3)*CS+CS/2;
+        const bx2=OX+(c%3)*CS+CS/2,by2=OY+Math.floor(c/3)*CS+CS/2;
+        ctx.strokeStyle=status==='X'?'#2DA8FF':'#FF4757';ctx.lineWidth=4;ctx.globalAlpha=.5;
+        ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx2,by2);ctx.stroke();ctx.globalAlpha=1;
+      }
+    }
+    // Overlay
+    if(status){
+      ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillRect(0,0,GW,GH);
+      const msg=status==='draw'?'DRAW!':(status==='X'?'YOU WIN!':'AI WINS!');
+      ctx.fillStyle=status==='draw'?'#FFD93D':(status==='X'?'#1FCC7C':'#FF4757');
+      ctx.font='bold 20px monospace';ctx.textAlign='center';ctx.fillText(msg,GW/2,GH/2-12);
+      ctx.fillStyle='#8B95A5';ctx.font='11px monospace';ctx.fillText('R restart · Esc menu',GW/2,GH/2+10);
+    }
+    // Hint
+    ctx.fillStyle='#1E2B3F';ctx.font='9px monospace';ctx.textAlign='center';
+    ctx.fillText('Click to place X · AI plays O · R restart',GW/2,OY+SZ*CS+20);
+  }
+  rst();draw();
+  cv.addEventListener('click',e=>{
+    if(status){rst();draw();return;}
+    const rect=cv.getBoundingClientRect();
+    const cx=(e.clientX-rect.left)*(GW/rect.width),cy=(e.clientY-rect.top)*(GH/rect.height);
+    const col=Math.floor((cx-OX)/CS),row=Math.floor((cy-OY)/CS);
+    if(col>=0&&col<SZ&&row>=0&&row<SZ)click(row*SZ+col);
+  });
+  xg={raf:null,iid:null};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){e.preventDefault();goBack();}
+    if(e.key==='r'||e.key==='R'){rst();draw();}
+  };
+  document.addEventListener('keydown',xg.kdown);
+}
+
+/* ═══════════════════════════════════════════════════════════
    NAVIGATION
 ═══════════════════════════════════════════════════════════ */
 function pushItem(it){
@@ -897,7 +1005,7 @@ function pushItem(it){
     render();return;
   }
   if(it.gameKey&&!it.hasDiff){stack.push({type:it.gameKey,diff:1});render();return;}
-  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048'];
+  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt'];
   if(it.type&&gameTypes.includes(it.type))stack.push({...it});
   else if(it.menu)stack.push({...it.menu,_sel:0});
   else stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
