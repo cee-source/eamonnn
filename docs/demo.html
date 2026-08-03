@@ -271,6 +271,7 @@ const GDIFF={
   simon:{icon:'🔵',name:'Simon Says',opts:[{label:'Easy',desc:'Slow flashes'},{label:'Normal',desc:'Medium speed'},{label:'Hard',desc:'Fast flashes'}]},
   mines:{icon:'💣',name:'Minesweeper',opts:[{label:'Beginner',desc:'9×9 · 10 mines'},{label:'Intermediate',desc:'12×10 · 20 mines'},{label:'Expert',desc:'16×10 · 40 mines'}]},
   hangman:{icon:'😬',name:'Hangman',opts:[{label:'Easy',desc:'Short words (3–5 letters)'},{label:'Medium',desc:'Medium words (5–8)'},{label:'Hard',desc:'Long words (8–10)'}]},
+  invaders:{icon:'👾',name:'Space Invaders',opts:[{label:'Recruit',desc:'3 rows · slow'},{label:'Soldier',desc:'4 rows · medium'},{label:'Commander',desc:'5 rows · fast'}]},
 };
 function inf(ico,title,body,badge){return{type:'info',ico,title,body,badge};}
 const MAIN={title:'PiFlip',items:[
@@ -315,6 +316,7 @@ const MAIN={title:'PiFlip',items:[
       {icon:'🧱',color:'#FF8C42',label:'Breakout',      desc:'Break all the bricks',gameKey:'breakout',hasDiff:true},
       {icon:'🔵',color:'#2DA8FF',label:'Simon Says',    desc:'Remember the sequence',gameKey:'simon',   hasDiff:true},
       {icon:'😬',color:'#FFD93D',label:'Hangman',       desc:'Guess the word',        gameKey:'hangman', hasDiff:true},
+      {icon:'👾',color:'#FF4757',label:'Space Invaders',desc:'Shoot the aliens',       gameKey:'invaders',hasDiff:true},
     ]}},
     {icon:'🧩',color:'#9B59B6',label:'Puzzle',desc:'Tetris · 2048',menu:{title:'Puzzle',items:[
       {icon:'🟦',color:'#2DA8FF',label:'Tetris',        desc:'7 pieces · ghost · levels',gameKey:'tetris',hasDiff:true},
@@ -389,6 +391,7 @@ function render(){
     simon:buildSimon,
     mines:buildMines,
     hangman:buildHangman,
+    invaders:buildInvaders,
   };
   if(dispatch[cur.type]) dispatch[cur.type](v,cur);
   else buildMenu(v,cur);
@@ -899,6 +902,107 @@ function build2048(v,cur){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   SPACE INVADERS
+═══════════════════════════════════════════════════════════ */
+function buildInvaders(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const dlbl=['RECRUIT','SOLDIER','COMMANDER'][d];
+  const ROWS=[3,4,5][d],COLS=10,SPD0=[0.3,0.5,0.8][d],FRATE=[0.004,0.008,0.014][d];
+  const[cv,ctx]=mkCv(v,'Space Invaders — '+dlbl);
+  let enemies,px,bullets,ebullets,dir,spd,score,lives,level,won,dead,stepTimer;
+  function mkEnemies(){
+    const e=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)e.push({r,c,x:20+c*26,y:50+r*22,alive:true,type:2-Math.floor(r*3/ROWS)});
+    return e;
+  }
+  function rst(){enemies=mkEnemies();px=GW/2;bullets=[];ebullets=[];dir=1;spd=SPD0;score=0;lives=3;level=1;won=false;dead=false;stepTimer=0;}
+  function draw(ts){
+    ctx.fillStyle='#010710';ctx.fillRect(0,0,GW,GH);
+    // Stars
+    ctx.fillStyle='rgba(255,255,255,.4)';[[30,80],[80,30],[150,60],[220,20],[260,90],[40,200],[180,150],[280,50]].forEach(([x,y])=>{ctx.fillRect(x,y,1,1);});
+    // HUD
+    ctx.fillStyle='#1FCC7C';ctx.font='bold 11px monospace';ctx.textAlign='left';ctx.fillText('SCORE: '+score,8,20);
+    ctx.textAlign='center';ctx.fillText('LVL '+level,GW/2,20);
+    ctx.textAlign='right';ctx.fillText('❤ '.repeat(lives).trim(),GW-8,20);
+    // Ground
+    ctx.fillStyle='#1FCC7C';ctx.fillRect(0,GH-24,GW,2);
+    // Player
+    ctx.fillStyle='#1FCC7C';
+    ctx.beginPath();ctx.moveTo(px,GH-28);ctx.lineTo(px-14,GH-14);ctx.lineTo(px+14,GH-14);ctx.closePath();ctx.fill();
+    ctx.fillRect(px-5,GH-36,10,10);
+    // Enemies
+    enemies.forEach(e=>{
+      if(!e.alive)return;
+      const cols=['#FF4757','#FF8C42','#2DA8FF'];
+      ctx.fillStyle=cols[e.type];
+      if(e.type===0){// top row
+        ctx.fillRect(e.x+3,e.y,10,6);ctx.fillRect(e.x,e.y+6,16,6);ctx.fillRect(e.x+2,e.y+12,4,4);ctx.fillRect(e.x+10,e.y+12,4,4);
+      } else if(e.type===1){
+        ctx.fillRect(e.x+2,e.y,12,4);ctx.fillRect(e.x,e.y+4,16,8);ctx.fillRect(e.x+4,e.y+12,3,4);ctx.fillRect(e.x+9,e.y+12,3,4);ctx.fillRect(e.x,e.y+4,3,4);ctx.fillRect(e.x+13,e.y+4,3,4);
+      } else {
+        ctx.beginPath();ctx.arc(e.x+8,e.y+8,8,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#010710';ctx.fillRect(e.x+2,e.y+6,4,4);ctx.fillRect(e.x+10,e.y+6,4,4);
+      }
+    });
+    // Bullets
+    ctx.fillStyle='#1FCC7C';bullets.forEach(b=>ctx.fillRect(b.x-1,b.y-6,2,6));
+    ctx.fillStyle='#FF4757';ebullets.forEach(b=>ctx.fillRect(b.x-1,b.y,2,6));
+    if(won||dead){
+      ctx.fillStyle='rgba(0,0,0,.75)';ctx.fillRect(0,0,GW,GH);
+      ctx.fillStyle=won?'#1FCC7C':'#FF4757';ctx.font='bold 18px monospace';ctx.textAlign='center';
+      ctx.fillText(won?'EARTH IS SAFE!':'INVADED!',GW/2,GH/2-16);
+      ctx.fillStyle='#E2E8F0';ctx.font='12px monospace';ctx.fillText('Score: '+score,GW/2,GH/2+4);
+      ctx.fillStyle='#8B95A5';ctx.fillText('R restart · Esc menu',GW/2,GH/2+22);
+    }
+  }
+  function step(){
+    if(won||dead)return;
+    // Move player
+    if(xg&&xg.keys.left)px=Math.max(14,px-4);
+    if(xg&&xg.keys.right)px=Math.min(GW-14,px+4);
+    // Move enemies
+    let minX=300,maxX=0;
+    enemies.filter(e=>e.alive).forEach(e=>{minX=Math.min(minX,e.x);maxX=Math.max(maxX,e.x+16);});
+    if(minX<=4&&dir===-1||maxX>=GW-4&&dir===1){
+      enemies.forEach(e=>{if(e.alive)e.y+=10;});dir=-dir;spd=Math.min(spd+0.1,5);
+    }
+    enemies.forEach(e=>{if(e.alive)e.x+=dir*spd;});
+    // Enemy fires
+    const alive=enemies.filter(e=>e.alive);
+    if(alive.length&&Math.random()<FRATE){
+      const cols=new Set(alive.map(e=>e.c));
+      const col=[...cols][Math.floor(Math.random()*cols.size)];
+      const shooters=alive.filter(e=>e.c===col);
+      const shooter=shooters[shooters.length-1];
+      ebullets.push({x:shooter.x+8,y:shooter.y+16});
+    }
+    // Move bullets
+    bullets.forEach(b=>b.y-=8);bullets=bullets.filter(b=>b.y>20);
+    ebullets.forEach(b=>b.y+=4);ebullets=ebullets.filter(b=>b.y<GH);
+    // Hit detection enemy bullets → player
+    ebullets=ebullets.filter(b=>{if(Math.abs(b.x-px)<16&&b.y>GH-38){lives--;ebullets=[];bullets=[];if(lives<=0)dead=true;return false;}return true;});
+    // Hit detection player bullets → enemies
+    bullets=bullets.filter(b=>{for(const e of enemies){if(!e.alive)continue;if(b.x>e.x&&b.x<e.x+16&&b.y>e.y&&b.y<e.y+16){e.alive=false;score+=10*(e.type+1);return false;}}return true;});
+    // Win
+    if(alive.length===0){level++;if(level>3)won=true;else{enemies=mkEnemies();spd=SPD0*level;}}
+    // Enemies reach ground
+    if(enemies.some(e=>e.alive&&e.y+16>GH-26))dead=true;
+  }
+  rst();
+  xg={keys:{},iid:setInterval(()=>{step();draw();},16),raf:null};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){goBack();return;}
+    if(e.key==='r'||e.key==='R'){rst();return;}
+    if(e.key==='ArrowLeft'||e.key==='a')xg.keys.left=true;
+    if(e.key==='ArrowRight'||e.key==='d')xg.keys.right=true;
+    if((e.key===' '||e.key==='ArrowUp'||e.key==='w')&&!won&&!dead){
+      e.preventDefault();if(bullets.length<3)bullets.push({x:px,y:GH-38});}
+  };
+  xg.kup=e=>{if(e.key==='ArrowLeft'||e.key==='a')delete xg.keys.left;if(e.key==='ArrowRight'||e.key==='d')delete xg.keys.right;};
+  document.addEventListener('keydown',xg.kdown);document.addEventListener('keyup',xg.kup);
+  draw();
+}
+
+/* ═══════════════════════════════════════════════════════════
    HANGMAN
 ═══════════════════════════════════════════════════════════ */
 function buildHangman(v,cur){
@@ -1255,7 +1359,7 @@ function pushItem(it){
     render();return;
   }
   if(it.gameKey&&!it.hasDiff){stack.push({type:it.gameKey,diff:1});render();return;}
-  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman'];
+  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders'];
   if(it.type&&gameTypes.includes(it.type))stack.push({...it});
   else if(it.menu)stack.push({...it.menu,_sel:0});
   else stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
