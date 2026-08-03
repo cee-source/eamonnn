@@ -282,6 +282,8 @@ const GDIFF={
   lunar:{icon:'🌙',name:'Lunar Lander',opts:[{label:'Training',desc:'Slow descent · big pad'},{label:'Mission',desc:'Standard fuel · medium pad'},{label:'Expert',desc:'Low fuel · narrow pad'}]},
   sokoban:{icon:'📦',name:'Sokoban',opts:[{label:'Easy',desc:'1 box · tiny room'},{label:'Medium',desc:'2 boxes · larger room'},{label:'Hard',desc:'3 boxes · wide room'}]},
   lightsout:{icon:'💡',name:'Lights Out',opts:[{label:'3×3',desc:'9 buttons · easy'},{label:'4×4',desc:'16 buttons · medium'},{label:'5×5',desc:'25 buttons · hard'}]},
+  reversi:{icon:'⚫',name:'Reversi',opts:[{label:'Easy',desc:'AI picks random moves'},{label:'Medium',desc:'AI prefers corners'},{label:'Hard',desc:'AI maximises pieces'}]},
+  battleship:{icon:'🚢',name:'Battleship',opts:[{label:'Cadet',desc:'AI shoots randomly'},{label:'Officer',desc:'AI hunts after hit'},{label:'Admiral',desc:'AI hunts & targets'}]},
 };
 function inf(ico,title,body,badge){return{type:'info',ico,title,body,badge};}
 const MAIN={title:'PiFlip',items:[
@@ -349,6 +351,8 @@ const MAIN={title:'PiFlip',items:[
       {icon:'🏓',color:'#445566',label:'Pong 2 Player', desc:'W/S and ↑↓',         type:'pong-2p'},
       {icon:'❌',color:'#FF4757',label:'Tic-Tac-Toe',  desc:'3-in-a-row vs AI',    gameKey:'ttt',     hasDiff:true},
       {icon:'🔴',color:'#FF4757',label:'Connect Four', desc:'4-in-a-row vs AI',    gameKey:'c4',      hasDiff:true},
+      {icon:'⚫',color:'#E2E8F0',label:'Reversi',      desc:'Flip the board',       gameKey:'reversi',  hasDiff:true},
+      {icon:'🚢',color:'#2DA8FF',label:'Battleship',   desc:'Sink the fleet',        gameKey:'battleship',hasDiff:true},
     ]}},
   ]}},
   {icon:'⚙️',color:'#8B95A5',label:'Settings',desc:'Device configuration',  ...inf('⚙️','Settings','Brightness, WiFi SSID, device name,\nSPI bus, GPIO pin assignments.','config.ini')},
@@ -422,6 +426,8 @@ function render(){
     lunar:buildLunar,
     sokoban:buildSokoban,
     lightsout:buildLightsOut,
+    reversi:buildReversi,
+    battleship:buildBattleship,
   };
   if(dispatch[cur.type]) dispatch[cur.type](v,cur);
   else buildMenu(v,cur);
@@ -1441,6 +1447,135 @@ function buildLightsOut(v,cur){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   REVERSI
+═══════════════════════════════════════════════════════════ */
+function buildReversi(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const dlbl=['EASY','MEDIUM','HARD'][d];
+  const[cv,ctx]=mkCv(v,'Reversi — '+dlbl);
+  const N=8,CS=33,OX=(GW-N*CS)/2,OY=40;
+  let board,turn,sel,status;
+  function rst(){board=Array.from({length:N},()=>Array(N).fill(0));board[3][3]=board[4][4]=1;board[3][4]=board[4][3]=2;turn=1;sel={r:0,c:0};status=0;}
+  function dirs(){return[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];}
+  function flips(b,r,c,p){const res=[];dirs().forEach(([dr,dc])=>{const line=[];let nr=r+dr,nc=c+dc;while(nr>=0&&nr<N&&nc>=0&&nc<N&&b[nr][nc]===3-p){line.push([nr,nc]);nr+=dr;nc+=dc;}if(line.length&&nr>=0&&nr<N&&nc>=0&&nc<N&&b[nr][nc]===p)line.forEach(x=>res.push(x));});return res;}
+  function valid(b,p){const m=[];for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(!b[r][c]&&flips(b,r,c,p).length)m.push([r,c]);return m;}
+  function place(r,c){if(status||board[r][c])return;const fl=flips(board,r,c,turn);if(!fl.length)return;board[r][c]=turn;fl.forEach(([fr,fc])=>board[fr][fc]=turn);const opp=3-turn;if(valid(board,opp).length)turn=opp;else if(!valid(board,turn).length)status=3;draw();}
+  function aiMove(){
+    const moves=valid(board,2);if(!moves.length)return;
+    if(d===0)return moves[Math.floor(Math.random()*moves.length)];
+    let best=-999,bm=moves[0];
+    moves.forEach(([r,c])=>{const b2=board.map(row=>[...row]);const fl=flips(b2,r,c,2);b2[r][c]=2;fl.forEach(([fr,fc])=>b2[fr][fc]=2);let s=0;b2.forEach((row,ri)=>row.forEach((v,ci)=>{if(v===2){const corner=(!ri||ri===N-1)&&(!ci||ci===N-1);s+= corner?10:1;}}));if(s>best){best=s;bm=[r,c];}});
+    return bm;
+  }
+  function countPieces(p){let n=0;board.forEach(row=>row.forEach(v=>{if(v===p)n++;}));return n;}
+  function draw(){
+    ctx.fillStyle='#0A1A0A';ctx.fillRect(0,0,GW,GH);
+    ctx.fillStyle='#145214';ctx.fillRect(OX,OY,N*CS,N*CS);
+    ctx.strokeStyle='rgba(0,0,0,.4)';ctx.lineWidth=1;
+    for(let i=0;i<=N;i++){ctx.beginPath();ctx.moveTo(OX+i*CS,OY);ctx.lineTo(OX+i*CS,OY+N*CS);ctx.stroke();ctx.beginPath();ctx.moveTo(OX,OY+i*CS);ctx.lineTo(OX+N*CS,OY+i*CS);ctx.stroke();}
+    const vmoves=valid(board,turn);
+    for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+      const x=OX+c*CS+2,y=OY+r*CS+2,s=CS-4;
+      const isV=vmoves.some(([mr,mc])=>mr===r&&mc===c),isSel=sel.r===r&&sel.c===c;
+      if(board[r][c]){ctx.fillStyle=board[r][c]===1?'#E8E8E8':'#111111';ctx.beginPath();ctx.arc(x+s/2,y+s/2,s/2-1,0,Math.PI*2);ctx.fill();ctx.fillStyle=board[r][c]===1?'rgba(255,255,255,.3)':'rgba(255,255,255,.08)';ctx.beginPath();ctx.arc(x+s/2-3,y+s/2-3,4,0,Math.PI*2);ctx.fill();}
+      if(isV&&turn===1){ctx.fillStyle='rgba(255,255,255,.2)';ctx.beginPath();ctx.arc(x+s/2,y+s/2,4,0,Math.PI*2);ctx.fill();}
+      if(isSel){ctx.strokeStyle='#1FCC7C';ctx.lineWidth=2;ctx.strokeRect(x,y,s,s);}
+    }
+    const w=countPieces(1),b=countPieces(2);
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,GW,OY);
+    ctx.fillStyle='#E8E8E8';ctx.font='bold 12px monospace';ctx.textAlign='left';ctx.fillText('⚪ '+w,8,26);
+    ctx.fillStyle='#444';ctx.textAlign='right';ctx.fillText('⚫ '+b,GW-8,26);
+    ctx.fillStyle=turn===1?'#E8E8E8':'#555';ctx.textAlign='center';ctx.fillText(status?'GAME OVER':(turn===1?'Your turn':'AI thinking…'),GW/2,26);
+    ctx.fillStyle='#1E2B3F';ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText('↑↓←→ move · Enter/Space place · R restart',GW/2,GH-6);
+    if(status){ctx.fillStyle='rgba(0,0,0,.8)';ctx.fillRect(0,0,GW,GH);const win=w>b?'⚪ White wins!':b>w?'⚫ Black wins!':'Draw!';ctx.fillStyle='#FFD93D';ctx.font='bold 18px monospace';ctx.textAlign='center';ctx.fillText(win,GW/2,GH/2-14);ctx.fillStyle='#E2E8F0';ctx.font='12px monospace';ctx.fillText('⚪ '+w+' vs ⚫ '+b,GW/2,GH/2+4);ctx.fillStyle='#8B95A5';ctx.fillText('R restart · Esc menu',GW/2,GH/2+22);}
+  }
+  function doAI(){
+    if(turn!==2||status)return;
+    const vm=valid(board,2);if(!vm.length){turn=1;if(!valid(board,1).length)status=3;draw();return;}
+    setTimeout(()=>{if(!xg)return;const m=aiMove();if(m){const fl=flips(board,m[0],m[1],2);board[m[0]][m[1]]=2;fl.forEach(([r,c])=>board[r][c]=2);const opp=valid(board,1);if(opp.length)turn=1;else if(!valid(board,2).length)status=3;draw();if(turn===2)doAI();}},d===0?300:500);
+  }
+  rst();
+  cv.addEventListener('click',e=>{if(turn!==1||status)return;const rect=cv.getBoundingClientRect();const cx=(e.clientX-rect.left)*(GW/rect.width),cy=(e.clientY-rect.top)*(GH/rect.height);const c=Math.floor((cx-OX)/CS),r=Math.floor((cy-OY)/CS);if(r>=0&&r<N&&c>=0&&c<N){place(r,c);if(turn===2)doAI();}});
+  xg={raf:null,iid:null};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){goBack();return;}if(e.key==='r'||e.key==='R'){rst();draw();return;}
+    if(status)return;
+    if(e.key==='ArrowUp'){e.preventDefault();sel.r=Math.max(0,sel.r-1);draw();}
+    if(e.key==='ArrowDown'){e.preventDefault();sel.r=Math.min(N-1,sel.r+1);draw();}
+    if(e.key==='ArrowLeft'){e.preventDefault();sel.c=Math.max(0,sel.c-1);draw();}
+    if(e.key==='ArrowRight'){e.preventDefault();sel.c=Math.min(N-1,sel.c+1);draw();}
+    if((e.key==='Enter'||e.key===' ')&&turn===1){e.preventDefault();place(sel.r,sel.c);if(turn===2)doAI();}
+  };
+  document.addEventListener('keydown',xg.kdown);draw();setTimeout(()=>{if(xg&&turn===2)doAI();},200);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BATTLESHIP
+═══════════════════════════════════════════════════════════ */
+function buildBattleship(v,cur){
+  const d=cur&&cur.diff!=null?cur.diff:1;
+  const dlbl=['CADET','OFFICER','ADMIRAL'][d];
+  const[cv,ctx]=mkCv(v,'Battleship — '+dlbl);
+  const N=8,CS=28,OX_P=8,OX_E=OX_P+N*CS+16,OY=50;
+  const SHIPS=[4,3,2,2];
+  let player,enemy,pshots,eshots,cursor,phase,turn,winner,eHunt;
+  function mkGrid(){return{cells:Array.from({length:N},()=>Array(N).fill(0)),ships:[]}}
+  function placeShips(g){
+    SHIPS.forEach(len=>{let placed=false;while(!placed){const horiz=Math.random()<.5,r=Math.floor(Math.random()*(N-(horiz?0:len))),c=Math.floor(Math.random()*(N-(horiz?len:0)));const cells=[];for(let i=0;i<len;i++){const cr=r+(horiz?0:i),cc=c+(horiz?i:0);if(g.cells[cr][cc])return;cells.push([cr,cc]);}cells.forEach(([cr,cc])=>g.cells[cr][cc]=1);g.ships.push({cells,sunk:false});placed=true;}});
+  }
+  function rst(){player=mkGrid();enemy=mkGrid();placeShips(player);placeShips(enemy);pshots=Array.from({length:N},()=>Array(N).fill(0));eshots=Array.from({length:N},()=>Array(N).fill(0));cursor={r:0,c:0};phase='play';turn='player';winner=null;eHunt=[];}
+  function shoot(shots,g,r,c){if(shots[r][c])return false;const hit=g.cells[r][c]===1;shots[r][c]=hit?2:1;if(hit){g.ships.forEach(s=>{if(s.cells.every(([sr,sc])=>shots[sr][sc]===2))s.sunk=true;});}return true;}
+  function allSunk(g,shots){return g.ships.every(s=>s.cells.every(([r,c])=>shots[r][c]===2));}
+  function aiShoot(){
+    let r,c;
+    if(d>0&&eHunt.length){const t=eHunt.shift();r=t[0];c=t[1];}
+    else{do{r=Math.floor(Math.random()*N);c=Math.floor(Math.random()*N);}while(eshots[r][c]);}
+    if(eshots[r][c])return;
+    const hit=player.cells[r][c]===1;eshots[r][c]=hit?2:1;
+    if(hit&&d>=1)[[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(([nr,nc])=>{if(nr>=0&&nr<N&&nc>=0&&nc<N&&!eshots[nr][nc])eHunt.push([nr,nc]);});
+    if(allSunk(player,eshots))winner='AI';else draw();
+    if(!winner)setTimeout(()=>{if(xg){turn='player';draw();}},600);
+  }
+  function playerShoot(r,c){if(turn!=='player'||pshots[r][c]||winner)return;shoot(pshots,enemy,r,c);draw();if(allSunk(enemy,pshots)){winner='You';draw();return;}turn='ai';setTimeout(()=>{if(xg)aiShoot();},400);}
+  function drawGrid(shots,g,ox,label,showShips){
+    ctx.fillStyle='#0A1836';ctx.fillRect(ox,OY,N*CS,N*CS);
+    ctx.fillStyle='#8B95A5';ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText(label,ox+N*CS/2,OY-6);
+    if(showShips)g.cells.forEach((row,r)=>row.forEach((v,c)=>{if(v===1){ctx.fillStyle='rgba(45,168,255,.2)';ctx.fillRect(ox+c*CS+1,OY+r*CS+1,CS-2,CS-2);}}));
+    shots.forEach((row,r)=>row.forEach((v,c)=>{if(v===1){ctx.fillStyle='#2DA8FF';ctx.beginPath();ctx.arc(ox+c*CS+CS/2,OY+r*CS+CS/2,4,0,Math.PI*2);ctx.fill();}if(v===2){ctx.fillStyle='#FF4757';ctx.fillRect(ox+c*CS+3,OY+r*CS+3,CS-6,CS-6);ctx.fillStyle='#FF6B6B';ctx.fillRect(ox+c*CS+5,OY+r*CS+5,CS-10,CS-10);}}));
+    g.ships.forEach(s=>{if(s.sunk){s.cells.forEach(([r,c])=>{ctx.strokeStyle='rgba(255,71,87,.6)';ctx.lineWidth=2;ctx.strokeRect(ox+c*CS+2,OY+r*CS+2,CS-4,CS-4);});}});
+    ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=1;
+    for(let i=0;i<=N;i++){ctx.beginPath();ctx.moveTo(ox+i*CS,OY);ctx.lineTo(ox+i*CS,OY+N*CS);ctx.stroke();ctx.beginPath();ctx.moveTo(ox,OY+i*CS);ctx.lineTo(ox+N*CS,OY+i*CS);ctx.stroke();}
+  }
+  function draw(){
+    ctx.fillStyle='#030810';ctx.fillRect(0,0,GW,GH);
+    drawGrid(eshots,enemy,OX_E,'ENEMY',false);
+    drawGrid(pshots,player,OX_P,'YOUR FLEET',true);
+    if(turn==='player'&&!winner){const x=OX_E+cursor.c*CS,y=OY+cursor.r*CS;ctx.strokeStyle='#1FCC7C';ctx.lineWidth=2;ctx.strokeRect(x+2,y+2,CS-4,CS-4);}
+    ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,0,GW,OY);
+    const ph=winner?winner+' WIN!':turn==='ai'?'AI firing…':'Fire!';
+    ctx.fillStyle=winner?'#FFD93D':turn==='ai'?'#FF4757':'#1FCC7C';ctx.font='bold 11px monospace';ctx.textAlign='center';ctx.fillText(ph,GW/2,22);
+    let ps=0,es=0;enemy.ships.forEach(s=>{if(s.sunk)es++;});player.ships.forEach(s=>{if(s.sunk)ps++;});
+    ctx.fillStyle='#8B95A5';ctx.font='9px monospace';ctx.textAlign='left';ctx.fillText('Sunk: '+es+'/'+SHIPS.length,8,36);
+    ctx.textAlign='right';ctx.fillText('Lost: '+ps+'/'+SHIPS.length,GW-8,36);
+    ctx.fillStyle='#1E2B3F';ctx.textAlign='center';ctx.fillText('↑↓←→ aim · Enter/Space fire · R restart',GW/2,GH-6);
+    if(winner){ctx.fillStyle='rgba(0,0,0,.8)';ctx.fillRect(0,0,GW,GH);ctx.fillStyle=winner==='You'?'#1FCC7C':'#FF4757';ctx.font='bold 20px monospace';ctx.textAlign='center';ctx.fillText(winner==='You'?'VICTORY!':'DEFEATED',GW/2,GH/2-16);ctx.fillStyle='#8B95A5';ctx.font='11px monospace';ctx.fillText('R restart · Esc menu',GW/2,GH/2+10);}
+  }
+  rst();
+  cv.addEventListener('click',e=>{if(turn!=='player'||winner)return;const rect=cv.getBoundingClientRect();const cx=(e.clientX-rect.left)*(GW/rect.width),cy=(e.clientY-rect.top)*(GH/rect.height);const c=Math.floor((cx-OX_E)/CS),r=Math.floor((cy-OY)/CS);if(r>=0&&r<N&&c>=0&&c<N)playerShoot(r,c);});
+  xg={raf:null,iid:null};
+  xg.kdown=e=>{
+    if(e.key==='Escape'){goBack();return;}if(e.key==='r'||e.key==='R'){rst();draw();return;}
+    if(winner||turn!=='player')return;
+    if(e.key==='ArrowUp'){e.preventDefault();cursor.r=Math.max(0,cursor.r-1);draw();}
+    if(e.key==='ArrowDown'){e.preventDefault();cursor.r=Math.min(N-1,cursor.r+1);draw();}
+    if(e.key==='ArrowLeft'){e.preventDefault();cursor.c=Math.max(0,cursor.c-1);draw();}
+    if(e.key==='ArrowRight'){e.preventDefault();cursor.c=Math.min(N-1,cursor.c+1);draw();}
+    if(e.key==='Enter'||e.key===' '){e.preventDefault();playerShoot(cursor.r,cursor.c);}
+  };
+  document.addEventListener('keydown',xg.kdown);draw();
+}
+
+/* ═══════════════════════════════════════════════════════════
    MEMORY MATCH
 ═══════════════════════════════════════════════════════════ */
 function buildMemory(v,cur){
@@ -2142,7 +2277,7 @@ function pushItem(it){
     render();return;
   }
   if(it.gameKey&&!it.hasDiff){stack.push({type:it.gameKey,diff:1});render();return;}
-  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4','mole','memory','asteroids','frogger','galaga','centipede','lunar','sokoban','lightsout'];
+  const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4','mole','memory','asteroids','frogger','galaga','centipede','lunar','sokoban','lightsout','reversi','battleship'];
   if(it.type&&gameTypes.includes(it.type))stack.push({...it});
   else if(it.menu)stack.push({...it.menu,_sel:0});
   else stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
