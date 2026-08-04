@@ -209,6 +209,20 @@ body{background:radial-gradient(ellipse at top,#0D1420 0%,#050709 70%);min-heigh
   <div class="chip">5 playable games</div><div class="chip">Live widgets</div>
 </div>
 <div class="hint-row">↑↓ navigate menus · Enter select · Esc back · Arrow / WASD in games</div>
+<div id="dl-bar" style="margin-top:10px;display:flex;flex-direction:column;align-items:center;gap:6px;">
+  <div id="dl-btn" style="padding:8px 22px;border-radius:8px;cursor:pointer;font-family:'Courier New',monospace;font-size:11px;font-weight:700;letter-spacing:.8px;background:rgba(45,168,255,.12);border:1px solid rgba(45,168,255,.5);color:#2DA8FF;">📥  DOWNLOAD FOR REAL BLUETOOTH</div>
+  <div id="dl-info" style="display:none;max-width:320px;background:#0a1020;border:1px solid rgba(45,168,255,.3);border-radius:8px;padding:10px 12px;font-family:'Courier New',monospace;font-size:9px;color:#aaa;line-height:1.7;text-align:left;">
+    <div style="color:#2DA8FF;font-weight:700;margin-bottom:5px;">After downloading piflip-demo.html:</div>
+    <div style="color:#1FCC7C;">▸ Python (Mac/Linux/Win):</div>
+    <div style="color:#fff;margin-left:8px;margin-bottom:4px;">cd ~/Downloads && python3 -m http.server 8080</div>
+    <div style="color:#1FCC7C;">▸ Node.js:</div>
+    <div style="color:#fff;margin-left:8px;margin-bottom:4px;">npx serve ~/Downloads</div>
+    <div style="color:#1FCC7C;">▸ VS Code:</div>
+    <div style="color:#fff;margin-left:8px;margin-bottom:6px;">Right-click the file → Open with Live Server</div>
+    <div style="color:#FFD700;">Then open <span style="color:#fff;">localhost:8080/piflip-demo.html</span> in Chrome</div>
+    <div style="color:#666;margin-top:4px;">localhost is a secure context — Bluetooth works there ✓</div>
+  </div>
+</div>
 
 <script>
 /* ═══════════════════════════════════════════════════════════
