@@ -88,9 +88,6 @@ body{background:radial-gradient(ellipse at top,#0D1420 0%,#050709 70%);min-heigh
 
 /* ── BLE Spam ── */
 .ble-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;}
-.ble-tabs{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--brd);flex-shrink:0;}
-.ble-tab{flex:0 0 25%;padding:7px 0;text-align:center;font-family:'Courier New',monospace;font-size:10px;color:var(--mut);cursor:pointer;border-bottom:2px solid transparent;transition:.15s;letter-spacing:.3px;box-sizing:border-box;}
-.ble-tab.act{color:var(--acc);border-bottom-color:var(--acc);background:rgba(31,204,124,.05);}
 .ble-log{flex:1;overflow-y:auto;padding:5px 8px;font-family:'Courier New',monospace;font-size:9.5px;line-height:1.6;scrollbar-width:none;background:rgba(0,0,0,.25);}
 .ble-log::-webkit-scrollbar{display:none}
 .ble-ll{color:var(--acc);opacity:0;animation:bfade .4s forwards;}
@@ -813,86 +810,170 @@ function buildHotspot(v){
 ═══════════════════════════════════════════════════════════ */
 function buildBleSpam(v){
   v.appendChild(mkTbar('BLE Spam',true));
-  const TYPES=[
-    {id:'apple',   label:'Apple',    icon:'🍎',
-     packets:['AirDrop request','AirPods Pro nearby','Apple Watch pairing','Apple TV detected','Magic Keyboard found','AirPods Max nearby','HomePod mini','iBeacon 0x004C','AirPods 3rd Gen','Beats Studio Pro','Apple Pencil pair','MagSafe detected']},
-    {id:'samsung', label:'Samsung',  icon:'📱',
-     packets:['Galaxy Buds2 Pro','Galaxy Watch5 pair','Galaxy Buds Live','SmartTag+ found','Galaxy Buds FE','Quick Share offer','Fast Pair 0x2C7A','Galaxy Ring nearby','Galaxy Watch6','Galaxy Buds3 Pro','SmartTag2 found','DeX pad detected']},
-    {id:'google',  label:'Google',   icon:'🔵',
-     packets:['Pixel Buds Pro','Fast Pair 0x0649','Chromecast found','Pixel Watch pair','Nest Mini nearby','Fast Pair 0x01C2','Pixel Buds A-Ser','Android Share','Nest Hub nearby','Pixel Watch 2','Fast Pair 0x0A42','Google TV dongle']},
-    {id:'windows', label:'Windows',  icon:'🪟',
-     packets:['Swift Pair request','Xbox Controller','Surface Headphones','Arc Mouse nearby','Swift Pair 0x0001','MS Ergonomic KB','Surface Earbuds','Xbox Elite pad','Surface Arc KB','Swift Pair 0x0025','MS Designer mouse','Clipchamp device']},
-    {id:'sony',    label:'Sony',     icon:'🎧',
-     packets:['WH-1000XM5 pair','WF-1000XM5 near','LinkBuds S found','PS5 DualSense','Sony SRS-XB43','WH-CH720N pair','Inzone Buds near','WF-C700N found','HT-A9 soundbar','SRS-XG300 near','WH-1000XM4 pair','Xperia earbuds']},
-    {id:'nintendo',label:'Nintendo', icon:'🎮',
-     packets:['Joy-Con (L) pair','Joy-Con (R) pair','Pro Controller','Switch Lite near','Nintendo Switch','Joy-Con charging','GameCube adapter','Ring-Con device','Wii Remote+','Switch OLED pair','amiibo detected','N64 controller']},
-    {id:'tile',    label:'Tile',     icon:'📍',
-     packets:['Tile Mate nearby','Tile Slim found','Tile Pro signal','Tile Sticker 0x47','Tile Ultra nearby','Tile detected 0x92','Tile network ping','Anti-theft alert','Tile 0x2015 adv','Lost item nearby','Tile RE-52AP','Tracker 0x004F']},
-    {id:'fitbit',  label:'Fitbit',   icon:'💪',
-     packets:['Charge 6 nearby','Sense 2 pairing','Versa 4 found','Inspire 3 pair','Fitbit Luxe near','Google Pixel Watch','Fitbit Ace 3','Charge 5 sync','Versa 3 nearby','Fitbit 0xFB01','Activity sync','Sleep tracker adv']},
+
+  const DEVICE_POOL=[
+    {name:"iPhone 15 Pro",     cat:'phone',  os:'apple',   icon:'📱', pkts:['AirDrop request','AirPods nearby','iBeacon 0x004C','Handoff ping','AirPlay probe']},
+    {name:"iPhone 14",         cat:'phone',  os:'apple',   icon:'📱', pkts:['AirDrop request','AirPods nearby','iBeacon 0x004C','Handoff ping']},
+    {name:"iPhone SE",         cat:'phone',  os:'apple',   icon:'📱', pkts:['AirDrop request','iBeacon 0x004C','Magic KB pair']},
+    {name:"MacBook Pro",       cat:'laptop', os:'apple',   icon:'💻', pkts:['AirDrop request','Handoff ping','AirPlay probe','Bluetooth keyboard']},
+    {name:"MacBook Air",       cat:'laptop', os:'apple',   icon:'💻', pkts:['AirDrop request','Handoff ping','AirPlay probe']},
+    {name:"iPad Pro",          cat:'tablet', os:'apple',   icon:'📱', pkts:['AirDrop request','Apple Pencil pair','iBeacon 0x004C']},
+    {name:"Galaxy S24 Ultra",  cat:'phone',  os:'samsung', icon:'📱', pkts:['Quick Share offer','Fast Pair 0x2C7A','SmartTag+ scan','Galaxy Watch pair']},
+    {name:"Galaxy S23",        cat:'phone',  os:'samsung', icon:'📱', pkts:['Quick Share offer','Fast Pair 0x2C7A','Galaxy Watch pair']},
+    {name:"Galaxy Tab S9",     cat:'tablet', os:'samsung', icon:'📱', pkts:['Quick Share offer','DeX pad detected','Fast Pair 0x2C7A']},
+    {name:"Galaxy Book 3",     cat:'laptop', os:'samsung', icon:'💻', pkts:['Quick Share offer','Fast Pair 0x2C7A','Swift Pair 0x0025']},
+    {name:"Pixel 8 Pro",       cat:'phone',  os:'google',  icon:'📱', pkts:['Fast Pair 0x0649','Nearby Share','Android Share','Pixel Watch pair']},
+    {name:"Pixel 7a",          cat:'phone',  os:'google',  icon:'📱', pkts:['Fast Pair 0x0649','Nearby Share','Android Share']},
+    {name:"Nest Hub",          cat:'speaker',os:'google',  icon:'🔊', pkts:['Fast Pair 0x01C2','Google TV dongle','Chromecast found']},
+    {name:"DESKTOP-A3F2K",     cat:'desktop',os:'windows', icon:'🖥️', pkts:['Swift Pair request','Swift Pair 0x0001','Xbox Controller','MS Ergonomic KB']},
+    {name:"LAPTOP-X7K9",       cat:'laptop', os:'windows', icon:'💻', pkts:['Swift Pair request','Swift Pair 0x0001','Surface Headphones','MS Designer mouse']},
+    {name:"Surface Pro 9",     cat:'tablet', os:'windows', icon:'💻', pkts:['Swift Pair request','Surface Earbuds','Surface Arc KB','Swift Pair 0x0025']},
+    {name:"OnePlus 12",        cat:'phone',  os:'android', icon:'📱', pkts:['Fast Pair 0x0A42','Nearby Share','Android Share','BLE adv 0xFF']},
+    {name:"Xiaomi 14",         cat:'phone',  os:'android', icon:'📱', pkts:['Fast Pair 0x01C2','Nearby Share','BLE adv 0xFF']},
+    {name:"WH-1000XM5",        cat:'audio',  os:'sony',    icon:'🎧', pkts:['WH-1000XM5 pair','Sony Connect','BLE adv 0x012D','NFC tag nearby']},
+    {name:"PS5 DualSense",     cat:'console',os:'sony',    icon:'🎮', pkts:['PS5 DualSense','Sony BT 0x2F','Controller pair']},
+    {name:"Nintendo Switch",   cat:'console',os:'nintendo',icon:'🎮', pkts:['Joy-Con (L) pair','Joy-Con (R) pair','Pro Controller','Switch nearby']},
+    {name:"Echo Dot",          cat:'speaker',os:'amazon',  icon:'🔊', pkts:['Alexa device 0x71','Echo pair','BLE adv 0xFE89','Amazon 0x0171']},
+    {name:"Tile Mate",         cat:'tracker',os:'tile',    icon:'📍', pkts:['Tile Mate 0x47','Anti-theft alert','Tile network ping','Lost item nearby']},
+    {name:"AirTag",            cat:'tracker',os:'apple',   icon:'📍', pkts:['AirTag nearby','FindMy 0x12','iBeacon 0x004C','Apple tracker']},
   ];
-  let activeType=0,running=false,pkts=0,hits=0,iid=null;
+
+  const OS_ICONS={apple:'🍎',samsung:'📱',google:'🔵',windows:'🪟',android:'🤖',sony:'🎧',nintendo:'🎮',amazon:'🟡',tile:'📍'};
+  const CAT_LABEL={phone:'Phone',laptop:'Laptop',desktop:'Desktop',tablet:'Tablet',speaker:'Speaker',console:'Console',audio:'Audio',tracker:'Tracker'};
+
   function randMac(){return Array.from({length:6},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0').toUpperCase()).join(':');}
-  function randRssi(){return -(Math.floor(Math.random()*40)+50);}
+  function randRssi(){return -(Math.floor(Math.random()*45)+40);}
+
+  let devices=[],scanned=false,scanning=false,cursorIdx=0,running=false,pkts=0,hits=0,iid=null,scanIid=null;
 
   const wrap=document.createElement('div');wrap.className='ble-wrap';
 
-  // tabs
-  const tabs=document.createElement('div');tabs.className='ble-tabs';
-  TYPES.forEach((t,i)=>{
-    const tb=document.createElement('div');tb.className='ble-tab'+(i===activeType?' act':'');
-    tb.textContent=t.icon+' '+t.label;
-    tb.onclick=()=>{if(running)return;activeType=i;tabs.querySelectorAll('.ble-tab').forEach((el,j)=>el.classList.toggle('act',j===i));updatePreview();};
-    tabs.appendChild(tb);
-  });
-  wrap.appendChild(tabs);
+  // ── scan bar ──
+  const scanBar=document.createElement('div');
+  scanBar.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--brd);flex-shrink:0;background:var(--surf);';
+  const scanBtn=document.createElement('div');
+  scanBtn.style.cssText='flex:1;padding:7px;text-align:center;border-radius:6px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:11px;font-weight:700;letter-spacing:.5px;background:rgba(31,204,124,.09);border:1px solid rgba(31,204,124,.35);color:var(--acc);';
+  scanBtn.textContent='🔍  SCAN NEARBY';
+  const scanStatus=document.createElement('div');
+  scanStatus.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;color:var(--mut);white-space:nowrap;';
+  scanStatus.textContent='0 devices';
+  scanBar.appendChild(scanBtn);scanBar.appendChild(scanStatus);wrap.appendChild(scanBar);
 
-  // log
-  const log=document.createElement('div');log.className='ble-log';
-  const placeholder=document.createElement('div');placeholder.style.cssText='color:var(--mut);font-size:10px;padding:10px 0;text-align:center;';
-  placeholder.textContent='Press START to begin flooding...';
-  log.appendChild(placeholder);
+  // ── device list ──
+  const devList=document.createElement('div');
+  devList.style.cssText='flex:1;overflow-y:auto;scrollbar-width:none;';
+  const emptyMsg=document.createElement('div');
+  emptyMsg.style.cssText='color:var(--mut);font-size:10px;text-align:center;padding:28px 10px;font-family:\'Courier New\',monospace;';
+  emptyMsg.textContent='No devices found.\nPress SCAN to search.';
+  devList.appendChild(emptyMsg);
+  wrap.appendChild(devList);
+
+  // ── log ──
+  const log=document.createElement('div');log.className='ble-log';log.style.cssText+='max-height:100px;border-top:1px solid var(--brd);display:none;';
   wrap.appendChild(log);
+
+  // ── footer ──
+  const footer=document.createElement('div');footer.className='ble-footer';
+  const stats=document.createElement('div');stats.className='ble-stats';
+  stats.innerHTML=`<span>Pkts: <span class="ble-stat-v" id="bs-pkts">0</span></span><span>Targets: <span class="ble-stat-v" id="bs-tgt">0</span></span><span>Hits: <span class="ble-stat-v warn" id="bs-hits">0</span></span>`;
+  const spamBtn=document.createElement('div');spamBtn.className='hs-toggle off';spamBtn.id='bs-btn';spamBtn.textContent='▶  SPAM SELECTED';
+  footer.appendChild(stats);footer.appendChild(spamBtn);wrap.appendChild(footer);
+  v.appendChild(wrap);
 
   function addLine(text,cls=''){
     const line=document.createElement('div');line.className='ble-ll'+(cls?' '+cls:'');
     line.textContent=text;log.appendChild(line);
-    if(log.children.length>120)log.removeChild(log.firstChild);
+    if(log.children.length>80)log.removeChild(log.firstChild);
     log.scrollTop=log.scrollHeight;
   }
 
-  // footer
-  const footer=document.createElement('div');footer.className='ble-footer';
-  const stats=document.createElement('div');stats.className='ble-stats';
-  stats.innerHTML=`<span>Packets: <span class="ble-stat-v" id="bs-pkts">0</span></span><span>Type: <span class="ble-stat-v" id="bs-type">${TYPES[0].label}</span></span><span>Hits: <span class="ble-stat-v warn" id="bs-hits">0</span></span>`;
-  const btn=document.createElement('div');btn.className='hs-toggle off';btn.id='bs-btn';btn.textContent='▶  START SPAM';
-  btn.onclick=()=>{
+  function renderDevices(){
+    devList.innerHTML='';
+    if(!devices.length){devList.appendChild(emptyMsg);return;}
+    devices.forEach((d,i)=>{
+      const el=document.createElement('div');
+      const isCur=i===cursorIdx;
+      el.style.cssText=`display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--brd);cursor:pointer;background:${isCur?'rgba(45,168,255,.12)':'transparent'};transition:background .1s;`;
+      const chk=document.createElement('div');
+      chk.style.cssText=`width:14px;height:14px;border-radius:3px;border:1px solid ${d.selected?'var(--acc)':'var(--mut)'};background:${d.selected?'var(--acc)':'transparent'};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:#000;`;
+      if(d.selected)chk.textContent='✓';
+      const ico=document.createElement('div');ico.style.cssText='font-size:16px;flex-shrink:0;';ico.textContent=d.icon;
+      const body=document.createElement('div');body.style.cssText='flex:1;min-width:0;';
+      body.innerHTML=`<div style="font-family:'Courier New',monospace;font-size:11px;color:var(--txt);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.name}</div><div style="font-size:9px;color:var(--mut);margin-top:1px;">${OS_ICONS[d.os]||'📡'} ${d.os.toUpperCase()} · ${CAT_LABEL[d.cat]||d.cat}</div>`;
+      const sig=document.createElement('div');sig.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;color:var(--mut);text-align:right;flex-shrink:0;';
+      const bars=d.rssi>-55?'▂▄▆█':d.rssi>-70?'▂▄▆ ':d.rssi>-80?'▂▄  ':'▂   ';
+      sig.innerHTML=`<div style="color:${d.rssi>-65?'var(--acc)':d.rssi>-80?'var(--warn)':'var(--dan)'}">${bars}</div><div>${d.rssi}dBm</div>`;
+      el.appendChild(chk);el.appendChild(ico);el.appendChild(body);el.appendChild(sig);
+      el.onclick=()=>{cursorIdx=i;d.selected=!d.selected;renderDevices();updateTargetCount();};
+      devList.appendChild(el);
+    });
+    const cur=devList.children[cursorIdx];if(cur)cur.scrollIntoView({block:'nearest'});
+  }
+
+  function updateTargetCount(){
+    const n=devices.filter(d=>d.selected).length;
+    document.getElementById('bs-tgt').textContent=n;
+  }
+
+  function doScan(){
+    if(scanning||running)return;
+    scanning=true;scanned=false;devices=[];cursorIdx=0;
+    scanBtn.textContent='📡  SCANNING…';scanBtn.style.color='var(--warn)';
+    devList.innerHTML='';log.style.display='none';
+    const pool=[...DEVICE_POOL].sort(()=>Math.random()-0.5);
+    const count=6+Math.floor(Math.random()*7);
+    let i=0;
+    scanStatus.textContent='Scanning…';
+    scanIid=setInterval(()=>{
+      if(i>=count){
+        clearInterval(scanIid);scanning=false;scanned=true;
+        scanBtn.textContent='🔍  SCAN NEARBY';scanBtn.style.color='var(--acc)';
+        scanStatus.textContent=devices.length+' devices found';
+        return;
+      }
+      const d={...pool[i%pool.length],mac:randMac(),rssi:randRssi(),selected:false};
+      devices.push(d);renderDevices();
+      scanStatus.textContent='Found '+devices.length+'…';i++;
+    },280);
+  }
+
+  scanBtn.onclick=doScan;
+
+  spamBtn.onclick=()=>{
+    const targets=devices.filter(d=>d.selected);
+    if(!targets.length&&!running){alert('Select at least one target.');return;}
     running=!running;
     if(running){
-      btn.className='hs-toggle act';btn.textContent='■  STOP SPAM';
-      if(placeholder.parentNode)log.removeChild(placeholder);
-      addLine(`[INIT] Channel: 37/38/39  Power: +4dBm  Mode: ADV_NONCONN`);
-      addLine(`[INIT] Target: ${TYPES[activeType].label} BLE advertisements`);
+      log.style.display='block';
+      spamBtn.className='hs-toggle act';spamBtn.textContent='■  STOP SPAM';
+      addLine(`[INIT] Channel: 37/38/39  Power: +4dBm`);
+      addLine(`[INIT] ${targets.length} target(s) locked`);
       iid=setInterval(()=>{
-        pkts++;const t=TYPES[activeType];
-        const pkt=t.packets[Math.floor(Math.random()*t.packets.length)];
-        const mac=randMac();const rssi=randRssi();
-        const isHit=Math.random()<0.15;if(isHit)hits++;
-        const line=`[TX] ${mac}  ${pkt.padEnd(24)}  ${rssi}dBm${isHit?' ✓':''}`;
-        addLine(line,isHit?'warn':'');
+        const t=targets[Math.floor(Math.random()*targets.length)];
+        const pkt=t.pkts[Math.floor(Math.random()*t.pkts.length)];
+        const isHit=Math.random()<0.18;if(isHit)hits++;pkts++;
+        addLine(`[TX→${t.name.slice(0,14).padEnd(14)}] ${pkt.padEnd(22)} ${t.rssi}dBm${isHit?' ✓':''}`,isHit?'warn':'');
         document.getElementById('bs-pkts').textContent=pkts;
         document.getElementById('bs-hits').textContent=hits;
-      },180);
+      },200);
     }else{
       clearInterval(iid);iid=null;
-      btn.className='hs-toggle off';btn.textContent='▶  START SPAM';
-      addLine(`[STOP] Sent ${pkts} packets  Hits: ${hits}  Elapsed: ${Math.round(pkts*0.18)}s`,'warn');
+      spamBtn.className='hs-toggle off';spamBtn.textContent='▶  SPAM SELECTED';
+      addLine(`[DONE] ${pkts} packets · ${hits} hits`,'warn');
     }
   };
-  function updatePreview(){document.getElementById('bs-type').textContent=TYPES[activeType].label;}
-  footer.appendChild(stats);footer.appendChild(btn);
-  wrap.appendChild(footer);
-  v.appendChild(wrap);
+
+  const kh=e=>{
+    if(e.key==='Escape'){if(running){spamBtn.onclick();}else{goBack();}return;}
+    if(running)return;
+    if(e.key==='ArrowUp'){cursorIdx=Math.max(0,cursorIdx-1);renderDevices();}
+    else if(e.key==='ArrowDown'){cursorIdx=Math.min(devices.length-1,cursorIdx+1);renderDevices();}
+    else if(e.key===' '||e.key==='Enter'){
+      if(devices[cursorIdx]){devices[cursorIdx].selected=!devices[cursorIdx].selected;renderDevices();updateTargetCount();}
+    }
+  };
+  document.addEventListener('keydown',kh);
+  v.remove=((orig)=>()=>{document.removeEventListener('keydown',kh);clearInterval(iid);clearInterval(scanIid);orig();})(v.remove.bind(v));
 }
 
 /* ═══════════════════════════════════════════════════════════
