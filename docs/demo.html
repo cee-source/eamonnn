@@ -1021,17 +1021,19 @@ function buildBleSpam(v){
 
   // ── scan bar ──
   const scanBar=document.createElement('div');
-  scanBar.style.cssText='display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid var(--brd);flex-shrink:0;background:var(--surf);';
+  scanBar.style.cssText='display:flex;flex-direction:column;gap:6px;padding:8px 10px;border-bottom:1px solid var(--brd);flex-shrink:0;background:var(--surf);';
+  const scanBtnRow=document.createElement('div');scanBtnRow.style.cssText='display:flex;gap:6px;';
   const scanBtn=document.createElement('div');
-  scanBtn.style.cssText='flex:1;padding:6px;text-align:center;border-radius:6px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:10px;font-weight:700;letter-spacing:.5px;background:rgba(31,204,124,.09);border:1px solid rgba(31,204,124,.35);color:var(--acc);';
-  scanBtn.textContent='🎲 SIM';
+  scanBtn.style.cssText='flex:1;padding:9px 6px;text-align:center;border-radius:7px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:11px;font-weight:700;letter-spacing:.5px;background:rgba(31,204,124,.12);border:1px solid rgba(31,204,124,.5);color:var(--acc);';
+  scanBtn.textContent='🎲  SIMULATED SCAN';
   const realBtn=document.createElement('div');
-  realBtn.style.cssText='flex:1;padding:6px;text-align:center;border-radius:6px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:10px;font-weight:700;letter-spacing:.5px;background:rgba(45,168,255,.09);border:1px solid rgba(45,168,255,.35);color:var(--blu);';
-  realBtn.textContent='📡 REAL';
+  realBtn.style.cssText='flex:1;padding:9px 6px;text-align:center;border-radius:7px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:11px;font-weight:700;letter-spacing:.5px;background:rgba(45,168,255,.15);border:2px solid rgba(45,168,255,.7);color:#2DA8FF;';
+  realBtn.textContent='📡  REAL BLUETOOTH';
   const scanStatus=document.createElement('div');
-  scanStatus.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;color:var(--mut);white-space:nowrap;';
+  scanStatus.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;color:var(--mut);text-align:center;';
   scanStatus.textContent='0 devices';
-  scanBar.appendChild(scanBtn);scanBar.appendChild(realBtn);scanBar.appendChild(scanStatus);wrap.appendChild(scanBar);
+  scanBtnRow.appendChild(scanBtn);scanBtnRow.appendChild(realBtn);
+  scanBar.appendChild(scanBtnRow);scanBar.appendChild(scanStatus);wrap.appendChild(scanBar);
 
   // ── device list ──
   const devList=document.createElement('div');
