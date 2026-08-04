@@ -1115,9 +1115,21 @@ function buildBleSpam(v){
 
   async function doRealScan(){
     if(scanning||running)return;
-    if(!navigator.bluetooth){
+    const inIframe=window!==window.top;
+    if(inIframe||!navigator.bluetooth){
       log.style.display='block';
-      addLine('[ERR] Web Bluetooth not available — open in Chrome or Edge');return;
+      if(inIframe){
+        addLine('[ERR] Claude\'s viewer blocks Bluetooth (sandboxed iframe)');
+        addLine('[FIX] Open this page in its own tab — button below ↓');
+        const openBtn=document.createElement('div');
+        openBtn.style.cssText='margin:6px 8px;padding:7px;text-align:center;border-radius:6px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:10px;font-weight:700;background:rgba(45,168,255,.12);border:1px solid rgba(45,168,255,.4);color:var(--blu);';
+        openBtn.textContent='↗  OPEN IN NEW TAB';
+        openBtn.onclick=()=>window.open(location.href,'_blank');
+        log.appendChild(openBtn);
+      }else{
+        addLine('[ERR] Web Bluetooth not available — use Chrome or Edge');
+      }
+      return;
     }
     log.style.display='block';
     addLine('[BT] Click a device in the picker to add it. Cancel the picker to stop.');
