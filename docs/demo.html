@@ -138,13 +138,23 @@ body{background:radial-gradient(ellipse at top,#0D1420 0%,#050709 70%);min-heigh
 .cp-send-btn{margin:10px;padding:11px;text-align:center;border-radius:8px;cursor:pointer;font-family:'Courier New',monospace;font-size:12px;font-weight:700;letter-spacing:1px;transition:all .15s;border:1px solid;background:rgba(45,168,255,.09);border-color:rgba(45,168,255,.35);color:var(--blu);}
 .cp-send-btn:hover{background:rgba(45,168,255,.18);}
 .cp-send-btn.sending{background:rgba(31,204,124,.12);border-color:rgba(31,204,124,.4);color:var(--acc);}
-.cp-overlay{position:absolute;inset:0;z-index:99;background:rgba(0,0,0,.6);overflow:hidden;pointer-events:auto;}
-.cp-toast{position:absolute;left:8px;right:8px;top:0;transform:translateY(-120%);transition:transform .4s cubic-bezier(.22,.68,0,1.2);}
-.cp-toast.in{transform:translateY(8px);}
-.cp-toast-inner{border-radius:12px;display:flex;align-items:center;gap:8px;position:relative;}
-.cp-toast-x{width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:10px;color:#fff;flex-shrink:0;font-family:monospace;}
-.cp-overlay-counter{position:absolute;bottom:44px;left:0;right:0;text-align:center;font-family:'Courier New',monospace;font-size:10px;color:rgba(255,255,255,.55);pointer-events:none;}
-.cp-overlay-stop{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);padding:7px 20px;border-radius:20px;cursor:pointer;font-family:'Courier New',monospace;font-size:10px;font-weight:700;background:rgba(255,71,87,.15);border:1px solid rgba(255,71,87,.5);color:#FF4757;white-space:nowrap;letter-spacing:.5px;}
+.cp-inf-btn{flex:1;padding:6px 4px;text-align:center;background:var(--elev);border:1px solid var(--brd);border-radius:6px;font-family:'Courier New',monospace;font-size:12px;color:var(--mut);cursor:pointer;transition:.12s;letter-spacing:.5px;}
+.cp-inf-btn.act{border-color:var(--acc);color:var(--acc);background:rgba(31,204,124,.1);}
+.cp-overlay{position:absolute;inset:0;z-index:99;background:rgba(0,0,0,.55);overflow:hidden;pointer-events:auto;}
+.cp-toast{position:absolute;left:8px;right:8px;top:0;transform:translateY(-120%);transition:transform .45s cubic-bezier(.22,.68,0,1.2),opacity .2s;}
+.cp-toast.in{transform:translateY(36px);}
+.cp-notif-card{border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.55),0 0 0 .5px rgba(255,255,255,.08);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);}
+.cp-notif-bar{display:flex;align-items:center;gap:6px;padding:8px 10px 4px;position:relative;}
+.cp-notif-appico{width:18px;height:18px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
+.cp-notif-appname{font-family:system-ui,-apple-system,sans-serif;font-size:10px;font-weight:600;flex:1;letter-spacing:.1px;}
+.cp-notif-time{font-family:system-ui,-apple-system,sans-serif;font-size:10px;opacity:.5;margin-right:24px;}
+.cp-notif-close{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:10px;line-height:1;color:rgba(255,255,255,.8);flex-shrink:0;}
+.cp-notif-close:hover{background:rgba(255,255,255,.28);}
+.cp-notif-body{padding:2px 10px 10px;font-family:system-ui,-apple-system,sans-serif;}
+.cp-notif-msg{line-height:1.35;word-break:break-word;}
+.cp-overlay-bottom{position:absolute;bottom:0;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:6px;padding-bottom:14px;}
+.cp-overlay-counter{font-family:'Courier New',monospace;font-size:10px;color:rgba(255,255,255,.5);pointer-events:none;}
+.cp-overlay-stop{padding:7px 22px;border-radius:20px;cursor:pointer;font-family:'Courier New',monospace;font-size:10px;font-weight:700;background:rgba(255,71,87,.15);border:1px solid rgba(255,71,87,.5);color:#FF4757;white-space:nowrap;letter-spacing:.5px;}
 /* ── Game canvases ── */
 .game-canvas{display:block;width:100%;background:#000;image-rendering:pixelated;}
 .game-hint{height:18px;display:flex;align-items:center;justify-content:center;font-family:monospace;font-size:9px;color:#2A3A2A;flex-shrink:0;background:#050A05;}
@@ -1129,15 +1139,16 @@ function buildCustomPopup(v){
   };
   sec4b.appendChild(l4b);sec4b.appendChild(tgtBar);sec4b.appendChild(tgtList);wrap.appendChild(sec4b);
 
-  // — Quantity —
-  let quantity=1;
+  // — Quantity + Infinite —
+  let quantity=1,infiniteMode=false;
   const secQty=document.createElement('div');secQty.className='cp-section';
   const lQty=document.createElement('div');lQty.className='cp-section-title';lQty.textContent='QUANTITY';
-  const qtyRow=document.createElement('div');qtyRow.className='cp-qty-row';
+  const qtyRow=document.createElement('div');qtyRow.className='cp-qty-row';qtyRow.style.cssText='display:flex;align-items:center;gap:6px;';
   const qtyInp=document.createElement('input');qtyInp.type='number';qtyInp.className='cp-qty-inp';qtyInp.min=1;qtyInp.max=9999;qtyInp.value=1;
-  qtyInp.oninput=()=>{const n=parseInt(qtyInp.value,10);if(!isNaN(n)&&n>=1)quantity=n;};
-  const qtyLbl=document.createElement('span');qtyLbl.className='cp-qty-lbl';qtyLbl.textContent='popups in a loop';
-  qtyRow.appendChild(qtyInp);qtyRow.appendChild(qtyLbl);
+  qtyInp.oninput=()=>{const n=parseInt(qtyInp.value,10);if(!isNaN(n)&&n>=1){quantity=n;infiniteMode=false;infBtn.classList.remove('act');}};
+  const infBtn=document.createElement('div');infBtn.className='cp-inf-btn';infBtn.textContent='∞ Infinite';
+  infBtn.onclick=()=>{infiniteMode=!infiniteMode;infBtn.classList.toggle('act',infiniteMode);if(infiniteMode)qtyInp.value='';};
+  qtyRow.appendChild(qtyInp);qtyRow.appendChild(infBtn);
   secQty.appendChild(lQty);secQty.appendChild(qtyRow);wrap.appendChild(secQty);
 
   // — Send —
@@ -1155,48 +1166,71 @@ function buildCustomPopup(v){
     return {c,ts,pad};
   }
 
-  function startLoop(total){
+  function startLoop(total,inf){
     if(loopActive)return;
     loopActive=true;loopCount=0;loopTotal=total;
     sendBtn.className='cp-send-btn sending';
-    const t=cpTarget!=null?cpDevices[cpTarget]:null;
-    sendBtn.textContent=t?`📡 SPAMMING ${t.name.slice(0,10).toUpperCase()}`:'📡 SPAMMING…';
+    const tgt=cpTarget!=null?cpDevices[cpTarget]:null;
+    sendBtn.textContent=tgt?`📡 SPAMMING ${tgt.name.slice(0,10).toUpperCase()}`:'📡 SPAMMING…';
 
     const overlay=document.createElement('div');overlay.className='cp-overlay';
     const toast=document.createElement('div');toast.className='cp-toast';
+    const bottom=document.createElement('div');bottom.className='cp-overlay-bottom';
     const counter=document.createElement('div');counter.className='cp-overlay-counter';
     const stopBtn=document.createElement('div');stopBtn.className='cp-overlay-stop';stopBtn.textContent='■  STOP';
-    overlay.appendChild(toast);overlay.appendChild(counter);overlay.appendChild(stopBtn);
+    bottom.appendChild(counter);bottom.appendChild(stopBtn);
+    overlay.appendChild(toast);overlay.appendChild(bottom);
     v.appendChild(overlay);
 
-    function updateCounter(){counter.textContent=`${loopCount} / ${loopTotal} sent`;}
+    function updateCounter(){
+      counter.textContent=inf?`${loopCount} sent  ·  ∞`:`${loopCount} / ${loopTotal} sent`;
+    }
 
     function buildToast(){
       const{c,ts,pad}=buildToastStyle();
+      const now=new Date();
+      const timeStr=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
       toast.innerHTML='';
-      const inner=document.createElement('div');inner.className='cp-toast-inner';
-      inner.style.cssText=`background:${c.bg};border:1px solid ${c.border};border-radius:12px;padding:${pad};flex:1;`;
-      const txt=document.createElement('span');
-      txt.style.cssText=`font-family:system-ui;font-size:${ts.px}px;color:${c.fg};font-weight:${selTxtSize>=2?700:400};word-break:break-word;flex:1;`;
-      txt.textContent=msgText||'…';
-      const xBtn=document.createElement('div');xBtn.className='cp-toast-x';xBtn.textContent='✕';
-      xBtn.onclick=()=>dismissToast();
-      inner.appendChild(txt);inner.appendChild(xBtn);toast.appendChild(inner);
+      const card=document.createElement('div');card.className='cp-notif-card';
+      card.style.cssText=`background:${c.bg};border:1px solid ${c.border};`;
+
+      // top bar: app icon + name + time + close
+      const bar=document.createElement('div');bar.className='cp-notif-bar';
+      const appIco=document.createElement('div');appIco.className='cp-notif-appico';
+      appIco.style.cssText=`background:${c.border};`;appIco.textContent='📡';
+      const appName=document.createElement('div');appName.className='cp-notif-appname';
+      appName.style.color=c.fg;appName.textContent='PiFlip';
+      const timeEl=document.createElement('div');timeEl.className='cp-notif-time';
+      timeEl.style.color=c.fg;timeEl.textContent=timeStr;
+      const closeBtn=document.createElement('div');closeBtn.className='cp-notif-close';closeBtn.textContent='✕';
+      closeBtn.onclick=()=>dismissToast();
+      bar.appendChild(appIco);bar.appendChild(appName);bar.appendChild(timeEl);bar.appendChild(closeBtn);
+
+      // message body
+      const body=document.createElement('div');body.className='cp-notif-body';
+      body.style.paddingTop='0';
+      const msg=document.createElement('div');msg.className='cp-notif-msg';
+      msg.style.cssText=`font-size:${ts.px}px;color:${c.fg};font-weight:${selTxtSize>=2?700:400};padding:${pad};`;
+      msg.textContent=msgText||'…';
+      body.appendChild(msg);
+
+      card.appendChild(bar);card.appendChild(body);toast.appendChild(card);
     }
 
     function showToast(){
       if(!loopActive)return;
       buildToast();updateCounter();
       requestAnimationFrame(()=>requestAnimationFrame(()=>toast.classList.add('in')));
-      loopTimer=setTimeout(()=>dismissToast(),2500);
+      // no auto-dismiss — only X button dismisses
     }
 
     function dismissToast(){
       clearTimeout(loopTimer);
       toast.classList.remove('in');
       loopCount++;updateCounter();
-      if(loopCount<loopTotal&&loopActive){loopTimer=setTimeout(()=>showToast(),600);}
-      else{loopTimer=setTimeout(()=>stopLoop(),650);}
+      const more=inf||(loopCount<loopTotal);
+      if(more&&loopActive){loopTimer=setTimeout(()=>showToast(),500);}
+      else{loopTimer=setTimeout(()=>stopLoop(),550);}
     }
 
     function stopLoop(){
@@ -1209,7 +1243,7 @@ function buildCustomPopup(v){
     showToast();
   }
 
-  sendBtn.onclick=()=>{if(!loopActive)startLoop(quantity);};
+  sendBtn.onclick=()=>{if(!loopActive)startLoop(quantity,infiniteMode);};
 
   function updatePreview(){}
 
