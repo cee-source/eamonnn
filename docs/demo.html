@@ -88,9 +88,9 @@ body{background:radial-gradient(ellipse at top,#0D1420 0%,#050709 70%);min-heigh
 
 /* ── BLE Spam ── */
 .ble-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;}
-.ble-tabs{display:flex;border-bottom:1px solid var(--brd);flex-shrink:0;}
-.ble-tab{flex:1;padding:8px 0;text-align:center;font-family:'Courier New',monospace;font-size:10px;color:var(--mut);cursor:pointer;border-bottom:2px solid transparent;transition:.15s;letter-spacing:.3px;}
-.ble-tab.act{color:var(--acc);border-bottom-color:var(--acc);}
+.ble-tabs{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--brd);flex-shrink:0;}
+.ble-tab{flex:0 0 25%;padding:7px 0;text-align:center;font-family:'Courier New',monospace;font-size:10px;color:var(--mut);cursor:pointer;border-bottom:2px solid transparent;transition:.15s;letter-spacing:.3px;box-sizing:border-box;}
+.ble-tab.act{color:var(--acc);border-bottom-color:var(--acc);background:rgba(31,204,124,.05);}
 .ble-log{flex:1;overflow-y:auto;padding:5px 8px;font-family:'Courier New',monospace;font-size:9.5px;line-height:1.6;scrollbar-width:none;background:rgba(0,0,0,.25);}
 .ble-log::-webkit-scrollbar{display:none}
 .ble-ll{color:var(--acc);opacity:0;animation:bfade .4s forwards;}
@@ -814,14 +814,22 @@ function buildHotspot(v){
 function buildBleSpam(v){
   v.appendChild(mkTbar('BLE Spam',true));
   const TYPES=[
-    {id:'apple', label:'Apple',  icon:'🍎', color:'#ffffff',
-     packets:['AirDrop request','AirPods Pro nearby','Apple Watch pairing','Apple TV detected','Magic Keyboard found','AirPods Max nearby','HomePod mini','iBeacon 0x004C']},
-    {id:'samsung',label:'Samsung',icon:'📱', color:'#1428A0',
-     packets:['Galaxy Buds2 Pro','Galaxy Watch5 pair','Galaxy Buds Live','SmartTag+ found','Galaxy Buds FE','Quick Share offer','Fast Pair 0x2C7A','Galaxy Ring nearby']},
-    {id:'google', label:'Google', icon:'🔵', color:'#4285F4',
-     packets:['Pixel Buds Pro','Fast Pair 0x0649','Chromecast found','Pixel Watch pair','Nest Mini nearby','Fast Pair 0x01C2','Pixel Buds A-Ser','Android Share']},
-    {id:'windows',label:'Windows',icon:'🪟', color:'#00A4EF',
-     packets:['Swift Pair request','Xbox Controller','Surface Headphones','Arc Mouse nearby','Swift Pair 0x0001','MS Ergonomic KB','Surface Earbuds','Bluetooth LE adv']},
+    {id:'apple',   label:'Apple',    icon:'🍎',
+     packets:['AirDrop request','AirPods Pro nearby','Apple Watch pairing','Apple TV detected','Magic Keyboard found','AirPods Max nearby','HomePod mini','iBeacon 0x004C','AirPods 3rd Gen','Beats Studio Pro','Apple Pencil pair','MagSafe detected']},
+    {id:'samsung', label:'Samsung',  icon:'📱',
+     packets:['Galaxy Buds2 Pro','Galaxy Watch5 pair','Galaxy Buds Live','SmartTag+ found','Galaxy Buds FE','Quick Share offer','Fast Pair 0x2C7A','Galaxy Ring nearby','Galaxy Watch6','Galaxy Buds3 Pro','SmartTag2 found','DeX pad detected']},
+    {id:'google',  label:'Google',   icon:'🔵',
+     packets:['Pixel Buds Pro','Fast Pair 0x0649','Chromecast found','Pixel Watch pair','Nest Mini nearby','Fast Pair 0x01C2','Pixel Buds A-Ser','Android Share','Nest Hub nearby','Pixel Watch 2','Fast Pair 0x0A42','Google TV dongle']},
+    {id:'windows', label:'Windows',  icon:'🪟',
+     packets:['Swift Pair request','Xbox Controller','Surface Headphones','Arc Mouse nearby','Swift Pair 0x0001','MS Ergonomic KB','Surface Earbuds','Xbox Elite pad','Surface Arc KB','Swift Pair 0x0025','MS Designer mouse','Clipchamp device']},
+    {id:'sony',    label:'Sony',     icon:'🎧',
+     packets:['WH-1000XM5 pair','WF-1000XM5 near','LinkBuds S found','PS5 DualSense','Sony SRS-XB43','WH-CH720N pair','Inzone Buds near','WF-C700N found','HT-A9 soundbar','SRS-XG300 near','WH-1000XM4 pair','Xperia earbuds']},
+    {id:'nintendo',label:'Nintendo', icon:'🎮',
+     packets:['Joy-Con (L) pair','Joy-Con (R) pair','Pro Controller','Switch Lite near','Nintendo Switch','Joy-Con charging','GameCube adapter','Ring-Con device','Wii Remote+','Switch OLED pair','amiibo detected','N64 controller']},
+    {id:'tile',    label:'Tile',     icon:'📍',
+     packets:['Tile Mate nearby','Tile Slim found','Tile Pro signal','Tile Sticker 0x47','Tile Ultra nearby','Tile detected 0x92','Tile network ping','Anti-theft alert','Tile 0x2015 adv','Lost item nearby','Tile RE-52AP','Tracker 0x004F']},
+    {id:'fitbit',  label:'Fitbit',   icon:'💪',
+     packets:['Charge 6 nearby','Sense 2 pairing','Versa 4 found','Inspire 3 pair','Fitbit Luxe near','Google Pixel Watch','Fitbit Ace 3','Charge 5 sync','Versa 3 nearby','Fitbit 0xFB01','Activity sync','Sleep tracker adv']},
   ];
   let activeType=0,running=false,pkts=0,hits=0,iid=null;
   function randMac(){return Array.from({length:6},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0').toUpperCase()).join(':');}
