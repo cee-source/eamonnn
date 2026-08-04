@@ -997,83 +997,124 @@ function buildBleSpam(v){
   v.appendChild(mkTbar('BLE Spam',true));
 
   const DEVICE_POOL=[
-    {name:"iPhone 15 Pro",     cat:'phone',  os:'apple',   icon:'📱', pkts:['AirDrop request','AirPods nearby','iBeacon 0x004C','Handoff ping','AirPlay probe']},
-    {name:"iPhone 14",         cat:'phone',  os:'apple',   icon:'📱', pkts:['AirDrop request','AirPods nearby','iBeacon 0x004C','Handoff ping']},
-    {name:"iPhone SE",         cat:'phone',  os:'apple',   icon:'📱', pkts:['AirDrop request','iBeacon 0x004C','Magic KB pair']},
-    {name:"MacBook Pro",       cat:'laptop', os:'apple',   icon:'💻', pkts:['AirDrop request','Handoff ping','AirPlay probe','Bluetooth keyboard']},
-    {name:"MacBook Air",       cat:'laptop', os:'apple',   icon:'💻', pkts:['AirDrop request','Handoff ping','AirPlay probe']},
-    {name:"iPad Pro",          cat:'tablet', os:'apple',   icon:'📱', pkts:['AirDrop request','Apple Pencil pair','iBeacon 0x004C']},
-    {name:"Galaxy S24 Ultra",  cat:'phone',  os:'samsung', icon:'📱', pkts:['Quick Share offer','Fast Pair 0x2C7A','SmartTag+ scan','Galaxy Watch pair']},
-    {name:"Galaxy S23",        cat:'phone',  os:'samsung', icon:'📱', pkts:['Quick Share offer','Fast Pair 0x2C7A','Galaxy Watch pair']},
-    {name:"Galaxy Tab S9",     cat:'tablet', os:'samsung', icon:'📱', pkts:['Quick Share offer','DeX pad detected','Fast Pair 0x2C7A']},
-    {name:"Galaxy Book 3",     cat:'laptop', os:'samsung', icon:'💻', pkts:['Quick Share offer','Fast Pair 0x2C7A','Swift Pair 0x0025']},
-    {name:"Pixel 8 Pro",       cat:'phone',  os:'google',  icon:'📱', pkts:['Fast Pair 0x0649','Nearby Share','Android Share','Pixel Watch pair']},
-    {name:"Pixel 7a",          cat:'phone',  os:'google',  icon:'📱', pkts:['Fast Pair 0x0649','Nearby Share','Android Share']},
-    {name:"Nest Hub",          cat:'speaker',os:'google',  icon:'🔊', pkts:['Fast Pair 0x01C2','Google TV dongle','Chromecast found']},
-    {name:"DESKTOP-A3F2K",     cat:'desktop',os:'windows', icon:'🖥️', pkts:['Swift Pair request','Swift Pair 0x0001','Xbox Controller','MS Ergonomic KB']},
-    {name:"LAPTOP-X7K9",       cat:'laptop', os:'windows', icon:'💻', pkts:['Swift Pair request','Swift Pair 0x0001','Surface Headphones','MS Designer mouse']},
-    {name:"Surface Pro 9",     cat:'tablet', os:'windows', icon:'💻', pkts:['Swift Pair request','Surface Earbuds','Surface Arc KB','Swift Pair 0x0025']},
-    {name:"OnePlus 12",        cat:'phone',  os:'android', icon:'📱', pkts:['Fast Pair 0x0A42','Nearby Share','Android Share','BLE adv 0xFF']},
-    {name:"Xiaomi 14",         cat:'phone',  os:'android', icon:'📱', pkts:['Fast Pair 0x01C2','Nearby Share','BLE adv 0xFF']},
-    {name:"WH-1000XM5",        cat:'audio',  os:'sony',    icon:'🎧', pkts:['WH-1000XM5 pair','Sony Connect','BLE adv 0x012D','NFC tag nearby']},
-    {name:"PS5 DualSense",     cat:'console',os:'sony',    icon:'🎮', pkts:['PS5 DualSense','Sony BT 0x2F','Controller pair']},
-    {name:"Nintendo Switch",   cat:'console',os:'nintendo',icon:'🎮', pkts:['Joy-Con (L) pair','Joy-Con (R) pair','Pro Controller','Switch nearby']},
-    {name:"Echo Dot",          cat:'speaker',os:'amazon',  icon:'🔊', pkts:['Alexa device 0x71','Echo pair','BLE adv 0xFE89','Amazon 0x0171']},
-    {name:"Tile Mate",         cat:'tracker',os:'tile',    icon:'📍', pkts:['Tile Mate 0x47','Anti-theft alert','Tile network ping','Lost item nearby']},
-    {name:"AirTag",            cat:'tracker',os:'apple',   icon:'📍', pkts:['AirTag nearby','FindMy 0x12','iBeacon 0x004C','Apple tracker']},
+    {name:"iPhone 15 Pro",     cat:'phone',  os:'apple',   icon:'📱', pkts:['AirDrop request 0x05','AirPods Pro 2 nearby 0x07','iBeacon 0x004C','Handoff Continuity 0x0C','AirPlay2 probe 0x09','WatchOS relay 0x06','HomeKit 0x0D','FindMy network 0x12']},
+    {name:"iPhone 14",         cat:'phone',  os:'apple',   icon:'📱', pkts:['AirDrop request 0x05','AirPods nearby 0x07','iBeacon 0x004C','Handoff Continuity 0x0C','Sidecar 0x15']},
+    {name:"iPhone SE",         cat:'phone',  os:'apple',   icon:'📱', pkts:['AirDrop request 0x05','iBeacon 0x004C','Magic KB pair 0x01','WatchOS relay 0x06']},
+    {name:"MacBook Pro",       cat:'laptop', os:'apple',   icon:'💻', pkts:['AirDrop request 0x05','Handoff Continuity 0x0C','AirPlay2 probe 0x09','Bluetooth keyboard 0x01','Sidecar 0x15','Universal Clipboard 0x0F']},
+    {name:"MacBook Air",       cat:'laptop', os:'apple',   icon:'💻', pkts:['AirDrop request 0x05','Handoff Continuity 0x0C','AirPlay2 probe 0x09','Universal Clipboard 0x0F']},
+    {name:"iPad Pro",          cat:'tablet', os:'apple',   icon:'📱', pkts:['AirDrop request 0x05','Apple Pencil pair 0x01','iBeacon 0x004C','Sidecar 0x15','HomeKit 0x0D']},
+    {name:"Galaxy S24 Ultra",  cat:'phone',  os:'samsung', icon:'📱', pkts:['Quick Share beacon 0xEC','Fast Pair 0x2C7A','Galaxy Buds2 Pro 0x2C','SmartTag2 scan 0xD4','Galaxy Watch6 pair 0xAA','Bixby wakeup 0xB0','Samsung Health 0xCF']},
+    {name:"Galaxy S23",        cat:'phone',  os:'samsung', icon:'📱', pkts:['Quick Share beacon 0xEC','Fast Pair 0x2C7A','Galaxy Watch5 pair 0xAA','Galaxy Buds2 0x2C','SmartThings 0xD8']},
+    {name:"Galaxy Tab S9",     cat:'tablet', os:'samsung', icon:'📱', pkts:['Quick Share beacon 0xEC','DeX pad detected 0xDE','Fast Pair 0x2C7A','SmartThings 0xD8','Galaxy Book link 0xBB']},
+    {name:"Galaxy Book 3",     cat:'laptop', os:'samsung', icon:'💻', pkts:['Quick Share beacon 0xEC','Fast Pair 0x2C7A','Swift Pair 0x0006','Galaxy Link Windows 0xBB']},
+    {name:"Pixel 8 Pro",       cat:'phone',  os:'google',  icon:'📱', pkts:['Fast Pair 0x0649 (Pixel Buds)','Nearby Share 0xFC128E01','Android Auto 0x00E0','Pixel Watch2 pair 0xA0','Google Cast 0x4B455956','Fast Pair 0x821F']},
+    {name:"Pixel 7a",          cat:'phone',  os:'google',  icon:'📱', pkts:['Fast Pair 0x0649 (Pixel Buds)','Nearby Share 0xFC128E01','Fast Pair 0x0186','Android Share 0x00E0']},
+    {name:"Nest Hub",          cat:'speaker',os:'google',  icon:'🔊', pkts:['Fast Pair 0x01C2 (Nest)','Google TV dongle 0x11','Chromecast 0x4B455956','Matter device 0x0106']},
+    {name:"DESKTOP-A3F2K",     cat:'desktop',os:'windows', icon:'🖥️', pkts:['Swift Pair 0x0006 type:03','Swift Pair controller 0x0006','Xbox Series X 0xE0CB','MS Ergonomic KB 0x0006','LE Audio sink 0x1850','Bluetooth LE HID 0x1812']},
+    {name:"LAPTOP-X7K9",       cat:'laptop', os:'windows', icon:'💻', pkts:['Swift Pair 0x0006 type:03','Surface Headphones 0x0006','MS Designer mouse 0x0006','LE Audio source 0x1851','Swift Pair 0x0025']},
+    {name:"Surface Pro 9",     cat:'tablet', os:'windows', icon:'💻', pkts:['Swift Pair 0x0006 type:04','Surface Earbuds 0x0006','Surface Arc KB 0x0006','Swift Pair 0x0025','LE Audio PBP 0x1853']},
+    {name:"OnePlus 12",        cat:'phone',  os:'android', icon:'📱', pkts:['Fast Pair 0x0A42','Nearby Share 0xFC128E01','Android Share 0x00E0','BLE manuf 0xFF74','Matter 0x0106']},
+    {name:"Xiaomi 14",         cat:'phone',  os:'android', icon:'📱', pkts:['Fast Pair 0x01C2','Nearby Share 0xFC128E01','MIUI Share 0xFE6F','BLE manuf 0xFF38','Mi Band probe 0x157E']},
+    {name:"WH-1000XM5",        cat:'audio',  os:'sony',    icon:'🎧', pkts:['WH-1000XM5 pair 0x012D','Sony Connect 0x012D','LE Audio CIS 0x184E','AVRCP target 0x110C','NFC tag detected']},
+    {name:"PS5 DualSense",     cat:'console',os:'sony',    icon:'🎮', pkts:['PS5 DualSense 0x012D','Sony BT HID 0x1124','Controller pair 0x2F00','L2CAP PSM 0x0011']},
+    {name:"Nintendo Switch",   cat:'console',os:'nintendo',icon:'🎮', pkts:['Joy-Con (L) pair 0x057E','Joy-Con (R) pair 0x057E','Pro Controller 0x2009','Switch nearby 0x0100','BTLE HID 0x1124']},
+    {name:"Echo Dot",          cat:'speaker',os:'amazon',  icon:'🔊', pkts:['Alexa device 0x0171','Echo 0xFE89 type:71','Amazon GATT 0xFE034A','LE Audio 0x1853','AMA voice 0xFE03']},
+    {name:"Tile Mate",         cat:'tracker',os:'tile',    icon:'📍', pkts:['Tile Mate 0xFEED','Anti-theft alert 0x47','Tile network ping 0xFEED','Lost item beacon 0x04','Tile GATT 0x1825']},
+    {name:"AirTag",            cat:'tracker',os:'apple',   icon:'📍', pkts:['FindMy 0x004C/0x12','FindMy network beacon','iBeacon 0x004C','Separated alert 0x12/0x18','Owner connected 0x12/0x10']},
+    {name:"AirPods Pro 2",     cat:'audio',  os:'apple',   icon:'🎧', pkts:['AirPods Pro 2 nearby 0x07','AirPods case open 0x07','H2 chip 0x004C','Find My audio 0x12','AAC sink 0x110B']},
+    {name:"Galaxy Buds2 Pro",  cat:'audio',  os:'samsung', icon:'🎧', pkts:['Buds2 Pro pair 0x2C','Galaxy Wearable 0x2C','Fast Pair 0x2C7A','LE Audio CIS 0x184E','Samsung 0x0075']},
+    {name:"Fitbit Sense 2",    cat:'audio',  os:'fitbit',  icon:'⌚', pkts:['Fitbit GATT 0xFB00','Health sync 0xFB01','Fitbit OS beacon 0xFBCD','Step count push 0xFB02']},
   ];
 
-  const OS_ICONS={apple:'🍎',samsung:'📱',google:'🔵',windows:'🪟',android:'🤖',sony:'🎧',nintendo:'🎮',amazon:'🟡',tile:'📍'};
-  const CAT_LABEL={phone:'Phone',laptop:'Laptop',desktop:'Desktop',tablet:'Tablet',speaker:'Speaker',console:'Console',audio:'Audio',tracker:'Tracker'};
+  const OS_ICONS={apple:'🍎',samsung:'📱',google:'🔵',windows:'🪟',android:'🤖',sony:'🎧',nintendo:'🎮',amazon:'🟡',tile:'📍',fitbit:'⌚',real:'📡'};
+  const CAT_LABEL={phone:'Phone',laptop:'Laptop',desktop:'Desktop',tablet:'Tablet',speaker:'Speaker',console:'Console',audio:'Audio',tracker:'Tracker',real:'Real'};
 
   function randMac(){return Array.from({length:6},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0').toUpperCase()).join(':');}
   function randRssi(){return -(Math.floor(Math.random()*45)+40);}
+  function rh(n){return Array.from({length:n},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0').toUpperCase()).join(' ');}
 
-  let devices=[],scanned=false,scanning=false,cursorIdx=0,running=false,pkts=0,hits=0,iid=null,scanIid=null;
+  function makeHex(os,pkt){
+    const ch=[37,38,39][Math.floor(Math.random()*3)];
+    const pdu=['ADV_NONCONN_IND','ADV_IND','ADV_SCAN_IND','SCAN_RSP'][Math.floor(Math.random()*4)];
+    let hex='';
+    if(os==='apple'){
+      const t=pkt.includes('0x07')?'07':pkt.includes('0x12')?'12':pkt.includes('0x0C')?'0C':pkt.includes('0x09')?'09':pkt.includes('0x0D')?'0D':pkt.includes('0x15')?'15':'05';
+      hex=`02 01 1A 1B FF 4C 00 ${t} ${rh(1)} ${rh(12)}`;
+    }else if(os==='samsung'){
+      hex=`02 01 06 ${rh(1)} FF 75 00 ${rh(2)} ${rh(8)} 0A 16 2C FE ${rh(3)}`;
+    }else if(os==='google'||os==='android'){
+      hex=`02 01 06 06 16 2C FE ${rh(3)} 0A FF E0 00 ${rh(5)}`;
+    }else if(os==='windows'){
+      hex=`02 01 06 0F FF 06 00 03 00 ${rh(2)} 00 00 ${rh(6)}`;
+    }else if(os==='sony'){
+      hex=`02 01 06 ${rh(1)} FF 2D 01 ${rh(10)} 02 0A 04`;
+    }else if(os==='nintendo'){
+      hex=`02 01 06 0B FF 7E 05 ${rh(3)} 02 00 ${rh(6)}`;
+    }else if(os==='amazon'){
+      hex=`02 01 06 05 16 89 FE ${rh(2)} ${rh(1)} FF 71 01 ${rh(6)}`;
+    }else if(os==='tile'){
+      hex=`02 01 06 07 16 ED FE ${rh(4)} 02 0A ${rh(1)} ${rh(5)}`;
+    }else if(os==='fitbit'){
+      hex=`02 01 06 03 16 00 FB ${rh(10)} 02 0A 00`;
+    }else{
+      hex=`02 01 06 ${rh(15)}`;
+    }
+    return {ch,pdu,hex};
+  }
+
+  let devices=[],scanned=false,scanning=false,cursorIdx=0,running=false,pkts=0,hits=0,iid=null,scanIid=null,sigRaf=null,burst=1;
+  let adapterMac=randMac(),localSubnet=null;
 
   const wrap=document.createElement('div');wrap.className='ble-wrap';
 
   // ── scan bar ──
   const scanBar=document.createElement('div');
   scanBar.style.cssText='display:flex;flex-direction:column;gap:6px;padding:8px 10px;border-bottom:1px solid var(--brd);flex-shrink:0;background:var(--surf);';
-  const scanBtnRow=document.createElement('div');scanBtnRow.style.cssText='display:flex;gap:6px;';
   const scanBtn=document.createElement('div');
-  scanBtn.style.cssText='flex:1;padding:9px 6px;text-align:center;border-radius:7px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:11px;font-weight:700;letter-spacing:.5px;background:rgba(31,204,124,.12);border:1px solid rgba(31,204,124,.5);color:var(--acc);';
-  scanBtn.textContent='🎲  SIMULATED SCAN';
-  const realBtn=document.createElement('div');
-  realBtn.style.cssText='flex:1;padding:9px 6px;text-align:center;border-radius:7px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:11px;font-weight:700;letter-spacing:.5px;background:rgba(45,168,255,.15);border:2px solid rgba(45,168,255,.7);color:#2DA8FF;';
-  realBtn.textContent='📡  REAL BLUETOOTH';
+  scanBtn.style.cssText='width:100%;box-sizing:border-box;padding:10px 6px;text-align:center;border-radius:7px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:12px;font-weight:700;letter-spacing:.5px;background:rgba(31,204,124,.12);border:1px solid rgba(31,204,124,.5);color:var(--acc);';
+  scanBtn.textContent='📡  SCAN NEARBY DEVICES';
   const scanStatus=document.createElement('div');
   scanStatus.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;color:var(--mut);text-align:center;';
-  scanStatus.textContent='0 devices';
-  scanBtnRow.appendChild(scanBtn);scanBtnRow.appendChild(realBtn);
-  scanBar.appendChild(scanBtnRow);scanBar.appendChild(scanStatus);wrap.appendChild(scanBar);
+  scanStatus.textContent='hci0 ready · '+adapterMac;
+  scanBar.appendChild(scanBtn);scanBar.appendChild(scanStatus);wrap.appendChild(scanBar);
 
   // ── device list ──
   const devList=document.createElement('div');
   devList.style.cssText='flex:1;overflow-y:auto;scrollbar-width:none;';
   const emptyMsg=document.createElement('div');
-  emptyMsg.style.cssText='color:var(--mut);font-size:10px;text-align:center;padding:28px 10px;font-family:\'Courier New\',monospace;';
+  emptyMsg.style.cssText='color:var(--mut);font-size:10px;text-align:center;padding:28px 10px;font-family:\'Courier New\',monospace;white-space:pre;';
   emptyMsg.textContent='No devices found.\nPress SCAN to search.';
   devList.appendChild(emptyMsg);
   wrap.appendChild(devList);
 
   // ── log ──
-  const log=document.createElement('div');log.className='ble-log';log.style.cssText+='max-height:100px;border-top:1px solid var(--brd);display:none;';
+  const log=document.createElement('div');log.className='ble-log';log.style.cssText+='max-height:110px;border-top:1px solid var(--brd);display:none;';
   wrap.appendChild(log);
 
   // ── footer ──
   const footer=document.createElement('div');footer.className='ble-footer';
   const stats=document.createElement('div');stats.className='ble-stats';
   stats.innerHTML=`<span>Pkts: <span class="ble-stat-v" id="bs-pkts">0</span></span><span>Targets: <span class="ble-stat-v" id="bs-tgt">0</span></span><span>Hits: <span class="ble-stat-v warn" id="bs-hits">0</span></span>`;
+  const burstRow=document.createElement('div');
+  burstRow.style.cssText='display:flex;align-items:center;gap:4px;padding:0 2px;';
+  const burstLbl=document.createElement('span');burstLbl.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;color:var(--mut);margin-right:2px;';burstLbl.textContent='BURST:';
+  burstRow.appendChild(burstLbl);
+  [1,5,10,50].forEach(n=>{
+    const b=document.createElement('div');
+    b.style.cssText=`padding:2px 7px;border-radius:4px;cursor:pointer;font-family:'Courier New',monospace;font-size:10px;font-weight:700;border:1px solid ${burst===n?'var(--acc)':'var(--brd)'};color:${burst===n?'var(--acc)':'var(--mut)'};`;
+    b.textContent='×'+n;
+    b.onclick=()=>{burst=n;burstRow.querySelectorAll('[data-bn]').forEach(el=>{el.style.borderColor='var(--brd)';el.style.color='var(--mut)';});b.style.borderColor='var(--acc)';b.style.color='var(--acc)';};
+    b.setAttribute('data-bn',n);
+    burstRow.appendChild(b);
+  });
   const spamBtn=document.createElement('div');spamBtn.className='hs-toggle off';spamBtn.id='bs-btn';spamBtn.textContent='▶  SPAM SELECTED';
-  footer.appendChild(stats);footer.appendChild(spamBtn);wrap.appendChild(footer);
+  footer.appendChild(stats);footer.appendChild(burstRow);footer.appendChild(spamBtn);wrap.appendChild(footer);
   v.appendChild(wrap);
 
   function addLine(text,cls=''){
     const line=document.createElement('div');line.className='ble-ll'+(cls?' '+cls:'');
     line.textContent=text;log.appendChild(line);
-    if(log.children.length>80)log.removeChild(log.firstChild);
+    if(log.children.length>120)log.removeChild(log.firstChild);
     log.scrollTop=log.scrollHeight;
   }
 
@@ -1089,9 +1130,10 @@ function buildBleSpam(v){
       if(d.selected)chk.textContent='✓';
       const ico=document.createElement('div');ico.style.cssText='font-size:16px;flex-shrink:0;';ico.textContent=d.icon;
       const body=document.createElement('div');body.style.cssText='flex:1;min-width:0;';
-      body.innerHTML=`<div style="font-family:'Courier New',monospace;font-size:11px;color:var(--txt);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.name}</div><div style="font-size:9px;color:var(--mut);margin-top:1px;">${OS_ICONS[d.os]||'📡'} ${d.os.toUpperCase()} · ${CAT_LABEL[d.cat]||d.cat}</div>`;
+      const realBadge=d._realDevice?'<span style="font-size:8px;background:rgba(45,168,255,.25);color:#2DA8FF;border-radius:3px;padding:0 3px;margin-left:4px;">REAL</span>':'';
+      body.innerHTML=`<div style="font-family:'Courier New',monospace;font-size:11px;color:var(--txt);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.name}${realBadge}</div><div style="font-size:9px;color:var(--mut);margin-top:1px;">${OS_ICONS[d.os]||'📡'} ${d.mac} · ${CAT_LABEL[d.cat]||d.cat}</div>`;
       const sig=document.createElement('div');sig.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;color:var(--mut);text-align:right;flex-shrink:0;';sig.setAttribute('data-sig','');
-      const bars=d.rssi>-55?'▂▄▆█':d.rssi>-70?'▂▄▆ ':d.rssi>-80?'▂▄  ':'▂   ';
+      const bars=d.rssi>-55?'▂▄▆█':d.rssi>-70?'▂▄▆░':d.rssi>-80?'▂▄░░':'▂░░░';
       sig.innerHTML=`<div style="color:${d.rssi>-65?'var(--acc)':d.rssi>-80?'var(--warn)':'var(--dan)'}">${bars}</div><div>${d.rssi}dBm</div>`;
       el.appendChild(chk);el.appendChild(ico);el.appendChild(body);el.appendChild(sig);
       el.onclick=()=>{cursorIdx=i;d.selected=!d.selected;renderDevices();updateTargetCount();};
@@ -1105,87 +1147,110 @@ function buildBleSpam(v){
     document.getElementById('bs-tgt').textContent=n;
   }
 
-  function doScan(){
-    if(scanning||running)return;
-    scanning=true;scanned=false;devices=[];cursorIdx=0;
-    scanBtn.textContent='📡  SCANNING…';scanBtn.style.color='var(--warn)';
-    devList.innerHTML='';log.style.display='none';
-    const pool=[...DEVICE_POOL].sort(()=>Math.random()-0.5);
-    const count=6+Math.floor(Math.random()*7);
-    let i=0;
-    scanStatus.textContent='Scanning…';
-    scanIid=setInterval(()=>{
-      if(i>=count){
-        clearInterval(scanIid);scanning=false;scanned=true;
-        scanBtn.textContent='🔍  SCAN NEARBY';scanBtn.style.color='var(--acc)';
-        scanStatus.textContent=devices.length+' devices found';
-        return;
-      }
-      const d={...pool[i%pool.length],mac:randMac(),rssi:randRssi(),selected:false};
-      devices.push(d);renderDevices();
-      scanStatus.textContent='Found '+devices.length+'…';i++;
-    },280);
+  function startSigAnim(){
+    let frame=0;
+    function tick(){
+      if(!running){sigRaf=null;return;}
+      frame++;
+      devices.forEach((d,i)=>{
+        if(!d.selected)return;
+        const row=devList.children[i];if(!row)return;
+        const sigEl=row.querySelector('[data-sig]');if(!sigEl)return;
+        const drift=Math.floor(Math.random()*6)-3;
+        const r=Math.max(-95,Math.min(-40,d.rssi+drift));
+        const bars=r>-55?'▂▄▆█':r>-70?'▂▄▆░':r>-80?'▂▄░░':'▂░░░';
+        const col=r>-65?'var(--acc)':r>-80?'var(--warn)':'var(--dan)';
+        sigEl.innerHTML=`<div style="color:${col};letter-spacing:1px">${bars}</div><div>${r}dBm</div>`;
+      });
+      sigRaf=requestAnimationFrame(()=>setTimeout(tick,120));
+    }
+    tick();
   }
 
-  scanBtn.onclick=doScan;
-
-  async function doRealScan(){
+  // Real WebRTC scan — gets your actual local IP/subnet, then layers BLE simulation on top
+  async function doScan(){
     if(scanning||running)return;
-    const inIframe=window!==window.top;
-    if(inIframe||!navigator.bluetooth){
-      log.style.display='block';
-      // Try to break out of the iframe by opening a new window
-      if(inIframe){
-        const url=location.href;
-        const w=window.open(url,'_blank');
-        if(w&&!w.closed){
-          addLine('[BT] Opened in new tab — use REAL BLUETOOTH there');
-          return;
-        }
-        // Popup was blocked — show the URL to copy
-        addLine('[ERR] Popup blocked. Copy this URL and paste into Chrome:');
-        const urlBox=document.createElement('input');
-        urlBox.readOnly=true;urlBox.value=url;
-        urlBox.style.cssText='width:100%;box-sizing:border-box;background:#0a1020;border:1px solid var(--blu);border-radius:5px;padding:6px 8px;font-family:\'Courier New\',monospace;font-size:9px;color:#2DA8FF;outline:none;margin:4px 0;cursor:text;';
-        urlBox.onclick=()=>{urlBox.select();document.execCommand('copy');urlBox.style.borderColor='var(--acc)';setTimeout(()=>urlBox.style.borderColor='var(--blu)',1200);};
-        const hint=document.createElement('div');hint.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;color:var(--mut);margin-top:2px;';
-        hint.textContent='↑ click to copy, then paste in Chrome';
-        log.appendChild(urlBox);log.appendChild(hint);
-      }else{
-        addLine('[ERR] Web Bluetooth not available — use Chrome or Edge');
-      }
-      return;
+    scanning=true;scanned=false;devices=[];cursorIdx=0;
+    scanBtn.textContent='⏳  SCANNING…';scanBtn.style.color='var(--warn)';
+    devList.innerHTML='';log.style.display='block';
+    scanStatus.textContent='Probing adapter…';
+
+    // Step 1: WebRTC ICE — gets real local IP, works in sandboxed iframes
+    let rtcDone=false;
+    try{
+      const pc=new RTCPeerConnection({iceServers:[]});
+      pc.createDataChannel('x');
+      const offer=await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await new Promise(resolve=>{
+        pc.onicecandidate=e=>{
+          if(!e||!e.candidate){resolve();return;}
+          const m=e.candidate.candidate.match(/(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}/);
+          if(m&&!localSubnet&&!e.candidate.candidate.includes('::'))localSubnet=m[1];
+        };
+        setTimeout(resolve,1800);
+      });
+      pc.close();
+      rtcDone=true;
+    }catch(e){}
+
+    adapterMac=randMac();
+    addLine(`[HCI] hci0 up  bdaddr ${adapterMac}  Tx: +4dBm`);
+    if(localSubnet){
+      addLine(`[NET] Local: ${localSubnet}.0/24  iface: wlan0`);
+      scanStatus.textContent=`wlan0: ${localSubnet}.x · hci0: ${adapterMac}`;
+    }else{
+      scanStatus.textContent=`hci0: ${adapterMac}`;
     }
-    log.style.display='block';
-    addLine('[BT] Click a device in the picker to add it. Cancel the picker to stop.');
-    realBtn.textContent='⏳ SCANNING…';realBtn.style.color='var(--warn)';
-    let added=0;
-    while(true){
+    addLine(`[HCI] LE_Set_Scan_Param type=ACTIVE interval=100ms window=50ms`);
+    addLine(`[HCI] LE_Set_Scan_Enable=1  filter_dup=0`);
+    addLine(`[HCI] Scanning CH37/38/39…`);
+
+    // Step 2: Try real Web Bluetooth if available and not sandboxed
+    let realAdded=0;
+    if(navigator.bluetooth&&window===window.top){
+      addLine('[BT] Web Bluetooth available — prompting device picker…','warn');
       try{
         const dev=await navigator.bluetooth.requestDevice({
           acceptAllDevices:true,
-          optionalServices:['generic_access','device_information','battery_service','0000180a-0000-1000-8000-00805f9b34fb']
+          optionalServices:['generic_access','device_information','battery_service']
         });
-        if(!devices.find(d=>d._realId===dev.id)){
-          const d={
-            name:dev.name||'Unknown BT Device',cat:'real',os:'real',icon:'📡',
-            pkts:['GATT connect','Service discovery','Read characteristics','Probe 0x180A'],
-            mac:dev.id?dev.id.slice(0,17).toUpperCase():'REAL',
-            rssi:-60,selected:false,_realDevice:dev,_realId:dev.id,
-          };
-          devices.push(d);renderDevices();added++;
-          addLine(`[BT] + ${d.name}  (${added} real device${added>1?'s':''})`,'warn');
-          scanStatus.textContent=devices.length+' device(s)';
-        }else{
-          addLine('[BT] Already in list — pick another or cancel picker to stop');
-        }
+        const rd={
+          name:dev.name||'Unknown BT Device',cat:'real',os:'real',icon:'📡',
+          pkts:['GATT connect 0x180A','Service discovery','Read 0x2A00','Probe characteristics'],
+          mac:randMac(),rssi:-58,selected:false,_realDevice:dev,_realId:dev.id,
+        };
+        devices.push(rd);realAdded++;
+        addLine(`[BT] REAL: ${rd.name}  ${rd.mac}  -58dBm`,'warn');
       }catch(e){
-        addLine('[BT] Picker closed — '+devices.length+' device(s) total');break;
+        addLine('[BT] Picker closed — continuing with scan');
       }
     }
-    realBtn.textContent='📡 REAL';realBtn.style.color='var(--blu)';
+
+    // Step 3: Simulate BLE scan with realistic discovery timing
+    const pool=[...DEVICE_POOL].sort(()=>Math.random()-0.5);
+    const count=7+Math.floor(Math.random()*6);
+    let i=0;
+    scanIid=setInterval(()=>{
+      if(i>=count){
+        clearInterval(scanIid);scanning=false;scanned=true;
+        scanBtn.textContent='🔄  SCAN AGAIN';scanBtn.style.color='var(--acc)';
+        scanStatus.textContent=devices.length+' device(s) found';
+        addLine(`[HCI] Scan complete  ${devices.length} device(s)`,'warn');
+        return;
+      }
+      const base=pool[i%pool.length];
+      const mac=randMac();
+      const rssi=randRssi();
+      const d={...base,mac,rssi,selected:false};
+      devices.push(d);renderDevices();
+      const {ch,pdu}=makeHex(d.os,d.pkts[0]);
+      addLine(`[LE] ${mac}  CH${ch}  ${rssi}dBm  ${pdu}  ${d.name}`);
+      scanStatus.textContent='Found '+devices.length+'…';i++;
+    },320);
   }
-  realBtn.onclick=doRealScan;
+
+  scanBtn.onclick=doScan;
 
   async function tryGattSpam(d){
     if(!d._realDevice)return;
@@ -1196,7 +1261,7 @@ function buildBleSpam(v){
       hits++;document.getElementById('bs-hits').textContent=hits;
       try{
         const svcs=await server.getPrimaryServices();
-        addLine(`[GATT→${d.name.slice(0,16)}] ${svcs.length} service(s) exposed`);
+        addLine(`[GATT→${d.name.slice(0,16)}] ${svcs.length} svc(s) exposed`);
       }catch(e2){}
       setTimeout(()=>{try{server.disconnect();}catch(e){}},2000);
     }catch(e){
@@ -1213,30 +1278,40 @@ function buildBleSpam(v){
       spamBtn.className='hs-toggle act';spamBtn.textContent='■  STOP SPAM';
       const realTargets=targets.filter(d=>d._realDevice);
       const simTargets=targets.filter(d=>!d._realDevice);
-      addLine(`[INIT] Channel: 37/38/39  Power: +4dBm`);
-      addLine(`[INIT] ${simTargets.length} simulated · ${realTargets.length} real GATT target(s)`);
+      addLine(`[INIT] Adapter: hci0  Addr: ${adapterMac}  Tx: +4dBm`);
+      addLine(`[INIT] Ch: 37/38/39  PHY: LE 1M  Mode: ADV_NONCONN_IND`);
+      addLine(`[INIT] ${simTargets.length} sim target(s) · ${realTargets.length} GATT target(s)`);
       if(realTargets.length){
         realTargets.forEach(d=>tryGattSpam(d));
         setInterval(()=>{if(running&&realTargets.length)tryGattSpam(realTargets[Math.floor(Math.random()*realTargets.length)]);},4000);
       }
+      startSigAnim();
+      if(burst>1)addLine(`[INIT] Burst mode: ${burst}× per tick`,'warn');
       iid=setInterval(()=>{
-        pkts++;
-        if(simTargets.length){
-          const t=simTargets[Math.floor(Math.random()*simTargets.length)];
-          const pkt=t.pkts[Math.floor(Math.random()*t.pkts.length)];
-          const isHit=Math.random()<0.18;if(isHit)hits++;
-          addLine(`[TX→${t.name.slice(0,14).padEnd(14)}] ${pkt.padEnd(22)} ${t.rssi}dBm${isHit?' ✓':''}`,isHit?'warn':'');
-        }else if(realTargets.length){
-          const t=realTargets[Math.floor(Math.random()*realTargets.length)];
-          addLine(`[GATT→${t.name.slice(0,14).padEnd(14)}] probe attempt ${pkts}…`);
+        for(let b=0;b<burst;b++){
+          pkts++;
+          if(simTargets.length){
+            const t=simTargets[Math.floor(Math.random()*simTargets.length)];
+            const pkt=t.pkts[Math.floor(Math.random()*t.pkts.length)];
+            const {ch,pdu,hex}=makeHex(t.os,pkt);
+            const isHit=Math.random()<0.22;if(isHit)hits++;
+            const ts=('00000'+pkts).slice(-5);
+            addLine(`[${ts}|CH${ch}|${pdu}] ${t.mac} → ${t.name.slice(0,14).padEnd(14)} ${t.rssi}dBm${isHit?' ✓HIT':''}`,isHit?'warn':'');
+            if(burst<=5)addLine(`  ${hex.slice(0,46)}…`);
+            if(isHit)addLine(`  ↳ ${pkt}`,'warn');
+          }else if(realTargets.length){
+            const t=realTargets[Math.floor(Math.random()*realTargets.length)];
+            addLine(`[GATT→${t.name.slice(0,16)}] probe #${pkts}`);
+          }
         }
         document.getElementById('bs-pkts').textContent=pkts;
         document.getElementById('bs-hits').textContent=hits;
-      },200);
+      },250);
     }else{
       clearInterval(iid);iid=null;
+      if(sigRaf){cancelAnimationFrame(sigRaf);sigRaf=null;}
       spamBtn.className='hs-toggle off';spamBtn.textContent='▶  SPAM SELECTED';
-      addLine(`[DONE] ${pkts} packets · ${hits} hits`,'warn');
+      addLine(`[DONE] ${pkts} pkts sent · ${hits} hits · ${(hits/Math.max(1,pkts)*100).toFixed(1)}% hit rate`,'warn');
     }
   };
 
@@ -1250,7 +1325,7 @@ function buildBleSpam(v){
     }
   };
   document.addEventListener('keydown',kh);
-  v.remove=((orig)=>()=>{document.removeEventListener('keydown',kh);clearInterval(iid);clearInterval(scanIid);orig();})(v.remove.bind(v));
+  v.remove=((orig)=>()=>{document.removeEventListener('keydown',kh);clearInterval(iid);clearInterval(scanIid);if(sigRaf)cancelAnimationFrame(sigRaf);orig();})(v.remove.bind(v));
 }
 
 /* ═══════════════════════════════════════════════════════════
