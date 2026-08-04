@@ -1021,14 +1021,17 @@ function buildBleSpam(v){
 
   // ── scan bar ──
   const scanBar=document.createElement('div');
-  scanBar.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--brd);flex-shrink:0;background:var(--surf);';
+  scanBar.style.cssText='display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid var(--brd);flex-shrink:0;background:var(--surf);';
   const scanBtn=document.createElement('div');
-  scanBtn.style.cssText='flex:1;padding:7px;text-align:center;border-radius:6px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:11px;font-weight:700;letter-spacing:.5px;background:rgba(31,204,124,.09);border:1px solid rgba(31,204,124,.35);color:var(--acc);';
-  scanBtn.textContent='🔍  SCAN NEARBY';
+  scanBtn.style.cssText='flex:1;padding:6px;text-align:center;border-radius:6px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:10px;font-weight:700;letter-spacing:.5px;background:rgba(31,204,124,.09);border:1px solid rgba(31,204,124,.35);color:var(--acc);';
+  scanBtn.textContent='🎲 SIM';
+  const realBtn=document.createElement('div');
+  realBtn.style.cssText='flex:1;padding:6px;text-align:center;border-radius:6px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:10px;font-weight:700;letter-spacing:.5px;background:rgba(45,168,255,.09);border:1px solid rgba(45,168,255,.35);color:var(--blu);';
+  realBtn.textContent='📡 REAL';
   const scanStatus=document.createElement('div');
   scanStatus.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;color:var(--mut);white-space:nowrap;';
   scanStatus.textContent='0 devices';
-  scanBar.appendChild(scanBtn);scanBar.appendChild(scanStatus);wrap.appendChild(scanBar);
+  scanBar.appendChild(scanBtn);scanBar.appendChild(realBtn);scanBar.appendChild(scanStatus);wrap.appendChild(scanBar);
 
   // ── device list ──
   const devList=document.createElement('div');
@@ -1110,20 +1113,86 @@ function buildBleSpam(v){
 
   scanBtn.onclick=doScan;
 
+  async function doRealScan(){
+    if(scanning||running)return;
+    if(!navigator.bluetooth){
+      log.style.display='block';
+      addLine('[ERR] Web Bluetooth not available — open in Chrome or Edge');return;
+    }
+    log.style.display='block';
+    addLine('[BT] Click a device in the picker to add it. Cancel the picker to stop.');
+    realBtn.textContent='⏳ SCANNING…';realBtn.style.color='var(--warn)';
+    let added=0;
+    while(true){
+      try{
+        const dev=await navigator.bluetooth.requestDevice({
+          acceptAllDevices:true,
+          optionalServices:['generic_access','device_information','battery_service','0000180a-0000-1000-8000-00805f9b34fb']
+        });
+        if(!devices.find(d=>d._realId===dev.id)){
+          const d={
+            name:dev.name||'Unknown BT Device',cat:'real',os:'real',icon:'📡',
+            pkts:['GATT connect','Service discovery','Read characteristics','Probe 0x180A'],
+            mac:dev.id?dev.id.slice(0,17).toUpperCase():'REAL',
+            rssi:-60,selected:false,_realDevice:dev,_realId:dev.id,
+          };
+          devices.push(d);renderDevices();added++;
+          addLine(`[BT] + ${d.name}  (${added} real device${added>1?'s':''})`,'warn');
+          scanStatus.textContent=devices.length+' device(s)';
+        }else{
+          addLine('[BT] Already in list — pick another or cancel picker to stop');
+        }
+      }catch(e){
+        addLine('[BT] Picker closed — '+devices.length+' device(s) total');break;
+      }
+    }
+    realBtn.textContent='📡 REAL';realBtn.style.color='var(--blu)';
+  }
+  realBtn.onclick=doRealScan;
+
+  async function tryGattSpam(d){
+    if(!d._realDevice)return;
+    try{
+      addLine(`[GATT→${d.name.slice(0,16)}] Connecting…`);
+      const server=await d._realDevice.gatt.connect();
+      addLine(`[GATT→${d.name.slice(0,16)}] Connected ✓`,'warn');
+      hits++;document.getElementById('bs-hits').textContent=hits;
+      try{
+        const svcs=await server.getPrimaryServices();
+        addLine(`[GATT→${d.name.slice(0,16)}] ${svcs.length} service(s) exposed`);
+      }catch(e2){}
+      setTimeout(()=>{try{server.disconnect();}catch(e){}},2000);
+    }catch(e){
+      addLine(`[GATT→${d.name.slice(0,16)}] ${e.message}`);
+    }
+  }
+
   spamBtn.onclick=()=>{
     const targets=devices.filter(d=>d.selected);
-    if(!targets.length&&!running){alert('Select at least one target.');return;}
+    if(!targets.length&&!running){addLine('[WARN] Select at least one target first');log.style.display='block';return;}
     running=!running;
     if(running){
       log.style.display='block';
       spamBtn.className='hs-toggle act';spamBtn.textContent='■  STOP SPAM';
+      const realTargets=targets.filter(d=>d._realDevice);
+      const simTargets=targets.filter(d=>!d._realDevice);
       addLine(`[INIT] Channel: 37/38/39  Power: +4dBm`);
-      addLine(`[INIT] ${targets.length} target(s) locked`);
+      addLine(`[INIT] ${simTargets.length} simulated · ${realTargets.length} real GATT target(s)`);
+      if(realTargets.length){
+        realTargets.forEach(d=>tryGattSpam(d));
+        setInterval(()=>{if(running&&realTargets.length)tryGattSpam(realTargets[Math.floor(Math.random()*realTargets.length)]);},4000);
+      }
       iid=setInterval(()=>{
-        const t=targets[Math.floor(Math.random()*targets.length)];
-        const pkt=t.pkts[Math.floor(Math.random()*t.pkts.length)];
-        const isHit=Math.random()<0.18;if(isHit)hits++;pkts++;
-        addLine(`[TX→${t.name.slice(0,14).padEnd(14)}] ${pkt.padEnd(22)} ${t.rssi}dBm${isHit?' ✓':''}`,isHit?'warn':'');
+        pkts++;
+        if(simTargets.length){
+          const t=simTargets[Math.floor(Math.random()*simTargets.length)];
+          const pkt=t.pkts[Math.floor(Math.random()*t.pkts.length)];
+          const isHit=Math.random()<0.18;if(isHit)hits++;
+          addLine(`[TX→${t.name.slice(0,14).padEnd(14)}] ${pkt.padEnd(22)} ${t.rssi}dBm${isHit?' ✓':''}`,isHit?'warn':'');
+        }else if(realTargets.length){
+          const t=realTargets[Math.floor(Math.random()*realTargets.length)];
+          addLine(`[GATT→${t.name.slice(0,14).padEnd(14)}] probe attempt ${pkts}…`);
+        }
         document.getElementById('bs-pkts').textContent=pkts;
         document.getElementById('bs-hits').textContent=hits;
       },200);
