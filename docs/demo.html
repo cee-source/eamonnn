@@ -125,6 +125,12 @@ body{background:radial-gradient(ellipse at top,#0D1420 0%,#050709 70%);min-heigh
 .cp-notif-title{font-size:12px;font-weight:700;color:#fff;font-family:system-ui;}
 .cp-notif-sub{font-size:10px;color:#aaa;margin-top:2px;font-family:system-ui;line-height:1.4;}
 .cp-notif-time{font-size:9px;color:#666;margin-top:4px;font-family:monospace;}
+.cp-pad-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.cp-pad-cell{display:flex;align-items:center;gap:5px;background:var(--elev);border:1px solid var(--brd);border-radius:6px;padding:5px 8px;}
+.cp-pad-lbl{font-family:'Courier New',monospace;font-size:9px;color:var(--mut);flex-shrink:0;}
+.cp-pad-inp{background:transparent;border:none;outline:none;font-family:'Courier New',monospace;font-size:13px;color:var(--txt);width:100%;text-align:right;min-width:0;}
+.cp-pad-unit{font-family:'Courier New',monospace;font-size:10px;color:var(--mut);flex-shrink:0;}
+.cp-pad-cell:focus-within{border-color:var(--acc);}
 .cp-send-btn{margin:10px;padding:11px;text-align:center;border-radius:8px;cursor:pointer;font-family:'Courier New',monospace;font-size:12px;font-weight:700;letter-spacing:1px;transition:all .15s;border:1px solid;background:rgba(45,168,255,.09);border-color:rgba(45,168,255,.35);color:var(--blu);}
 .cp-send-btn:hover{background:rgba(45,168,255,.18);}
 .cp-send-btn.sending{background:rgba(31,204,124,.12);border-color:rgba(31,204,124,.4);color:var(--acc);}
@@ -1008,7 +1014,7 @@ function buildCustomPopup(v){
 
   let msgText='Hello World',msgPos=0,editingMsg=false;
   let selTxtSize=1,selColor=0,sending=false;
-  let popPx=[11,14,11,14],popFocus=null,popTyping='';
+  let popPx=[11,14,11,14];
   let cpDevices=[],cpTarget=null,cpScanning=false,cpScanIid=null,cpCursor=0;
   function cpRandRssi(){return -(Math.floor(Math.random()*45)+40);}
   function cpRandMac(){return Array.from({length:6},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0').toUpperCase()).join(':');}
@@ -1038,22 +1044,17 @@ function buildCustomPopup(v){
   // — Popup padding (px per side) —
   const sec3=document.createElement('div');sec3.className='cp-section';
   const l3=document.createElement('div');l3.className='cp-section-title';l3.textContent='POPUP PADDING (px)';
-  const padGrid=document.createElement('div');padGrid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:5px;';
-  const padFields=[];
+  const padGrid=document.createElement('div');padGrid.className='cp-pad-grid';
   POPUP_SIDES.forEach((side,i)=>{
-    const cell=document.createElement('div');cell.style.cssText='display:flex;align-items:center;gap:5px;background:var(--elev);border:1px solid var(--brd);border-radius:6px;padding:5px 8px;cursor:pointer;';
-    const lbl=document.createElement('span');lbl.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;color:var(--mut);flex-shrink:0;';lbl.textContent=side+':';
-    const val=document.createElement('span');val.id='pp-val-'+i;val.style.cssText='font-family:\'Courier New\',monospace;font-size:12px;color:var(--txt);flex:1;text-align:right;';val.textContent=popPx[i]+'px';
-    cell.appendChild(lbl);cell.appendChild(val);
-    cell.onclick=()=>{popFocus=i;popTyping='';padFields.forEach((f,j)=>{f.style.borderColor=j===i?'var(--acc)':'var(--brd)';});};
-    padGrid.appendChild(cell);padFields.push(cell);
+    const cell=document.createElement('div');cell.className='cp-pad-cell';
+    const lbl=document.createElement('span');lbl.className='cp-pad-lbl';lbl.textContent=side+':';
+    const inp=document.createElement('input');inp.type='number';inp.className='cp-pad-inp';
+    inp.min=0;inp.max=999;inp.value=popPx[i];
+    inp.oninput=()=>{const n=parseInt(inp.value,10);if(!isNaN(n)&&n>=0&&n<=999){popPx[i]=n;updatePreview();}};
+    const unit=document.createElement('span');unit.className='cp-pad-unit';unit.textContent='px';
+    cell.appendChild(lbl);cell.appendChild(inp);cell.appendChild(unit);
+    padGrid.appendChild(cell);
   });
-  function updatePadFields(){
-    POPUP_SIDES.forEach((s,i)=>{
-      const el=document.getElementById('pp-val-'+i);
-      if(el)el.textContent=(popFocus===i&&popTyping!==''?popTyping:popPx[i])+'px';
-    });
-  }
   sec3.appendChild(l3);sec3.appendChild(padGrid);wrap.appendChild(sec3);
 
   // — Color —
@@ -1171,22 +1172,6 @@ function buildCustomPopup(v){
       else if(e.key==='Backspace'){msgText=msgText.slice(0,msgPos-1)+msgText.slice(msgPos);msgPos=Math.max(0,msgPos-1);}
       else if(e.key.length===1&&msgText.length<32){msgText=msgText.slice(0,msgPos)+e.key+msgText.slice(msgPos);msgPos++;}
       renderMsg();return;
-    }
-    if(popFocus!==null){
-      if(/^\d$/.test(e.key)){popTyping+=e.key;updatePadFields();}
-      else if(e.key==='Backspace'){popTyping=popTyping.slice(0,-1);updatePadFields();}
-      else if(e.key==='Enter'||e.key==='Tab'){
-        const v2=parseInt(popTyping,10);if(!isNaN(v2)&&v2>=0&&v2<=999)popPx[popFocus]=v2;
-        popTyping='';
-        if(e.key==='Tab'){popFocus=(popFocus+1)%4;}else{popFocus=null;}
-        padFields.forEach((f,j)=>{f.style.borderColor=j===popFocus?'var(--acc)':'var(--brd)';});
-        updatePadFields();updatePreview();
-      }else if(e.key==='Escape'){
-        popTyping='';popFocus=null;
-        padFields.forEach(f=>{f.style.borderColor='var(--brd)';});
-        updatePadFields();
-      }
-      return;
     }
     if(cpDevices.length){
       if(e.key==='ArrowUp'){cpCursor=Math.max(0,cpCursor-1);renderTgtList();}
