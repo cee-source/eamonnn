@@ -1120,14 +1120,23 @@ function buildBleSpam(v){
     const inIframe=window!==window.top;
     if(inIframe||!navigator.bluetooth){
       log.style.display='block';
+      // Try to break out of the iframe by opening a new window
       if(inIframe){
-        addLine('[ERR] Claude\'s viewer blocks Bluetooth (sandboxed iframe)');
-        addLine('[FIX] Open this page in its own tab — button below ↓');
-        const openBtn=document.createElement('div');
-        openBtn.style.cssText='margin:6px 8px;padding:7px;text-align:center;border-radius:6px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:10px;font-weight:700;background:rgba(45,168,255,.12);border:1px solid rgba(45,168,255,.4);color:var(--blu);';
-        openBtn.textContent='↗  OPEN IN NEW TAB';
-        openBtn.onclick=()=>window.open(location.href,'_blank');
-        log.appendChild(openBtn);
+        const url=location.href;
+        const w=window.open(url,'_blank');
+        if(w&&!w.closed){
+          addLine('[BT] Opened in new tab — use REAL BLUETOOTH there');
+          return;
+        }
+        // Popup was blocked — show the URL to copy
+        addLine('[ERR] Popup blocked. Copy this URL and paste into Chrome:');
+        const urlBox=document.createElement('input');
+        urlBox.readOnly=true;urlBox.value=url;
+        urlBox.style.cssText='width:100%;box-sizing:border-box;background:#0a1020;border:1px solid var(--blu);border-radius:5px;padding:6px 8px;font-family:\'Courier New\',monospace;font-size:9px;color:#2DA8FF;outline:none;margin:4px 0;cursor:text;';
+        urlBox.onclick=()=>{urlBox.select();document.execCommand('copy');urlBox.style.borderColor='var(--acc)';setTimeout(()=>urlBox.style.borderColor='var(--blu)',1200);};
+        const hint=document.createElement('div');hint.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;color:var(--mut);margin-top:2px;';
+        hint.textContent='↑ click to copy, then paste in Chrome';
+        log.appendChild(urlBox);log.appendChild(hint);
       }else{
         addLine('[ERR] Web Bluetooth not available — use Chrome or Edge');
       }
