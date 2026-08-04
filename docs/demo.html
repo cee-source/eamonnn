@@ -842,12 +842,130 @@ function buildInfo(v,d){
 
 function buildHotspot(v){
   v.appendChild(mkTbar('Hotspot',true));
-  const btn=document.createElement('div');btn.className='hs-toggle '+(hotspotOn?'act':'off');
-  btn.textContent=hotspotOn?'■  STOP HOTSPOT':'▶  START HOTSPOT';
-  btn.onclick=()=>{hotspotOn=!hotspotOn;dev.btOn=hotspotOn;render();};v.appendChild(btn);
+
+  function hsRandMac(){return Array.from({length:6},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0').toUpperCase()).join(':');}
+
+  let hsActive=false,localSubnet=null,hsClients=[],hsIid=null;
+  const apMAC=hsRandMac();
+  const CLIENT_POOL=[
+    {name:'iPhone 15 Pro',icon:'📱'},{name:'MacBook Air',icon:'💻'},
+    {name:'Galaxy S24',icon:'📱'},{name:'LAPTOP-X7K9',icon:'💻'},
+    {name:'Pixel 8 Pro',icon:'📱'},{name:'iPad Pro',icon:'📱'},
+    {name:'Surface Pro 9',icon:'💻'},{name:'Galaxy Tab S9',icon:'📱'},
+    {name:'Nintendo Switch',icon:'🎮'},{name:'Echo Dot',icon:'🔊'},
+  ];
+
+  const wrap=document.createElement('div');wrap.style.cssText='display:flex;flex-direction:column;gap:0;flex:1;overflow:hidden;';
+
   const card=document.createElement('div');card.className='hs-card';
-  card.innerHTML=`<div class="hs-row"><span class="hs-k">Status</span><span class="hs-v ${hotspotOn?'on':''}">${hotspotOn?'● ACTIVE':'○ OFF'}</span></div><div class="hs-row"><span class="hs-k">SSID</span><span class="hs-v">PiFlip-Mesh</span></div><div class="hs-row"><span class="hs-k">Password</span><span class="hs-v">piflip123</span></div><div class="hs-row"><span class="hs-k">AP IP</span><span class="hs-v">${hotspotOn?'10.42.0.1':'—'}</span></div><div class="hs-row"><span class="hs-k">Channel</span><span class="hs-v">6</span></div><div class="hs-row"><span class="hs-k">Interface</span><span class="hs-v">wlan0</span></div><div class="hs-row"><span class="hs-k">DHCP</span><span class="hs-v">10.42.0.10–100</span></div>`;
-  v.appendChild(card);
+  function updateCard(){
+    const ip=localSubnet?localSubnet+'.1':'10.42.0.1';
+    const dhcp=localSubnet?`${localSubnet}.10–100`:'10.42.0.10–100';
+    card.innerHTML=`
+      <div class="hs-row"><span class="hs-k">Status</span><span class="hs-v ${hsActive?'on':''}">${hsActive?'● ACTIVE':'○ OFF'}</span></div>
+      <div class="hs-row"><span class="hs-k">SSID</span><span class="hs-v">PiFlip-Mesh</span></div>
+      <div class="hs-row"><span class="hs-k">Password</span><span class="hs-v">piflip123</span></div>
+      <div class="hs-row"><span class="hs-k">AP IP</span><span class="hs-v">${hsActive?ip:'—'}</span></div>
+      <div class="hs-row"><span class="hs-k">BSSID</span><span class="hs-v">${hsActive?apMAC:'—'}</span></div>
+      <div class="hs-row"><span class="hs-k">Channel</span><span class="hs-v">6  (2.4 GHz)</span></div>
+      <div class="hs-row"><span class="hs-k">DHCP</span><span class="hs-v">${hsActive?dhcp:'—'}</span></div>
+      <div class="hs-row"><span class="hs-k">Clients</span><span class="hs-v warn">${hsClients.length}</span></div>`;
+  }
+  updateCard();
+
+  const log=document.createElement('div');
+  log.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;background:#050b14;border-top:1px solid var(--brd);padding:6px 8px;max-height:110px;overflow-y:auto;scrollbar-width:none;display:none;flex-shrink:0;';
+  function addLine(t,c){
+    const ln=document.createElement('div');ln.style.cssText=`color:${c||'#6af'};line-height:1.6;`;ln.textContent=t;
+    log.appendChild(ln);if(log.children.length>60)log.removeChild(log.firstChild);log.scrollTop=log.scrollHeight;
+  }
+
+  const clientSec=document.createElement('div');
+  clientSec.style.cssText='border-top:1px solid var(--brd);flex-shrink:0;display:none;';
+  const clientHdr=document.createElement('div');
+  clientHdr.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;color:var(--mut);padding:4px 10px;letter-spacing:.5px;';
+  clientHdr.textContent='CONNECTED CLIENTS';
+  const clientList=document.createElement('div');clientList.style.cssText='max-height:80px;overflow-y:auto;scrollbar-width:none;';
+  clientSec.appendChild(clientHdr);clientSec.appendChild(clientList);
+  function renderClients(){
+    clientList.innerHTML='';
+    hsClients.forEach(c=>{
+      const el=document.createElement('div');
+      el.style.cssText='display:flex;align-items:center;gap:7px;padding:4px 10px;border-bottom:1px solid var(--brd);font-family:\'Courier New\',monospace;font-size:10px;';
+      el.innerHTML=`<span style="font-size:14px;">${c.icon}</span><span style="flex:1;color:var(--txt);">${c.name}</span><span style="color:var(--acc);">${c.ip}</span><span style="color:var(--mut);margin-left:6px;">${c.mac}</span>`;
+      clientList.appendChild(el);
+    });
+    clientSec.style.display=hsClients.length?'block':'none';
+  }
+
+  const btn=document.createElement('div');btn.className='hs-toggle off';btn.textContent='▶  START HOTSPOT';
+  btn.style.cssText+='margin:8px 10px;';
+
+  btn.onclick=async()=>{
+    hsActive=!hsActive;
+    hotspotOn=hsActive;
+    if(hsActive){
+      btn.className='hs-toggle act';btn.textContent='⏳  STARTING…';
+      log.style.display='block';
+      addLine('[INIT] Bringing up wlan0 as AP…');
+
+      // WebRTC ICE — real local subnet detection, works in sandboxed iframes
+      try{
+        const pc=new RTCPeerConnection({iceServers:[]});
+        pc.createDataChannel('x');
+        const offer=await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await new Promise(resolve=>{
+          pc.onicecandidate=e=>{
+            if(!e||!e.candidate){resolve();return;}
+            const m=e.candidate.candidate.match(/(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d+/);
+            if(m&&!localSubnet&&!e.candidate.candidate.includes('::'))localSubnet=m[1];
+          };
+          setTimeout(resolve,1600);
+        });
+        pc.close();
+      }catch(e){}
+
+      if(localSubnet){
+        addLine(`[NET] Upstream iface: eth0  Gateway: ${localSubnet}.1`,'#6af');
+        addLine(`[NET] Detected local subnet: ${localSubnet}.0/24`,'#6af');
+      }
+      const apIP=localSubnet?localSubnet+'.1':'10.42.0.1';
+      const dhcpBase=localSubnet||'10.42.0';
+      addLine(`[HOSTAPD] wlan0  ssid=PiFlip-Mesh  ch=6  bssid=${apMAC}`);
+      addLine(`[HOSTAPD] AP mode: 802.11n  2.4GHz  20MHz`);
+      addLine('[HOSTAPD] AP ready ✓','#1FCC7C');
+      addLine(`[DNSMASQ] AP IP: ${apIP}  DHCP: ${dhcpBase}.10–100  lease=1h`);
+      updateCard();btn.className='hs-toggle act';btn.textContent='■  STOP HOTSPOT';
+
+      // Simulate clients connecting over time
+      const pool=[...CLIENT_POOL].sort(()=>Math.random()-0.5);
+      let ci=0;
+      hsIid=setInterval(()=>{
+        if(!hsActive||ci>=3)return;
+        if(Math.random()<0.45){
+          const c={...pool[ci],mac:hsRandMac(),ip:`${dhcpBase}.${10+ci}`};
+          hsClients.push(c);ci++;
+          addLine(`[ASSOC] Station ${c.mac} associated  "${c.name}"`,'#FFD700');
+          addLine(`[DHCP] ACK ${c.mac} → ${c.ip}  (${c.name})`);
+          updateCard();renderClients();
+        }
+      },2800);
+    }else{
+      clearInterval(hsIid);hsIid=null;
+      btn.className='hs-toggle off';btn.textContent='▶  START HOTSPOT';
+      addLine('[HOSTAPD] Shutting down AP…');
+      addLine('[DNSMASQ] Releasing leases');
+      hsClients.forEach(c=>addLine(`[DISASSOC] ${c.mac}  ${c.name}`));
+      hsClients=[];
+      addLine('[HOSTAPD] wlan0 → managed mode');
+      updateCard();renderClients();
+    }
+  };
+
+  wrap.appendChild(btn);wrap.appendChild(card);wrap.appendChild(log);wrap.appendChild(clientSec);
+  v.appendChild(wrap);
+  v.remove=((orig)=>()=>{clearInterval(hsIid);orig();})(v.remove.bind(v));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1439,8 +1557,8 @@ function buildCustomPopup(v){
       dot.style.cssText=`width:10px;height:10px;border-radius:50%;border:1px solid ${isSel?'var(--acc)':'var(--mut)'};background:${isSel?'var(--acc)':'transparent'};flex-shrink:0;`;
       const ico=document.createElement('span');ico.style.cssText='font-size:13px;';ico.textContent=d.icon;
       const nm=document.createElement('span');nm.style.cssText='font-family:\'Courier New\',monospace;font-size:10px;color:var(--txt);flex:1;';nm.textContent=d.name;
-      const os=document.createElement('span');os.style.cssText='font-size:9px;color:var(--mut);';os.textContent=CP_OS_ICO[d.os]||'📡';
-      const rs=document.createElement('span');rs.style.cssText=`font-family:'Courier New',monospace;font-size:9px;color:${d.rssi>-65?'var(--acc)':d.rssi>-80?'var(--warn)':'var(--dan)'};`;rs.textContent=d.rssi+'dBm';
+      const os=document.createElement('span');os.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;color:var(--mut);';os.textContent=d.ip||CP_OS_ICO[d.os]||'📡';
+      const rs=document.createElement('span');rs.style.cssText=`font-family:'Courier New',monospace;font-size:9px;color:${d.rssi>-65?'var(--acc)':d.rssi>-80?'var(--warn)':'var(--dan)'};margin-left:4px;`;rs.textContent=d.rssi+'dBm';
       el.appendChild(dot);el.appendChild(ico);el.appendChild(nm);el.appendChild(os);el.appendChild(rs);
       el.onclick=()=>{cpTarget=i;cpCursor=i;renderTgtList();updateSendBtn();};
       tgtList.appendChild(el);
@@ -1451,17 +1569,46 @@ function buildCustomPopup(v){
     const t=cpTarget!=null?cpDevices[cpTarget]:null;
     sendBtn.textContent=t?`📡  SEND TO ${t.name.slice(0,12).toUpperCase()}`:'📡  SEND POPUP';
   }
-  tgtScanBtn.onclick=()=>{
+  let cpSubnet=null;
+  tgtScanBtn.onclick=async()=>{
     if(cpScanning)return;
     cpScanning=true;cpDevices=[];cpTarget=null;cpCursor=0;tgtList.style.display='block';
-    tgtScanBtn.textContent='📡 SCANNING…';tgtScanBtn.style.color='var(--warn)';
+    tgtScanBtn.textContent='⏳ SCANNING…';tgtScanBtn.style.color='var(--warn)';
+    tgtStatus.textContent='Probing…';
+
+    // WebRTC real local subnet detection
+    if(!cpSubnet){
+      try{
+        const pc=new RTCPeerConnection({iceServers:[]});
+        pc.createDataChannel('x');
+        const offer=await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await new Promise(resolve=>{
+          pc.onicecandidate=e=>{
+            if(!e||!e.candidate){resolve();return;}
+            const m=e.candidate.candidate.match(/(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d+/);
+            if(m&&!cpSubnet&&!e.candidate.candidate.includes('::'))cpSubnet=m[1];
+          };
+          setTimeout(resolve,1500);
+        });
+        pc.close();
+      }catch(e){}
+    }
+    if(cpSubnet)tgtStatus.textContent=cpSubnet+'.x/24';
+
     const pool=[...CP_DEVICES].sort(()=>Math.random()-0.5).slice(0,5+Math.floor(Math.random()*5));
-    let i=0;tgtStatus.textContent='Scanning…';
+    let i=0;
     cpScanIid=setInterval(()=>{
-      if(i>=pool.length){clearInterval(cpScanIid);cpScanning=false;tgtScanBtn.textContent='🔍 SCAN';tgtScanBtn.style.color='var(--acc)';tgtStatus.textContent=cpDevices.length+' found';return;}
-      cpDevices.push({...pool[i],mac:cpRandMac(),rssi:cpRandRssi()});
+      if(i>=pool.length){
+        clearInterval(cpScanIid);cpScanning=false;
+        tgtScanBtn.textContent='🔍 SCAN';tgtScanBtn.style.color='var(--acc)';
+        tgtStatus.textContent=cpDevices.length+' found'+(cpSubnet?' · '+cpSubnet+'.x':'');
+        return;
+      }
+      const ip=cpSubnet?`${cpSubnet}.${Math.floor(Math.random()*200+10)}`:'—';
+      cpDevices.push({...pool[i],mac:cpRandMac(),rssi:cpRandRssi(),ip});
       renderTgtList();tgtStatus.textContent='Found '+cpDevices.length+'…';i++;
-    },250);
+    },280);
   };
   sec4b.appendChild(l4b);sec4b.appendChild(tgtBar);sec4b.appendChild(tgtList);wrap.appendChild(sec4b);
 
