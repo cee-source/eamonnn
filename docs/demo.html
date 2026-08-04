@@ -1032,7 +1032,7 @@ function buildCustomPopup(v){
   ];
   const CP_OS_ICO={apple:'🍎',samsung:'📱',google:'🔵',windows:'🪟',android:'🤖',sony:'🎧',nintendo:'🎮',amazon:'🟡'};
 
-  let msgText='Hello World',msgPos=0,editingMsg=false;
+  let msgText='Hello World';
   let txtPx=13,selColor=0,sending=false;
   let popPx=[11,14,11,14];
   let cpDevices=[],cpTarget=null,cpScanning=false,cpScanIid=null,cpCursor=0;
@@ -1044,10 +1044,12 @@ function buildCustomPopup(v){
   // — Message text —
   const sec1=document.createElement('div');sec1.className='cp-section';
   const l1=document.createElement('div');l1.className='cp-section-title';l1.textContent='MESSAGE TEXT';
-  const msgRow=document.createElement('div');msgRow.className='cp-name-row';
-  msgRow.innerHTML=`<span class="cp-name-lbl">Msg:</span><span class="cp-name-val" id="cp-msg-disp">${msgText}</span>`;
-  msgRow.onclick=()=>{editingMsg=!editingMsg;msgRow.classList.toggle('sel',editingMsg);renderMsg();};
-  sec1.appendChild(l1);sec1.appendChild(msgRow);wrap.appendChild(sec1);
+  const msgInp=document.createElement('input');msgInp.type='text';msgInp.maxLength=64;msgInp.value=msgText;
+  msgInp.style.cssText='width:100%;box-sizing:border-box;background:var(--elev);border:1px solid var(--brd);border-radius:6px;padding:7px 10px;font-family:\'Courier New\',monospace;font-size:12px;color:var(--txt);outline:none;';
+  msgInp.addEventListener('focus',()=>{msgInp.style.borderColor='var(--acc)';});
+  msgInp.addEventListener('blur',()=>{msgInp.style.borderColor='var(--brd)';});
+  msgInp.oninput=()=>{msgText=msgInp.value;};
+  sec1.appendChild(l1);sec1.appendChild(msgInp);wrap.appendChild(sec1);
 
   // — Text size (px input) —
   const sec2=document.createElement('div');sec2.className='cp-section';
@@ -1246,32 +1248,9 @@ function buildCustomPopup(v){
 
   function updatePreview(){}
 
-  function renderMsg(){
-    const disp=document.getElementById('cp-msg-disp');if(!disp)return;
-    if(editingMsg){
-      let html='';
-      for(let i=0;i<msgText.length;i++){
-        if(i===msgPos)html+=`<span class="cp-name-cur">${msgText[i]}</span>`;
-        else html+=msgText[i];
-      }
-      if(msgPos>=msgText.length)html+=`<span class="cp-name-cur"> </span>`;
-      disp.innerHTML=html;
-    }else{disp.textContent=msgText||'(empty)';}
-    updatePreview();
-  }
-
   const kh=e=>{
-    if(e.key==='Escape'&&!editingMsg){goBack();return;}
-    if(editingMsg){
-      if(e.key==='Escape'){editingMsg=false;msgRow.classList.remove('sel');renderMsg();return;}
-      if(e.key==='ArrowLeft')msgPos=Math.max(0,msgPos-1);
-      else if(e.key==='ArrowRight')msgPos=Math.min(msgText.length,msgPos+1);
-      else if(e.key==='ArrowUp'){const c=msgText[msgPos];if(c){const n=(c.charCodeAt(0)-32+1)%95+32;msgText=msgText.slice(0,msgPos)+String.fromCharCode(n)+msgText.slice(msgPos+1);}}
-      else if(e.key==='ArrowDown'){const c=msgText[msgPos];if(c){const n=(c.charCodeAt(0)-32+94)%95+32;msgText=msgText.slice(0,msgPos)+String.fromCharCode(n)+msgText.slice(msgPos+1);}}
-      else if(e.key==='Backspace'){msgText=msgText.slice(0,msgPos-1)+msgText.slice(msgPos);msgPos=Math.max(0,msgPos-1);}
-      else if(e.key.length===1&&msgText.length<32){msgText=msgText.slice(0,msgPos)+e.key+msgText.slice(msgPos);msgPos++;}
-      renderMsg();return;
-    }
+    if(document.activeElement===msgInp||document.activeElement===txtInp||document.activeElement===qtyInp)return;
+    if(e.key==='Escape'){goBack();return;}
     if(cpDevices.length){
       if(e.key==='ArrowUp'){cpCursor=Math.max(0,cpCursor-1);renderTgtList();}
       else if(e.key==='ArrowDown'){cpCursor=Math.min(cpDevices.length-1,cpCursor+1);renderTgtList();}
@@ -1280,7 +1259,6 @@ function buildCustomPopup(v){
   };
   document.addEventListener('keydown',kh);
   v.remove=((orig)=>()=>{document.removeEventListener('keydown',kh);clearInterval(cpScanIid);orig();})(v.remove.bind(v));
-  updatePreview();
 }
 
 /* ═══════════════════════════════════════════════════════════
