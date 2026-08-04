@@ -1009,7 +1009,6 @@ function buildBleSpam(v){
 function buildCustomPopup(v){
   v.appendChild(mkTbar('Custom Popup',true));
 
-  const TEXT_SIZES=[{label:'S',px:10},{label:'M',px:13},{label:'L',px:17},{label:'XL',px:22}];
   const POPUP_SIDES=['Top','Right','Bottom','Left'];
   const COLORS=[
     {label:'White', fg:'#ffffff',bg:'#1c1c2e',border:'#2d2d50'},
@@ -1034,7 +1033,7 @@ function buildCustomPopup(v){
   const CP_OS_ICO={apple:'🍎',samsung:'📱',google:'🔵',windows:'🪟',android:'🤖',sony:'🎧',nintendo:'🎮',amazon:'🟡'};
 
   let msgText='Hello World',msgPos=0,editingMsg=false;
-  let selTxtSize=1,selColor=0,sending=false;
+  let txtPx=13,selColor=0,sending=false;
   let popPx=[11,14,11,14];
   let cpDevices=[],cpTarget=null,cpScanning=false,cpScanIid=null,cpCursor=0;
   function cpRandRssi(){return -(Math.floor(Math.random()*45)+40);}
@@ -1050,17 +1049,17 @@ function buildCustomPopup(v){
   msgRow.onclick=()=>{editingMsg=!editingMsg;msgRow.classList.toggle('sel',editingMsg);renderMsg();};
   sec1.appendChild(l1);sec1.appendChild(msgRow);wrap.appendChild(sec1);
 
-  // — Text size —
+  // — Text size (px input) —
   const sec2=document.createElement('div');sec2.className='cp-section';
   const l2=document.createElement('div');l2.className='cp-section-title';l2.textContent='TEXT SIZE';
-  const sizeTabs=document.createElement('div');sizeTabs.className='cp-tabs';
-  TEXT_SIZES.forEach((s,i)=>{
-    const t=document.createElement('div');t.className='cp-tab'+(i===selTxtSize?' act':'');
-    t.textContent=s.label;
-    t.onclick=()=>{selTxtSize=i;sizeTabs.querySelectorAll('.cp-tab').forEach((el,j)=>el.classList.toggle('act',j===i));updatePreview();};
-    sizeTabs.appendChild(t);
-  });
-  sec2.appendChild(l2);sec2.appendChild(sizeTabs);wrap.appendChild(sec2);
+  const txtSizeRow=document.createElement('div');txtSizeRow.className='cp-pad-cell';txtSizeRow.style.width='fit-content';
+  const txtLbl=document.createElement('span');txtLbl.className='cp-pad-lbl';txtLbl.textContent='Size:';
+  const txtInp=document.createElement('input');txtInp.type='number';txtInp.className='cp-pad-inp';txtInp.style.width='52px';
+  txtInp.min=6;txtInp.max=72;txtInp.value=txtPx;
+  txtInp.oninput=()=>{const n=parseInt(txtInp.value,10);if(!isNaN(n)&&n>=6&&n<=72)txtPx=n;};
+  const txtUnit=document.createElement('span');txtUnit.className='cp-pad-unit';txtUnit.textContent='px';
+  txtSizeRow.appendChild(txtLbl);txtSizeRow.appendChild(txtInp);txtSizeRow.appendChild(txtUnit);
+  sec2.appendChild(l2);sec2.appendChild(txtSizeRow);wrap.appendChild(sec2);
 
   // — Popup padding (px per side) —
   const sec3=document.createElement('div');sec3.className='cp-section';
@@ -1161,9 +1160,9 @@ function buildCustomPopup(v){
   let loopActive=false,loopCount=0,loopTotal=0,loopTimer=null;
 
   function buildToastStyle(){
-    const c=COLORS[selColor];const ts=TEXT_SIZES[selTxtSize];
+    const c=COLORS[selColor];
     const pad=`${popPx[0]}px ${popPx[1]}px ${popPx[2]}px ${popPx[3]}px`;
-    return {c,ts,pad};
+    return {c,pad};
   }
 
   function startLoop(total,inf){
@@ -1187,7 +1186,7 @@ function buildCustomPopup(v){
     }
 
     function buildToast(){
-      const{c,ts,pad}=buildToastStyle();
+      const{c,pad}=buildToastStyle();
       const now=new Date();
       const timeStr=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
       toast.innerHTML='';
@@ -1210,7 +1209,7 @@ function buildCustomPopup(v){
       const body=document.createElement('div');body.className='cp-notif-body';
       body.style.paddingTop='0';
       const msg=document.createElement('div');msg.className='cp-notif-msg';
-      msg.style.cssText=`font-size:${ts.px}px;color:${c.fg};font-weight:${selTxtSize>=2?700:400};padding:${pad};`;
+      msg.style.cssText=`font-size:${txtPx}px;color:${c.fg};font-weight:${txtPx>=17?700:400};padding:${pad};`;
       msg.textContent=msgText||'…';
       body.appendChild(msg);
 
