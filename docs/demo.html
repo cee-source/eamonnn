@@ -893,145 +893,123 @@ function buildBleSpam(v){
 function buildCustomPopup(v){
   v.appendChild(mkTbar('Custom Popup',true));
 
-  const DEVICES=[
-    {id:'apple', label:'Apple', icon:'🍎',
-     models:[
-       {ico:'🎧',name:'AirPods Pro',sub:'Tap to connect to your iPhone'},
-       {ico:'⌚',name:'Apple Watch',sub:'Bring Apple Watch near iPhone'},
-       {ico:'📺',name:'Apple TV',  sub:'Use iPhone to set up this Apple TV'},
-       {ico:'🏠',name:'HomePod',   sub:'Tap to set up HomePod with your Apple ID'},
-       {ico:'⌨️',name:'Magic KB',  sub:'Bluetooth keyboard wants to pair'},
-     ]},
-    {id:'samsung',label:'Samsung',icon:'📱',
-     models:[
-       {ico:'🎧',name:'Galaxy Buds2 Pro',sub:'Connect to your Galaxy phone'},
-       {ico:'⌚',name:'Galaxy Watch5',   sub:'Pair with your Samsung device'},
-       {ico:'🎵',name:'Galaxy Buds Live',sub:'Tap to connect'},
-       {ico:'📡',name:'SmartTag+',       sub:'Register this SmartTag to your account'},
-       {ico:'💻',name:'Galaxy Book',     sub:'Quick Share — file ready to receive'},
-     ]},
-    {id:'google', label:'Google', icon:'🔵',
-     models:[
-       {ico:'🎧',name:'Pixel Buds Pro',sub:'Tap to pair with this device'},
-       {ico:'⌚',name:'Pixel Watch',   sub:'Tap to connect via Fast Pair'},
-       {ico:'📺',name:'Chromecast',    sub:'Set up this Chromecast with Google TV'},
-       {ico:'🏠',name:'Nest Mini',     sub:'Tap to set up with Google Home'},
-       {ico:'🔊',name:'Pixel Buds A', sub:'Fast Pair — tap to connect'},
-     ]},
-    {id:'windows',label:'Windows',icon:'🪟',
-     models:[
-       {ico:'🎮',name:'Xbox Controller',   sub:'New device found — tap to pair'},
-       {ico:'🎧',name:'Surface Headphones',sub:'Connect Surface Headphones via Swift Pair'},
-       {ico:'🖱️',name:'Arc Mouse',         sub:'New Bluetooth mouse found nearby'},
-       {ico:'👂',name:'Surface Earbuds',   sub:'Surface Earbuds want to pair'},
-       {ico:'⌨️',name:'Designer KB',       sub:'Swift Pair — tap to connect keyboard'},
-     ]},
+  const TEXT_SIZES=[{label:'S',px:10},{label:'M',px:13},{label:'L',px:17},{label:'XL',px:22}];
+  const POPUP_SIZES=[{label:'S',pad:'6px 10px'},{label:'M',pad:'11px 14px'},{label:'L',pad:'18px 18px'}];
+  const COLORS=[
+    {label:'White', fg:'#ffffff',bg:'#1c1c2e',border:'#2d2d50'},
+    {label:'Green', fg:'#44ff88',bg:'#0a1f14',border:'#1FCC7C'},
+    {label:'Blue',  fg:'#88ccff',bg:'#0a1020',border:'#2DA8FF'},
+    {label:'Red',   fg:'#ff6666',bg:'#1f0a0a',border:'#FF4757'},
+    {label:'Gold',  fg:'#ffd700',bg:'#1a1500',border:'#cc9900'},
+    {label:'Pink',  fg:'#ff88cc',bg:'#1f0a16',border:'#cc4488'},
   ];
 
-  let selType=0,selModel=0,customName='PiFlip',namePos=0,editingName=false,sending=false;
+  let msgText='Hello World',msgPos=0,editingMsg=false;
+  let selTxtSize=1,selPopSize=1,selColor=0,sending=false;
 
   const wrap=document.createElement('div');wrap.className='cp-wrap';
 
-  // — Type selector —
+  // — Message text —
   const sec1=document.createElement('div');sec1.className='cp-section';
-  const l1=document.createElement('div');l1.className='cp-section-title';l1.textContent='DEVICE TYPE';
-  const typeTabs=document.createElement('div');typeTabs.className='cp-tabs';
-  DEVICES.forEach((d,i)=>{
-    const t=document.createElement('div');t.className='cp-tab'+(i===selType?' act':'');
-    t.innerHTML=d.icon+'<br>'+d.label;t.style.fontSize='9px';t.style.lineHeight='1.4';
-    t.onclick=()=>{selType=i;selModel=0;refresh();};
-    typeTabs.appendChild(t);
-  });
-  sec1.appendChild(l1);sec1.appendChild(typeTabs);wrap.appendChild(sec1);
+  const l1=document.createElement('div');l1.className='cp-section-title';l1.textContent='MESSAGE TEXT';
+  const msgRow=document.createElement('div');msgRow.className='cp-name-row';
+  msgRow.innerHTML=`<span class="cp-name-lbl">Msg:</span><span class="cp-name-val" id="cp-msg-disp">${msgText}</span>`;
+  msgRow.onclick=()=>{editingMsg=!editingMsg;msgRow.classList.toggle('sel',editingMsg);renderMsg();};
+  sec1.appendChild(l1);sec1.appendChild(msgRow);wrap.appendChild(sec1);
 
-  // — Model list —
+  // — Text size —
   const sec2=document.createElement('div');sec2.className='cp-section';
-  const l2=document.createElement('div');l2.className='cp-section-title';l2.textContent='MODEL';
-  const modelList=document.createElement('div');modelList.className='cp-models';
-  sec2.appendChild(l2);sec2.appendChild(modelList);wrap.appendChild(sec2);
+  const l2=document.createElement('div');l2.className='cp-section-title';l2.textContent='TEXT SIZE';
+  const sizeTabs=document.createElement('div');sizeTabs.className='cp-tabs';
+  TEXT_SIZES.forEach((s,i)=>{
+    const t=document.createElement('div');t.className='cp-tab'+(i===selTxtSize?' act':'');
+    t.textContent=s.label;
+    t.onclick=()=>{selTxtSize=i;sizeTabs.querySelectorAll('.cp-tab').forEach((el,j)=>el.classList.toggle('act',j===i));updatePreview();};
+    sizeTabs.appendChild(t);
+  });
+  sec2.appendChild(l2);sec2.appendChild(sizeTabs);wrap.appendChild(sec2);
 
-  // — Custom name —
+  // — Popup size —
   const sec3=document.createElement('div');sec3.className='cp-section';
-  const l3=document.createElement('div');l3.className='cp-section-title';l3.textContent='BROADCAST NAME';
-  const nameRow=document.createElement('div');nameRow.className='cp-name-row';
-  nameRow.innerHTML=`<span class="cp-name-lbl">Name:</span><span class="cp-name-val" id="cp-name-disp">${customName}</span>`;
-  nameRow.onclick=()=>{editingName=!editingName;nameRow.classList.toggle('sel',editingName);renderName();};
-  sec3.appendChild(l3);sec3.appendChild(nameRow);wrap.appendChild(sec3);
+  const l3=document.createElement('div');l3.className='cp-section-title';l3.textContent='POPUP SIZE';
+  const popTabs=document.createElement('div');popTabs.className='cp-tabs';
+  POPUP_SIZES.forEach((s,i)=>{
+    const t=document.createElement('div');t.className='cp-tab'+(i===selPopSize?' act':'');
+    t.textContent=s.label;
+    t.onclick=()=>{selPopSize=i;popTabs.querySelectorAll('.cp-tab').forEach((el,j)=>el.classList.toggle('act',j===i));updatePreview();};
+    popTabs.appendChild(t);
+  });
+  sec3.appendChild(l3);sec3.appendChild(popTabs);wrap.appendChild(sec3);
+
+  // — Color —
+  const sec4=document.createElement('div');sec4.className='cp-section';
+  const l4=document.createElement('div');l4.className='cp-section-title';l4.textContent='COLOR';
+  const colorGrid=document.createElement('div');colorGrid.style.cssText='display:flex;flex-wrap:wrap;gap:4px;';
+  COLORS.forEach((c,i)=>{
+    const el=document.createElement('div');
+    el.style.cssText=`flex:1;min-width:42px;padding:5px 4px;text-align:center;border-radius:6px;font-family:'Courier New',monospace;font-size:10px;cursor:pointer;border:1px solid;background:${c.bg};color:${c.fg};border-color:${i===selColor?c.fg:c.border};box-shadow:${i===selColor?'0 0 0 1px '+c.fg:'none'};transition:.1s;`;
+    el.textContent=c.label;
+    el.onclick=()=>{selColor=i;colorGrid.querySelectorAll('div').forEach((d2,j)=>{d2.style.boxShadow=j===i?'0 0 0 1px '+COLORS[j].fg:'none';d2.style.borderColor=j===i?COLORS[j].fg:COLORS[j].border;});updatePreview();};
+    colorGrid.appendChild(el);
+  });
+  sec4.appendChild(l4);sec4.appendChild(colorGrid);wrap.appendChild(sec4);
 
   // — Preview —
-  const sec4=document.createElement('div');sec4.className='cp-section';
+  const sec5=document.createElement('div');sec5.className='cp-section';
   const previewBox=document.createElement('div');previewBox.className='cp-preview-box';
   const previewLbl=document.createElement('div');previewLbl.className='cp-preview-lbl';previewLbl.textContent='PREVIEW';
-  const notif=document.createElement('div');notif.className='cp-notif';notif.id='cp-notif';
-  previewBox.appendChild(previewLbl);previewBox.appendChild(notif);sec4.appendChild(previewBox);wrap.appendChild(sec4);
+  const notif=document.createElement('div');notif.id='cp-notif';
+  previewBox.appendChild(previewLbl);previewBox.appendChild(notif);sec5.appendChild(previewBox);wrap.appendChild(sec5);
 
-  // — Send button —
-  const sendBtn=document.createElement('div');sendBtn.className='cp-send-btn';sendBtn.id='cp-send';
+  // — Send —
+  const sendBtn=document.createElement('div');sendBtn.className='cp-send-btn';
   sendBtn.textContent='📡  SEND POPUP';
   sendBtn.onclick=()=>{
     if(sending)return;sending=true;
     sendBtn.className='cp-send-btn sending';sendBtn.textContent='✓  SENDING…';
-    notif.classList.add('flash');
-    setTimeout(()=>{
-      sendBtn.className='cp-send-btn';sendBtn.textContent='📡  SEND POPUP';
-      notif.classList.remove('flash');sending=false;
-    },1800);
+    notif.style.transition='all .15s';notif.style.opacity='0.4';notif.style.transform='scale(1.04)';
+    setTimeout(()=>{notif.style.opacity='1';notif.style.transform='scale(1)';},200);
+    setTimeout(()=>{sendBtn.className='cp-send-btn';sendBtn.textContent='📡  SEND POPUP';sending=false;},1800);
   };
   wrap.appendChild(sendBtn);
   v.appendChild(wrap);
 
-  function renderName(){
-    const disp=document.getElementById('cp-name-disp');
-    if(!disp)return;
-    if(editingName){
+  function updatePreview(){
+    const c=COLORS[selColor];const ts=TEXT_SIZES[selTxtSize];const ps=POPUP_SIZES[selPopSize];
+    notif.style.cssText=`background:${c.bg};border:1px solid ${c.border};border-radius:10px;padding:${ps.pad};display:flex;align-items:center;justify-content:center;min-height:${selPopSize===0?'32px':selPopSize===1?'48px':'64px'};transition:all .2s;`;
+    notif.innerHTML=`<span style="font-family:system-ui;font-size:${ts.px}px;color:${c.fg};font-weight:${selTxtSize>=2?700:400};text-align:center;word-break:break-word;">${msgText||'…'}</span>`;
+  }
+
+  function renderMsg(){
+    const disp=document.getElementById('cp-msg-disp');if(!disp)return;
+    if(editingMsg){
       let html='';
-      for(let i=0;i<customName.length;i++){
-        if(i===namePos)html+=`<span class="cp-name-cur">${customName[i]}</span>`;
-        else html+=customName[i];
+      for(let i=0;i<msgText.length;i++){
+        if(i===msgPos)html+=`<span class="cp-name-cur">${msgText[i]}</span>`;
+        else html+=msgText[i];
       }
-      if(namePos>=customName.length)html+=`<span class="cp-name-cur"> </span>`;
+      if(msgPos>=msgText.length)html+=`<span class="cp-name-cur"> </span>`;
       disp.innerHTML=html;
-    }else{disp.textContent=customName||'(empty)';}
-    updateNotif();
+    }else{disp.textContent=msgText||'(empty)';}
+    updatePreview();
   }
 
-  function updateNotif(){
-    const dev=DEVICES[selType];const model=dev.models[selModel];
-    const name=customName||model.name;
-    notif.innerHTML=`<div class="cp-notif-ico">${model.ico}</div><div class="cp-notif-body"><div class="cp-notif-title">${name}</div><div class="cp-notif-sub">${model.sub}</div><div class="cp-notif-time">now · via Bluetooth</div></div>`;
-  }
-
-  function refresh(){
-    typeTabs.querySelectorAll('.cp-tab').forEach((t,i)=>t.classList.toggle('act',i===selType));
-    modelList.innerHTML='';
-    DEVICES[selType].models.forEach((m,i)=>{
-      const el=document.createElement('div');el.className='cp-model'+(i===selModel?' sel':'');
-      el.innerHTML=`<span class="cp-model-ico">${m.ico}</span>${m.name}`;
-      el.onclick=()=>{selModel=i;refresh();};
-      modelList.appendChild(el);
-    });
-    renderName();
-  }
-
-  // keyboard nav
   const kh=e=>{
-    if(e.key==='Escape'&&!editingName){goBack();return;}
-    if(editingName){
-      if(e.key==='Escape'){editingName=false;nameRow.classList.remove('sel');renderName();return;}
-      if(e.key==='ArrowLeft'){namePos=Math.max(0,namePos-1);}
-      else if(e.key==='ArrowRight'){namePos=Math.min(customName.length,namePos+1);}
-      else if(e.key==='ArrowUp'){const c=customName[namePos];if(c){const n=(c.charCodeAt(0)-32+1)%95+32;customName=customName.slice(0,namePos)+String.fromCharCode(n)+customName.slice(namePos+1);}}
-      else if(e.key==='ArrowDown'){const c=customName[namePos];if(c){const n=(c.charCodeAt(0)-32+94)%95+32;customName=customName.slice(0,namePos)+String.fromCharCode(n)+customName.slice(namePos+1);}}
-      else if(e.key==='Backspace'){customName=customName.slice(0,namePos-1)+customName.slice(namePos);namePos=Math.max(0,namePos-1);}
-      else if(e.key.length===1&&customName.length<16){customName=customName.slice(0,namePos)+e.key+customName.slice(namePos);namePos++;}
-      renderName();return;
+    if(e.key==='Escape'&&!editingMsg){goBack();return;}
+    if(editingMsg){
+      if(e.key==='Escape'){editingMsg=false;msgRow.classList.remove('sel');renderMsg();return;}
+      if(e.key==='ArrowLeft')msgPos=Math.max(0,msgPos-1);
+      else if(e.key==='ArrowRight')msgPos=Math.min(msgText.length,msgPos+1);
+      else if(e.key==='ArrowUp'){const c=msgText[msgPos];if(c){const n=(c.charCodeAt(0)-32+1)%95+32;msgText=msgText.slice(0,msgPos)+String.fromCharCode(n)+msgText.slice(msgPos+1);}}
+      else if(e.key==='ArrowDown'){const c=msgText[msgPos];if(c){const n=(c.charCodeAt(0)-32+94)%95+32;msgText=msgText.slice(0,msgPos)+String.fromCharCode(n)+msgText.slice(msgPos+1);}}
+      else if(e.key==='Backspace'){msgText=msgText.slice(0,msgPos-1)+msgText.slice(msgPos);msgPos=Math.max(0,msgPos-1);}
+      else if(e.key.length===1&&msgText.length<32){msgText=msgText.slice(0,msgPos)+e.key+msgText.slice(msgPos);msgPos++;}
+      renderMsg();return;
     }
   };
   document.addEventListener('keydown',kh);
-  const origGoBack=v._kh;v._kh=kh;
-  const origRemove=v.remove.bind(v);
-  v.remove=()=>{document.removeEventListener('keydown',kh);origRemove();};
-  refresh();
+  v.remove=((orig)=>()=>{document.removeEventListener('keydown',kh);orig();})(v.remove.bind(v));
+  updatePreview();
 }
 
 /* ═══════════════════════════════════════════════════════════
