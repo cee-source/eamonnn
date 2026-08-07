@@ -479,16 +479,8 @@ const MAIN={title:'FlipKit',items:[
     {icon:'📤',label:'Transmit',desc:'Send raw signal',   ...inf('📤','Transmit','Set frequency, modulation and data.','Ready')},
     {icon:'💾',label:'Captures',desc:'0 saved signals',   ...inf('📂','Captures','No signals saved yet.','Empty')},
   ]}},
-  {icon:'💳',color:'#2DA8FF',label:'RFID',desc:'Read & emulate cards',menu:{title:'RFID',items:[
-    {icon:'📖',label:'Read Card',  desc:'Scan NFC / RFID',...inf('💳','Place Card Near Pi','Hold your card within 2–3 cm of the RC522 reader.','SPI bus 0')},
-    {icon:'📁',label:'Saved Cards',desc:'0 saved',        ...inf('📂','No Saved Cards','Read a card first.','0 cards')},
-    {icon:'🎭',label:'Emulate',    desc:'Play back card',  ...inf('🎭','Select a Card','Go to Saved Cards and pick one.','No card')},
-  ]}},
-  {icon:'🔴',color:'#FF4757',label:'IR Remote',desc:'Infrared controller',menu:{title:'IR Remote',items:[
-    {icon:'🎓',label:'Learn Remote',    desc:'Record IR codes',...inf('🔴','Point Remote at Pi','Point your remote at the IR receiver on GPIO 23.','NEC / Sony')},
-    {icon:'📁',label:'Saved Remotes',   desc:'0 saved',        ...inf('📂','No Remotes','Learn a remote first.','Empty')},
-    {icon:'🌐',label:'Universal Remote',desc:'TV power codes', ...inf('📺','Universal Remote','NEC Power codes for Samsung, LG, Sony, Philips.','4 brands')},
-  ]}},
+  {icon:'💳',color:'#2DA8FF',label:'RFID',desc:'Read & emulate cards',type:'rfid'},
+  {icon:'🔴',color:'#FF4757',label:'IR Remote',desc:'Infrared blaster & sniffer',type:'ir'},
   {icon:'⌨️',color:'#9B59B6',label:'Bad USB',desc:'HID injection scripts',menu:{title:'Bad USB',items:[
     {icon:'▶️', label:'Run Script',desc:'Execute DuckyScript',...inf('⌨️','Select a Script','Plug FlipKit into target USB port first.','HID')},
     {icon:'📄',label:'Scripts',   desc:'0 saved',            ...inf('📂','No Scripts','Drop .txt DuckyScript files in /data/badusb/','Empty')},
@@ -695,7 +687,7 @@ function render(){
     snake:buildSnake,tetris:buildTetris,
     'pong-ai':(v,c)=>buildPong(v,true,c),'pong-2p':(v,c)=>buildPong(v,false,c),
     'chess-ai':(v,c)=>buildChess(v,true,c),'chess-2p':(v,c)=>buildChess(v,false,c),
-    flappy:buildFlappy,info:buildInfo,hotspot:buildHotspot,blespam:buildBleSpam,custompopup:buildCustomPopup,blelure:buildBleLure,
+    flappy:buildFlappy,info:buildInfo,hotspot:buildHotspot,blespam:buildBleSpam,custompopup:buildCustomPopup,blelure:buildBleLure,rfid:buildRfid,ir:buildIr,
     breakout:buildBreakout,
     g2048:build2048,
     ttt:buildTTT,
@@ -1122,6 +1114,294 @@ function buildBleLure(v){
   const kh=e=>{if(e.key==='Escape')goBack();};
   document.addEventListener('keydown',kh);
   v.remove=((orig)=>()=>{document.removeEventListener('keydown',kh);document.querySelectorAll('[style*="z-index:9999"],[style*="z-index:10000"]').forEach(el=>el.remove());orig();})(v.remove.bind(v));
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RFID
+═══════════════════════════════════════════════════════════ */
+function buildRfid(v){
+  v.appendChild(mkTbar('RFID / NFC',true));
+
+  function rndHex(n){return Array.from({length:n},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0').toUpperCase()).join(' ');}
+  function rndUID(n){return Array.from({length:n},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0').toUpperCase()).join(':');}
+
+  const CARD_TYPES=[
+    {label:'MIFARE Classic 1K',  freq:'13.56 MHz',proto:'ISO 14443-A',uid:4,sectors:16,icon:'🏨',desc:'Hotel keys, transit cards, gym fobs'},
+    {label:'MIFARE Classic 4K',  freq:'13.56 MHz',proto:'ISO 14443-A',uid:4,sectors:40,icon:'🏨',desc:'High-capacity transit / access'},
+    {label:'MIFARE Ultralight',  freq:'13.56 MHz',proto:'ISO 14443-A',uid:7,sectors:4, icon:'🎟️',desc:'Event tickets, disposable transit'},
+    {label:'MIFARE DESFire EV2', freq:'13.56 MHz',proto:'ISO 14443-A',uid:7,sectors:28,icon:'🔐',desc:'Secure corporate access cards'},
+    {label:'EM4100',             freq:'125 kHz',  proto:'EM Marin',   uid:5,sectors:0, icon:'🔑',desc:'Basic key fobs, old office entry'},
+    {label:'HID Prox',           freq:'125 kHz',  proto:'HID H10301', uid:4,sectors:0, icon:'🏢',desc:'Corporate HID access cards'},
+    {label:'HID iClass',         freq:'13.56 MHz',proto:'ISO 15693',  uid:8,sectors:32,icon:'🏢',desc:'High-security corporate/gov access'},
+    {label:'ISO 15693',          freq:'13.56 MHz',proto:'ISO 15693',  uid:8,sectors:0, icon:'📚',desc:'Library books, inventory tags'},
+    {label:'NFC Type 2',         freq:'13.56 MHz',proto:'NFC Forum T2',uid:7,sectors:4,icon:'📱',desc:'Android NFC tags, smart posters'},
+    {label:'NTAG215',            freq:'13.56 MHz',proto:'NFC Forum T2',uid:7,sectors:21,icon:'🎮',desc:'Amiibo, NFC game cards'},
+  ];
+
+  let savedCards=[],selCard=null,scanning=false,emulating=false,scanIid=null,emuIid=null;
+
+  const wrap=document.createElement('div');wrap.style.cssText='display:flex;flex-direction:column;flex:1;overflow:hidden;';
+
+  // ── Scan button ──
+  const topBar=document.createElement('div');
+  topBar.style.cssText='padding:8px 10px;border-bottom:1px solid var(--brd);display:flex;gap:6px;flex-shrink:0;';
+  const scanBtn=document.createElement('div');
+  scanBtn.style.cssText='flex:1;padding:9px;text-align:center;border-radius:7px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:11px;font-weight:700;background:rgba(45,168,255,.12);border:1px solid rgba(45,168,255,.5);color:#2DA8FF;';
+  scanBtn.textContent='📖  READ CARD';
+  const emuBtn=document.createElement('div');
+  emuBtn.style.cssText='flex:1;padding:9px;text-align:center;border-radius:7px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:11px;font-weight:700;background:rgba(155,89,182,.12);border:1px solid rgba(155,89,182,.5);color:#9B59B6;';
+  emuBtn.textContent='🎭  EMULATE';
+  topBar.appendChild(scanBtn);topBar.appendChild(emuBtn);
+
+  // ── Card display area ──
+  const cardArea=document.createElement('div');
+  cardArea.style.cssText='flex:1;overflow-y:auto;scrollbar-width:none;';
+
+  const placeholder=document.createElement('div');
+  placeholder.style.cssText='color:var(--mut);font-family:\'Courier New\',monospace;font-size:10px;text-align:center;padding:30px 14px;white-space:pre;line-height:2;';
+  placeholder.textContent='Hold card near reader\nto scan.\n\n💳  RFID/NFC Reader\n📡  Proxmark3 / ACR122U';
+  cardArea.appendChild(placeholder);
+
+  // ── Log ──
+  const log=document.createElement('div');
+  log.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;background:#050b14;border-top:1px solid var(--brd);padding:6px 8px;max-height:100px;overflow-y:auto;scrollbar-width:none;display:none;flex-shrink:0;';
+  function addLine(t,c){
+    const ln=document.createElement('div');ln.style.cssText=`color:${c||'#6af'};line-height:1.6;`;ln.textContent=t;
+    log.appendChild(ln);if(log.children.length>50)log.removeChild(log.firstChild);log.scrollTop=log.scrollHeight;
+  }
+
+  // ── Saved list ──
+  const savedSec=document.createElement('div');
+  savedSec.style.cssText='border-top:1px solid var(--brd);flex-shrink:0;display:none;';
+  const savedHdr=document.createElement('div');
+  savedHdr.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;color:var(--mut);padding:4px 10px;letter-spacing:.5px;';
+  savedHdr.textContent='SAVED CARDS';
+  const savedList=document.createElement('div');savedList.style.cssText='max-height:90px;overflow-y:auto;scrollbar-width:none;';
+  savedSec.appendChild(savedHdr);savedSec.appendChild(savedList);
+
+  function renderSaved(){
+    savedList.innerHTML='';
+    savedCards.forEach((c,i)=>{
+      const el=document.createElement('div');
+      const isSel=selCard===i;
+      el.style.cssText=`display:flex;align-items:center;gap:7px;padding:5px 10px;border-bottom:1px solid var(--brd);cursor:pointer;background:${isSel?'rgba(155,89,182,.12)':'transparent'};`;
+      el.innerHTML=`<span style="font-size:14px">${c.icon}</span><span style="font-family:'Courier New',monospace;font-size:10px;flex:1;color:var(--txt)">${c.label}</span><span style="font-family:'Courier New',monospace;font-size:9px;color:var(--mut)">${c.uid}</span>`;
+      el.onclick=()=>{selCard=i;renderSaved();showCard(c);};
+      savedList.appendChild(el);
+    });
+    savedSec.style.display=savedCards.length?'block':'none';
+  }
+
+  function showCard(c){
+    cardArea.innerHTML='';
+    const box=document.createElement('div');
+    box.style.cssText='margin:10px;border:1px solid var(--brd);border-radius:8px;overflow:hidden;font-family:\'Courier New\',monospace;font-size:10px;';
+    const header=document.createElement('div');
+    header.style.cssText=`display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(45,168,255,.08);border-bottom:1px solid var(--brd);`;
+    header.innerHTML=`<span style="font-size:20px">${c.icon}</span><div><div style="font-size:11px;font-weight:700;color:var(--txt)">${c.label}</div><div style="font-size:9px;color:var(--mut);margin-top:1px">${c.proto} · ${c.freq}</div></div>`;
+    const rows=[
+      ['UID',c.uid],['Type',c.label],['Frequency',c.freq],
+      ['Protocol',c.proto],['Sectors',c.sectors||'—'],['Desc',c.desc],
+    ];
+    const table=document.createElement('div');
+    rows.forEach(([k,val])=>{
+      const r=document.createElement('div');
+      r.style.cssText='display:flex;padding:5px 10px;border-bottom:1px solid var(--brd);gap:8px;';
+      r.innerHTML=`<span style="color:var(--mut);width:72px;flex-shrink:0">${k}</span><span style="color:var(--txt);word-break:break-all">${val}</span>`;
+      table.appendChild(r);
+    });
+    if(c.sectorData){
+      const secHdr=document.createElement('div');
+      secHdr.style.cssText='padding:5px 10px;color:var(--mut);font-size:9px;letter-spacing:.5px;border-bottom:1px solid var(--brd);';
+      secHdr.textContent='SECTOR DUMP';
+      table.appendChild(secHdr);
+      c.sectorData.slice(0,4).forEach((row,i)=>{
+        const r=document.createElement('div');
+        r.style.cssText='padding:3px 10px;border-bottom:1px solid rgba(30,43,63,.5);font-size:9px;';
+        r.innerHTML=`<span style="color:var(--mut)">Sec ${String(i).padStart(2,'0')}:</span> <span style="color:#6af">${row}</span>`;
+        table.appendChild(r);
+      });
+      if(c.sectorData.length>4){
+        const more=document.createElement('div');
+        more.style.cssText='padding:3px 10px;font-size:9px;color:var(--mut);';
+        more.textContent=`… ${c.sectorData.length-4} more sectors`;
+        table.appendChild(more);
+      }
+    }
+    box.appendChild(header);box.appendChild(table);cardArea.appendChild(box);
+  }
+
+  scanBtn.onclick=()=>{
+    if(scanning||emulating)return;
+    scanning=true;log.style.display='block';
+    scanBtn.textContent='⏳  SCANNING…';scanBtn.style.color='var(--warn)';
+    cardArea.innerHTML='';cardArea.appendChild(placeholder);
+    addLine('[NFC] Polling for card… type=ISO14443A/B, ISO15693, EM41xx');
+
+    const delay=1200+Math.random()*1800;
+    setTimeout(()=>{
+      const t=CARD_TYPES[Math.floor(Math.random()*CARD_TYPES.length)];
+      const uidBytes=rndUID(t.uid);
+      const sectorData=t.sectors>0?Array.from({length:t.sectors},()=>rndHex(16)):null;
+      const card={...t,uid:uidBytes,sectorData};
+      addLine(`[NFC] Card detected!  ${t.proto}  ${t.freq}`,'#1FCC7C');
+      addLine(`[NFC] UID: ${uidBytes}  (${t.uid} bytes)`,'#1FCC7C');
+      if(t.proto.includes('14443')){
+        addLine(`[NFC] ATQA: ${rndHex(2)}  SAK: ${rndHex(1)}`);
+      }
+      if(sectorData){
+        addLine(`[NFC] Reading ${t.sectors} sectors…`);
+        let unlocked=0,locked=0;
+        sectorData.forEach(()=>{if(Math.random()>0.3)unlocked++;else locked++;});
+        addLine(`[NFC] ${unlocked} sectors read ✓  ${locked} sectors locked`,'#FFD700');
+      }
+      savedCards.unshift(card);selCard=0;
+      showCard(card);renderSaved();
+      scanBtn.textContent='📖  READ CARD';scanBtn.style.color='#2DA8FF';
+      scanning=false;
+    },delay);
+  };
+
+  emuBtn.onclick=()=>{
+    if(selCard===null&&!savedCards.length){addLine('[ERR] No card selected — scan one first');log.style.display='block';return;}
+    const c=savedCards[selCard||0];
+    if(emulating){
+      clearInterval(emuIid);emuIid=null;emulating=false;
+      emuBtn.textContent='🎭  EMULATE';emuBtn.style.color='#9B59B6';
+      addLine('[EMU] Emulation stopped');
+      return;
+    }
+    emulating=true;log.style.display='block';
+    emuBtn.textContent='■  STOP EMU';emuBtn.style.color='var(--dan)';
+    addLine(`[EMU] Emulating ${c.label}  UID: ${c.uid}`,'#9B59B6');
+    addLine(`[EMU] Broadcasting on ${c.freq}  proto: ${c.proto}`);
+    let polls=0;
+    emuIid=setInterval(()=>{
+      polls++;
+      if(Math.random()<0.3)addLine(`[EMU] Reader poll #${polls} → response sent`,'#9B59B6');
+    },800);
+  };
+
+  wrap.appendChild(topBar);wrap.appendChild(cardArea);wrap.appendChild(log);wrap.appendChild(savedSec);
+  v.appendChild(wrap);
+  v.remove=((orig)=>()=>{clearInterval(scanIid);clearInterval(emuIid);orig();})(v.remove.bind(v));
+}
+
+/* ═══════════════════════════════════════════════════════════
+   IR REMOTE
+═══════════════════════════════════════════════════════════ */
+function buildIr(v){
+  v.appendChild(mkTbar('IR Remote',true));
+
+  function rndHex(n){return Array.from({length:n},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0').toUpperCase()).join('');}
+
+  const PROTOCOLS=['NEC','NEC extended','Sony SIRC-12','Sony SIRC-15','Sony SIRC-20','RC5','RC6','Pioneer','Panasonic','Samsung','LG','Philips RC5'];
+  const DEVICES=[
+    {name:'Samsung TV',     icon:'📺',brand:'Samsung',proto:'Samsung',  addr:'0x07',cmds:{Power:'0xE0E040BF',Vol+:'0xE0E0E01F',Vol-:'0xE0E0D02F',Mute:'0xE0E0F00F','Ch+':'0xE0E048B7','Ch-':'0xE0E008F7',Source:'0xE0E0807F',Menu:'0xE0E058A7'}},
+    {name:'LG TV',          icon:'📺',brand:'LG',     proto:'NEC',      addr:'0x20',cmds:{Power:'0x20DF10EF',Vol+:'0x20DF40BF',Vol-:'0x20DFC03F',Mute:'0x20DF906F','Ch+':'0x20DF00FF','Ch-':'0x20DF807F',Input:'0x20DFD02F',OK:'0x20DF22DD'}},
+    {name:'Sony Bravia',    icon:'📺',brand:'Sony',   proto:'SIRC-15',  addr:'0x01',cmds:{Power:'0xA90',Vol+:'0x490',Vol-:'0xC90',Mute:'0x290','Ch+':'0x090','Ch-':'0x890',Input:'0xA50',Menu:'0x070'}},
+    {name:'Philips TV',     icon:'📺',brand:'Philips',proto:'RC5',      addr:'0x00',cmds:{Power:'0x0C',Vol+:'0x10',Vol-:'0x11',Mute:'0x0D','Ch+':'0x20','Ch-':'0x21',Source:'0x38',Menu:'0x52'}},
+    {name:'Denon AV Recv',  icon:'🔊',brand:'Denon',  proto:'NEC',      addr:'0x34',cmds:{Power:'0x34CB01FE','Vol+':'0x34CB1AE5','Vol-':'0x34CB9A65',Mute:'0x34CB4AB5',Input:'0x34CB817E','Surround':'0x34CB21DE'}},
+    {name:'Yamaha AV',      icon:'🔊',brand:'Yamaha', proto:'NEC',      addr:'0x7A',cmds:{Power:'0x7A857689','Vol+':'0x7A85D02F','Vol-':'0x7A855CA3',Mute:'0x7A85FC03',HDMI1:'0x7A85E01F',HDMI2:'0x7A8560DF'}},
+    {name:'BenQ Projector', icon:'📽️',brand:'BenQ',  proto:'NEC',      addr:'0x3F',cmds:{Power:'0x3FC03F00','Vol+':'0x3FC0D02F','Vol-':'0x3FC050AF',Mute:'0x3FC0906F',HDMI:'0x3FC0A05F',Menu:'0x3FC0E01F'}},
+    {name:'Daikin AC',      icon:'❄️',brand:'Daikin', proto:'Daikin',   addr:'0x11',cmds:{Power:'0x11DA27F',Cool:'0x11DA17E8','Heat':'0x11DA27E1','Fan+':'0x11DA07E8','Fan-':'0x11DA87E0','Timer':'0x11DA47E4'}},
+    {name:'Mitsubishi AC',  icon:'❄️',brand:'Mitsubishi',proto:'NEC',   addr:'0x23',cmds:{Power:'0x23CB01FE',Cool:'0x23CB8E71','Heat':'0x23CB0EF1','Auto':'0x23CB4EB1','Fan+':'0x23CB2ED1','Fan-':'0x23CBCED1'}},
+    {name:'Apple TV',       icon:'🍎',brand:'Apple',  proto:'NEC',      addr:'0x77',cmds:{Power:'0x77E15689',Menu:'0x77E1C03F',Select:'0x77E18A75','Up':'0x77E1CA35','Down':'0x77E14AB5',Back:'0x77E10EF1',Play:'0x77E1FA05'}},
+  ];
+
+  let selDevice=0,sniffing=false,sniffIid=null,learnedCmds=[],sending=false;
+
+  const wrap=document.createElement('div');wrap.style.cssText='display:flex;flex-direction:column;flex:1;overflow:hidden;';
+
+  // ── Device picker ──
+  const devBar=document.createElement('div');devBar.style.cssText='padding:6px 8px;border-bottom:1px solid var(--brd);display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;flex-shrink:0;';
+  DEVICES.forEach((d,i)=>{
+    const btn=document.createElement('div');
+    const sel=i===selDevice;
+    btn.style.cssText=`flex-shrink:0;padding:4px 8px;border-radius:5px;cursor:pointer;font-family:'Courier New',monospace;font-size:9px;font-weight:700;border:1px solid;transition:.1s;background:${sel?'rgba(255,71,87,.15)':'transparent'};color:${sel?'var(--dan)':'var(--mut)'};border-color:${sel?'var(--dan)':'var(--brd)'};`;
+    btn.textContent=d.icon+' '+d.brand;
+    btn.onclick=()=>{selDevice=i;devBar.querySelectorAll('div').forEach((b,j)=>{b.style.background=j===i?'rgba(255,71,87,.15)':'transparent';b.style.color=j===i?'var(--dan)':'var(--mut)';b.style.borderColor=j===i?'var(--dan)':'var(--brd)';});renderButtons();};
+    devBar.appendChild(btn);
+  });
+
+  // ── Remote buttons ──
+  const remoteArea=document.createElement('div');remoteArea.style.cssText='flex:1;overflow-y:auto;scrollbar-width:none;padding:8px;';
+
+  function renderButtons(){
+    remoteArea.innerHTML='';
+    const d=DEVICES[selDevice];
+    const titleEl=document.createElement('div');
+    titleEl.style.cssText='font-family:\'Courier New\',monospace;font-size:10px;color:var(--mut);margin-bottom:6px;';
+    titleEl.textContent=`${d.name}  ·  ${d.proto}  ·  addr: ${d.addr}`;
+    remoteArea.appendChild(titleEl);
+    const grid=document.createElement('div');
+    grid.style.cssText='display:grid;grid-template-columns:repeat(3,1fr);gap:5px;';
+    Object.entries(d.cmds).forEach(([label,code])=>{
+      const btn=document.createElement('div');
+      const isRed=label==='Power';
+      btn.style.cssText=`padding:9px 4px;border-radius:7px;text-align:center;cursor:pointer;font-family:'Courier New',monospace;font-size:10px;font-weight:700;border:1px solid;transition:.12s;user-select:none;background:${isRed?'rgba(255,71,87,.15)':'var(--elev)'};color:${isRed?'var(--dan)':'var(--txt)'};border-color:${isRed?'var(--dan)':'var(--brd)'};`;
+      btn.textContent=label;
+      btn.onmousedown=()=>{btn.style.transform='scale(.93)';btn.style.background=isRed?'rgba(255,71,87,.35)':'rgba(45,168,255,.2)';};
+      btn.onmouseup=btn.onmouseleave=()=>{btn.style.transform='';btn.style.background=isRed?'rgba(255,71,87,.15)':'var(--elev)';};
+      btn.onclick=()=>sendCode(d,label,code);
+      grid.appendChild(btn);
+    });
+    remoteArea.appendChild(grid);
+  }
+
+  // ── Log ──
+  const log=document.createElement('div');
+  log.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;background:#050b14;border-top:1px solid var(--brd);padding:6px 8px;max-height:100px;overflow-y:auto;scrollbar-width:none;flex-shrink:0;';
+  function addLine(t,c){
+    const ln=document.createElement('div');ln.style.cssText=`color:${c||'#6af'};line-height:1.6;`;ln.textContent=t;
+    log.appendChild(ln);if(log.children.length>60)log.removeChild(log.firstChild);log.scrollTop=log.scrollHeight;
+  }
+
+  // ── Sniff bar ──
+  const sniffBar=document.createElement('div');sniffBar.style.cssText='display:flex;gap:6px;padding:6px 8px;border-top:1px solid var(--brd);flex-shrink:0;';
+  const sniffBtn=document.createElement('div');
+  sniffBtn.style.cssText='flex:1;padding:7px;text-align:center;border-radius:6px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:10px;font-weight:700;background:rgba(255,140,66,.12);border:1px solid rgba(255,140,66,.5);color:var(--warn);';
+  sniffBtn.textContent='👂  SNIFF IR';
+  sniffBar.appendChild(sniffBtn);
+
+  function sendCode(d,label,code){
+    log.style.display='block';
+    const frames=1+Math.floor(Math.random()*2);
+    const us=Math.floor(8000+Math.random()*4000);
+    addLine(`[TX] ${d.proto}  addr:${d.addr}  cmd:${label}`,'#FF4757');
+    addLine(`[TX] Code: ${code}  frames:${frames}  dur:${us}µs`);
+    addLine(`[TX] Signal sent ✓`,'#1FCC7C');
+  }
+
+  sniffBtn.onclick=()=>{
+    if(sniffing){
+      clearInterval(sniffIid);sniffIid=null;sniffing=false;
+      sniffBtn.textContent='👂  SNIFF IR';sniffBtn.style.color='var(--warn)';
+      addLine('[SNIFF] Stopped');
+      return;
+    }
+    sniffing=true;log.style.display='block';
+    sniffBtn.textContent='■  STOP SNIFF';sniffBtn.style.color='var(--dan)';
+    addLine('[SNIFF] IR receiver active  GPIO23  38kHz carrier');
+    let count=0;
+    sniffIid=setInterval(()=>{
+      if(Math.random()<0.25){
+        count++;
+        const proto=PROTOCOLS[Math.floor(Math.random()*PROTOCOLS.length)];
+        const addr='0x'+rndHex(1);
+        const cmd='0x'+rndHex(1);
+        const code='0x'+rndHex(4);
+        const us=Math.floor(8000+Math.random()*6000);
+        addLine(`[RX] ${proto}  addr:${addr}  cmd:${cmd}  data:${code}  ${us}µs`,'#FFD700');
+        learnedCmds.push({proto,addr,cmd,code});
+      }
+    },600);
+  };
+
+  renderButtons();
+  wrap.appendChild(devBar);wrap.appendChild(remoteArea);wrap.appendChild(log);wrap.appendChild(sniffBar);
+  v.appendChild(wrap);
+  v.remove=((orig)=>()=>{clearInterval(sniffIid);orig();})(v.remove.bind(v));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -10141,7 +10421,7 @@ function pushItem(it){
   }
   if(it.gameKey&&!it.hasDiff){stack.push({type:it.gameKey,diff:1});render();return;}
   const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4','mole','memory','asteroids','frogger','galaga','centipede','lunar','sokoban','lightsout','reversi','battleship','numguess','reaction','blackjack','slide','tron','wordle','mathflash','platform','life','rps','colormatch','darts','checkers','typing','mastermind','hanoi','nim','bubble','slot','bowling','mancala','sudoku','pacman','cardodge','fruitcatch','match3','missile','pinball','gravflip','poker','pipe','maze','numchain','runner','spaceshoot','yahtzee','war','hexgrid','craps','pixelart','gravball','wordsearch','colorflood','fusion','brickx','jumpjack','dodge','trivia','snakex','pong3','gridrush','blockstack','flappyx','virus','beattap','anagram','chainreact','astminer','tankbattle','spelling','magicsq','orbit','laser','sprintdigits','floodesc','zombierun','iceslide','crystalcave','numtap','gravpong','emojimem','taprace','codebreak','gemswap','spinwheel','numpyramid','neonsnake','tileshift','starfield','wordladder','dropzone','brickbreakplus','reactionmatch','snakemaze'];
-  const uiTypes=['hotspot','blespam','custompopup','blelure'];
+  const uiTypes=['hotspot','blespam','custompopup','blelure','rfid','ir'];
   if(it.type&&(gameTypes.includes(it.type)||uiTypes.includes(it.type)))stack.push({...it});
   else if(it.menu)stack.push({...it.menu,_sel:0});
   else stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
