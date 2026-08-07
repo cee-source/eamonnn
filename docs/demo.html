@@ -1297,10 +1297,10 @@ function buildIr(v){
 
   const PROTOCOLS=['NEC','NEC extended','Sony SIRC-12','Sony SIRC-15','Sony SIRC-20','RC5','RC6','Pioneer','Panasonic','Samsung','LG','Philips RC5'];
   const DEVICES=[
-    {name:'Samsung TV',     icon:'📺',brand:'Samsung',proto:'Samsung',  addr:'0x07',cmds:{Power:'0xE0E040BF',Vol+:'0xE0E0E01F',Vol-:'0xE0E0D02F',Mute:'0xE0E0F00F','Ch+':'0xE0E048B7','Ch-':'0xE0E008F7',Source:'0xE0E0807F',Menu:'0xE0E058A7'}},
-    {name:'LG TV',          icon:'📺',brand:'LG',     proto:'NEC',      addr:'0x20',cmds:{Power:'0x20DF10EF',Vol+:'0x20DF40BF',Vol-:'0x20DFC03F',Mute:'0x20DF906F','Ch+':'0x20DF00FF','Ch-':'0x20DF807F',Input:'0x20DFD02F',OK:'0x20DF22DD'}},
-    {name:'Sony Bravia',    icon:'📺',brand:'Sony',   proto:'SIRC-15',  addr:'0x01',cmds:{Power:'0xA90',Vol+:'0x490',Vol-:'0xC90',Mute:'0x290','Ch+':'0x090','Ch-':'0x890',Input:'0xA50',Menu:'0x070'}},
-    {name:'Philips TV',     icon:'📺',brand:'Philips',proto:'RC5',      addr:'0x00',cmds:{Power:'0x0C',Vol+:'0x10',Vol-:'0x11',Mute:'0x0D','Ch+':'0x20','Ch-':'0x21',Source:'0x38',Menu:'0x52'}},
+    {name:'Samsung TV',     icon:'📺',brand:'Samsung',proto:'Samsung',  addr:'0x07',cmds:{Power:'0xE0E040BF','Vol+':'0xE0E0E01F','Vol-':'0xE0E0D02F',Mute:'0xE0E0F00F','Ch+':'0xE0E048B7','Ch-':'0xE0E008F7',Source:'0xE0E0807F',Menu:'0xE0E058A7'}},
+    {name:'LG TV',          icon:'📺',brand:'LG',     proto:'NEC',      addr:'0x20',cmds:{Power:'0x20DF10EF','Vol+':'0x20DF40BF','Vol-':'0x20DFC03F',Mute:'0x20DF906F','Ch+':'0x20DF00FF','Ch-':'0x20DF807F',Input:'0x20DFD02F',OK:'0x20DF22DD'}},
+    {name:'Sony Bravia',    icon:'📺',brand:'Sony',   proto:'SIRC-15',  addr:'0x01',cmds:{Power:'0xA90','Vol+':'0x490','Vol-':'0xC90',Mute:'0x290','Ch+':'0x090','Ch-':'0x890',Input:'0xA50',Menu:'0x070'}},
+    {name:'Philips TV',     icon:'📺',brand:'Philips',proto:'RC5',      addr:'0x00',cmds:{Power:'0x0C','Vol+':'0x10','Vol-':'0x11',Mute:'0x0D','Ch+':'0x20','Ch-':'0x21',Source:'0x38',Menu:'0x52'}},
     {name:'Denon AV Recv',  icon:'🔊',brand:'Denon',  proto:'NEC',      addr:'0x34',cmds:{Power:'0x34CB01FE','Vol+':'0x34CB1AE5','Vol-':'0x34CB9A65',Mute:'0x34CB4AB5',Input:'0x34CB817E','Surround':'0x34CB21DE'}},
     {name:'Yamaha AV',      icon:'🔊',brand:'Yamaha', proto:'NEC',      addr:'0x7A',cmds:{Power:'0x7A857689','Vol+':'0x7A85D02F','Vol-':'0x7A855CA3',Mute:'0x7A85FC03',HDMI1:'0x7A85E01F',HDMI2:'0x7A8560DF'}},
     {name:'BenQ Projector', icon:'📽️',brand:'BenQ',  proto:'NEC',      addr:'0x3F',cmds:{Power:'0x3FC03F00','Vol+':'0x3FC0D02F','Vol-':'0x3FC050AF',Mute:'0x3FC0906F',HDMI:'0x3FC0A05F',Menu:'0x3FC0E01F'}},
