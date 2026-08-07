@@ -1582,15 +1582,47 @@ function buildBleSpam(v){
   }
 
   // Real WebRTC scan — gets your actual local IP/subnet, then layers BLE simulation on top
+  // Parse manufacturer data from a BLE advertisement event into OS/type info
+  function parseAdvEvent(e){
+    let os='unknown',pkt='BLE Advertisement',icon='📡',cat='real';
+    const name=(e.device&&e.device.name)||'';
+    if(e.manufacturerData){
+      for(const[id]of e.manufacturerData){
+        if(id===0x004C){os='apple';icon='📱';pkt='Apple 0x004C';break;}
+        if(id===0x0075){os='samsung';icon='📱';pkt='Samsung 0x0075';break;}
+        if(id===0x0006){os='windows';icon='💻';pkt='Swift Pair 0x0006';break;}
+        if(id===0x00E0){os='google';icon='📱';pkt='Google 0x00E0';break;}
+        if(id===0x012D){os='sony';icon='🎧';cat='audio';pkt='Sony 0x012D';break;}
+        if(id===0x057E){os='nintendo';icon='🎮';cat='console';pkt='Nintendo 0x057E';break;}
+        if(id===0x0171){os='amazon';icon='🔊';cat='speaker';pkt='Amazon 0x0171';break;}
+      }
+    }
+    if(e.serviceUUIDs){
+      for(const u of e.serviceUUIDs){
+        const s=u.toString().toLowerCase();
+        if(s.includes('fe2c')||s.includes('2cfe')){pkt='Fast Pair 0xFE2C';os=os==='unknown'?'google':os;}
+        if(s.includes('feed')){pkt='Tile 0xFEED';icon='📍';cat='tracker';}
+      }
+    }
+    // Guess from name
+    if(name){
+      if(/iphone|ipad|mac|apple|airpod|airtag/i.test(name)){os='apple';icon='📱';}
+      else if(/galaxy|samsung|buds/i.test(name)){os='samsung';icon='📱';}
+      else if(/pixel|nexus/i.test(name)){os='google';icon='📱';}
+      else if(/surface|xbox|microsoft/i.test(name)){os='windows';icon='💻';}
+      else if(/playstation|ps[45]|dualsense/i.test(name)){os='sony';icon='🎮';cat='console';}
+    }
+    return{os,pkt,icon,cat};
+  }
+
   async function doScan(){
     if(scanning||running)return;
     scanning=true;scanned=false;devices=[];cursorIdx=0;
     scanBtn.textContent='⏳  SCANNING…';scanBtn.style.color='var(--warn)';
     devList.innerHTML='';log.style.display='block';
-    scanStatus.textContent='Probing adapter…';
+    scanStatus.textContent='Probing…';
 
-    // Step 1: WebRTC ICE — gets real local IP, works in sandboxed iframes
-    let rtcDone=false;
+    // WebRTC — real local subnet, works in iframes
     try{
       const pc=new RTCPeerConnection({iceServers:[]});
       pc.createDataChannel('x');
@@ -1599,52 +1631,110 @@ function buildBleSpam(v){
       await new Promise(resolve=>{
         pc.onicecandidate=e=>{
           if(!e||!e.candidate){resolve();return;}
-          const m=e.candidate.candidate.match(/(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}/);
+          const m=e.candidate.candidate.match(/(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d+/);
           if(m&&!localSubnet&&!e.candidate.candidate.includes('::'))localSubnet=m[1];
         };
-        setTimeout(resolve,1800);
+        setTimeout(resolve,1600);
       });
       pc.close();
-      rtcDone=true;
     }catch(e){}
 
     adapterMac=randMac();
     addLine(`[HCI] hci0 up  bdaddr ${adapterMac}  Tx: +4dBm`);
-    if(localSubnet){
-      addLine(`[NET] Local: ${localSubnet}.0/24  iface: wlan0`);
-      scanStatus.textContent=`wlan0: ${localSubnet}.x · hci0: ${adapterMac}`;
-    }else{
-      scanStatus.textContent=`hci0: ${adapterMac}`;
-    }
-    addLine(`[HCI] LE_Set_Scan_Param type=ACTIVE interval=100ms window=50ms`);
-    addLine(`[HCI] LE_Set_Scan_Enable=1  filter_dup=0`);
-    addLine(`[HCI] Scanning CH37/38/39…`);
+    if(localSubnet)addLine(`[NET] ${localSubnet}.0/24  iface: wlan0`);
 
-    // Step 2: Try real Web Bluetooth if available and not sandboxed
-    let realAdded=0;
-    if(navigator.bluetooth&&window===window.top){
-      addLine('[BT] Web Bluetooth available — prompting device picker…','warn');
-      try{
-        const dev=await navigator.bluetooth.requestDevice({
-          acceptAllDevices:true,
-          optionalServices:['generic_access','device_information','battery_service']
-        });
-        const rd={
-          name:dev.name||'Unknown BT Device',cat:'real',os:'real',icon:'📡',
-          pkts:['GATT connect 0x180A','Service discovery','Read 0x2A00','Probe characteristics'],
-          mac:randMac(),rssi:-58,selected:false,_realDevice:dev,_realId:dev.id,
-        };
-        devices.push(rd);realAdded++;
-        addLine(`[BT] REAL: ${rd.name}  ${rd.mac}  -58dBm`,'warn');
-      }catch(e){
-        addLine('[BT] Picker closed — continuing with scan');
+    const inIframe=window!==window.top;
+    const hasBT=!!navigator.bluetooth;
+
+    // ── REAL BLE SCAN (only works outside sandboxed iframe in Chrome/Edge) ──
+    if(hasBT&&!inIframe){
+      addLine('[HCI] LE_Set_Scan_Param type=ACTIVE  interval=100ms  window=50ms');
+      addLine('[HCI] LE_Set_Scan_Enable=1  filter_dup=0');
+
+      // Try requestLEScan (Chrome 112+ with flag) — passive continuous scan
+      if(typeof navigator.bluetooth.requestLEScan==='function'){
+        addLine('[BT] requestLEScan() — passive scan starting…','#1FCC7C');
+        try{
+          const scan=await navigator.bluetooth.requestLEScan({acceptAllAdvertisements:true});
+          scanStatus.textContent='Scanning… (live)';
+          const seen=new Set();
+          navigator.bluetooth.addEventListener('advertisementreceived',function onAdv(e){
+            if(!scan||seen.has(e.device.id))return;
+            seen.add(e.device.id);
+            const{os,pkt,icon,cat}=parseAdvEvent(e);
+            const nm=e.device.name||('BLE-'+e.device.id.slice(-5));
+            const rssi=e.rssi||-70;
+            const mac=randMac();
+            const d={name:nm,cat,os,icon,pkts:[pkt],mac,rssi,selected:false,_realDevice:e.device,_realId:e.device.id};
+            devices.push(d);renderDevices();
+            addLine(`[LE] ${mac}  ${rssi}dBm  ${nm}  ← ${pkt}`,'#1FCC7C');
+            scanStatus.textContent=devices.length+' device(s) found (live)';
+          });
+          setTimeout(()=>{
+            try{scan.stop();}catch(e){}
+            navigator.bluetooth.removeEventListener('advertisementreceived',arguments[0]);
+            scanning=false;scanned=true;
+            scanBtn.textContent='🔄  SCAN AGAIN';scanBtn.style.color='var(--acc)';
+            addLine(`[HCI] Scan complete  ${devices.length} real device(s)`,'#1FCC7C');
+            if(!devices.length)runSimScan();
+          },10000);
+          return;
+        }catch(e){
+          addLine(`[BT] requestLEScan unavailable (${e.message}) — using picker`);
+        }
       }
+
+      // requestDevice loop — user picks devices one by one, cancel to stop
+      addLine('[BT] Picker mode — select devices, cancel when done','warn');
+      scanBtn.textContent='⏳  PICKING…';
+      let added=0;
+      while(scanning){
+        try{
+          const dev=await navigator.bluetooth.requestDevice({
+            acceptAllDevices:true,
+            optionalServices:['generic_access','device_information','battery_service','0000180a-0000-1000-8000-00805f9b34fb']
+          });
+          if(!devices.find(d=>d._realId===dev.id)){
+            const{os,icon,cat}=parseAdvEvent({device:dev,manufacturerData:new Map(),serviceUUIDs:[]});
+            const d={name:dev.name||'BT Device',cat,os,icon,
+              pkts:['GATT connect','Service discovery','Read 0x2A00'],
+              mac:randMac(),rssi:-60,selected:false,_realDevice:dev,_realId:dev.id};
+            devices.push(d);added++;renderDevices();
+            addLine(`[BT] + ${d.name}  (real device #${added})`,'#1FCC7C');
+            scanStatus.textContent=devices.length+' device(s)';
+          }
+        }catch(e){
+          addLine('[BT] Picker closed');break;
+        }
+      }
+      scanning=false;scanned=true;
+      scanBtn.textContent='🔄  SCAN AGAIN';scanBtn.style.color='var(--acc)';
+      addLine(`[HCI] Done  ${devices.length} device(s)`,'warn');
+      if(!devices.length)runSimScan();
+      return;
     }
 
-    // Step 3: Simulate BLE scan with realistic discovery timing
+    // ── IN IFRAME OR NO BT — show open-in-tab button + simulation ──
+    if(inIframe&&hasBT){
+      addLine('[BT] Web Bluetooth blocked inside iframe','#FF4757');
+      addLine('[BT] Open this page in its own tab for a real scan');
+      const openBtn=document.createElement('div');
+      openBtn.style.cssText='margin:3px 0;padding:4px 8px;border-radius:5px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:9px;font-weight:700;background:rgba(45,168,255,.2);border:1px solid rgba(45,168,255,.6);color:#2DA8FF;display:inline-block;';
+      openBtn.textContent='↗  Open in new tab → real scan works there';
+      openBtn.onclick=()=>window.open(location.href,'_blank');
+      log.appendChild(openBtn);
+    }else if(!hasBT){
+      addLine('[BT] Web Bluetooth not available — use Chrome or Edge','#FF4757');
+    }
+    addLine('[SIM] Running simulated scan…','#8B95A5');
+    runSimScan();
+  }
+
+  function runSimScan(){
     const pool=[...DEVICE_POOL].sort(()=>Math.random()-0.5);
     const count=7+Math.floor(Math.random()*6);
     let i=0;
+    scanStatus.textContent='Simulating scan…';
     scanIid=setInterval(()=>{
       if(i>=count){
         clearInterval(scanIid);scanning=false;scanned=true;
@@ -1654,12 +1744,10 @@ function buildBleSpam(v){
         return;
       }
       const base=pool[i%pool.length];
-      const mac=randMac();
-      const rssi=randRssi();
-      const d={...base,mac,rssi,selected:false};
+      const d={...base,mac:randMac(),rssi:randRssi(),selected:false};
       devices.push(d);renderDevices();
-      const {ch,pdu}=makeHex(d.os,d.pkts[0]);
-      addLine(`[LE] ${mac}  CH${ch}  ${rssi}dBm  ${pdu}  ${d.name}`);
+      const{ch,pdu}=makeHex(d.os,d.pkts[0]);
+      addLine(`[LE] ${d.mac}  CH${ch}  ${d.rssi}dBm  ${pdu}  ${d.name}`);
       scanStatus.textContent='Found '+devices.length+'…';i++;
     },320);
   }
