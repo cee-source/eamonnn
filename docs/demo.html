@@ -195,7 +195,7 @@ body{background:radial-gradient(ellipse at top,#0D1420 0%,#050709 70%);min-heigh
 
 /* ── Page header ── */
 .page-header{display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:24px;position:relative;z-index:1;}
-.ph-logo{font-family:'Courier New',monospace;font-size:26px;font-weight:800;letter-spacing:-1px;background:linear-gradient(135deg,#1FCC7C 0%,#2DA8FF 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.ph-logo{font-family:'Courier New',monospace;font-size:38px;font-weight:900;letter-spacing:-2px;background:linear-gradient(125deg,#1FCC7C 0%,#34E8FF 55%,#2DA8FF 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
 .ph-sub{font-family:'Courier New',monospace;font-size:10px;color:var(--mut);letter-spacing:.5px;text-align:center;}
 .ph-badges{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;}
 .ph-badge{font-family:'Courier New',monospace;font-size:9px;padding:2px 9px;border-radius:20px;border:1px solid;}
@@ -213,18 +213,77 @@ body{background:radial-gradient(ellipse at top,#0D1420 0%,#050709 70%);min-heigh
 body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(rgba(31,204,124,.07) 1px,transparent 1px);background-size:26px 26px;pointer-events:none;z-index:0;}
 body>*{position:relative;z-index:1;}
 
+/* ══════════════════════════════════════════════════════════
+   ENHANCED VISUAL DESIGN
+══════════════════════════════════════════════════════════ */
+
+/* Animations */
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+@keyframes aura{0%,100%{opacity:.5;transform:translate(-50%,-50%)scale(1)}50%{opacity:1;transform:translate(-50%,-50%)scale(1.18)}}
+@keyframes logoPulse{0%,100%{filter:drop-shadow(0 0 10px rgba(31,204,124,.3))}50%{filter:drop-shadow(0 0 28px rgba(31,204,124,.75))}}
+@keyframes scanline{0%{top:-15%}100%{top:115%}}
+@keyframes borderGlow{0%,100%{box-shadow:0 0 0 1px rgba(255,255,255,.08),0 0 0 3px #0d0d0d,0 10px 24px rgba(0,0,0,.75),0 40px 90px rgba(0,0,0,.95),inset 0 1px 0 rgba(255,255,255,.1)}50%{box-shadow:0 0 0 1px rgba(255,255,255,.12),0 0 0 3px #0d0d0d,0 10px 24px rgba(0,0,0,.75),0 40px 90px rgba(0,0,0,.95),inset 0 1px 0 rgba(255,255,255,.14),0 0 60px rgba(31,204,124,.06)}}
+
+/* Floating device */
+.device{animation:float 5s ease-in-out infinite,borderGlow 5s ease-in-out infinite;}
+.device-stage::before{animation:aura 4s ease-in-out infinite;background:radial-gradient(ellipse,rgba(31,204,124,.2) 0%,rgba(45,168,255,.09) 40%,transparent 68%);}
+
+/* Subtle scan line sweeping down screen */
+.screen::before{content:'';position:absolute;top:-15%;left:0;right:0;height:80px;background:linear-gradient(180deg,transparent 0%,rgba(31,204,124,.06) 50%,transparent 100%);animation:scanline 9s linear infinite;pointer-events:none;z-index:45;border-radius:20px;}
+
+/* Dynamic Island notch */
+.notch{position:absolute;top:15px;left:50%;transform:translateX(-50%);width:104px;height:30px;background:#000;border-radius:50px;display:flex;align-items:center;justify-content:center;gap:10px;z-index:30;box-shadow:0 0 0 1px rgba(255,255,255,.06),0 2px 8px rgba(0,0,0,.6);}
+.notch-cam{width:11px;height:11px;border-radius:50%;background:#111;border:1.5px solid #222;box-shadow:inset 0 0 4px rgba(0,0,0,.9),0 0 8px rgba(45,168,255,.12);}
+.notch-ear{width:28px;height:4px;border-radius:50px;background:#111;}
+
+/* Better background depth */
+body{background:radial-gradient(ellipse 100% 70% at 50% -5%,#0B1E2E 0%,#050A10 58%);}
+
+/* Pulsing logo */
+.ph-logo{animation:logoPulse 3s ease-in-out infinite;}
+
+/* Badge hover lift */
+.ph-badge{transition:all .18s cubic-bezier(.25,.46,.45,.94);}
+.ph-badge:hover{transform:translateY(-2px);filter:brightness(1.4);}
+
+/* Smoother menu transitions */
+.mitem{transition:background .12s cubic-bezier(.25,.46,.45,.94);}
+.mitem:hover .mitem-icon{transform:scale(1.08);transition:transform .15s;}
+.mitem-icon{transition:transform .15s;}
+.mitem-arrow{transition:transform .12s,color .12s;}
+.mitem:hover .mitem-arrow{transform:translateX(2px);color:var(--mut);}
+
+/* Better icon containers on menu */
+.mitem-icon{box-shadow:inset 0 1px 0 rgba(255,255,255,.08);}
+
+/* Widget area improvements */
+.w-time{text-shadow:0 0 20px rgba(31,204,124,.35);}
+
+/* Tbar improvements */
+.tbar{background:rgba(13,17,24,.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
+
+/* Screen glass — sharper specular */
+.screen::after{background:linear-gradient(165deg,rgba(255,255,255,.05) 0%,rgba(255,255,255,.02) 18%,transparent 35%),linear-gradient(0deg,rgba(255,255,255,.01) 0%,transparent 20%);}
+
+/* BLE log terminal look */
+.ble-log{background:rgba(0,0,0,.4);border-top:1px solid rgba(31,204,124,.06);}
+
+/* Download button polish */
+#dl-btn{transition:all .15s;letter-spacing:1px;}
+#dl-btn:hover{background:rgba(45,168,255,.2)!important;transform:translateY(-1px);box-shadow:0 4px 16px rgba(45,168,255,.15);}
+
 @media(prefers-color-scheme:light){body{background:#E8EDF5}.device{background:linear-gradient(160deg,#CDD5E0 0%,#B8C2D0 100%)}}
 </style>
 
 <div class="page-header">
   <div class="ph-logo">FlipKit</div>
-  <div class="ph-sub">Jailbroken iPhone + Pi Zero 2W &nbsp;·&nbsp; Portable Pentest Platform</div>
+  <div class="ph-sub">iPhone + Pi Zero 2W &nbsp;·&nbsp; Pocket Pentest Platform<span style="color:var(--acc);animation:blink .9s step-end infinite;display:inline-block;margin-left:2px;">_</span></div>
   <div class="ph-badges">
     <span class="ph-badge g">BLE</span>
     <span class="ph-badge b">WiFi</span>
-    <span class="ph-badge r">BadUSB</span>
+    <span class="ph-badge r">BadUSB HID</span>
     <span class="ph-badge g">NFC/RFID</span>
-    <span class="ph-badge y">IR</span>
+    <span class="ph-badge y">IR Blaster</span>
     <span class="ph-badge b">100+ Games</span>
   </div>
 </div>
