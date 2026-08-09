@@ -188,13 +188,47 @@ body{background:radial-gradient(ellipse at top,#0D1420 0%,#050709 70%);min-heigh
 .diff-start{padding:12px;background:rgba(31,204,124,.12);border:1px solid rgba(31,204,124,.35);border-radius:8px;text-align:center;cursor:pointer;font-family:'Courier New',monospace;font-size:13px;font-weight:700;color:var(--acc);transition:background .1s;letter-spacing:.5px;}
 .diff-start:hover{background:rgba(31,204,124,.22);}
 /* ── Below device ── */
-.chips{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:20px;max-width:380px;}
-.chip{background:rgba(31,204,124,.06);border:1px solid rgba(31,204,124,.18);color:var(--mut);font-family:'Courier New',monospace;font-size:10px;padding:3px 9px;border-radius:20px;}
-.hint-row{margin-top:12px;font-size:11px;color:#3A4A5A;text-align:center;font-family:monospace;}
+.chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:22px;max-width:360px;position:relative;z-index:1;}
+.chip{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:var(--mut);font-family:'Courier New',monospace;font-size:10px;padding:4px 10px;border-radius:20px;transition:all .15s;cursor:default;}
+.chip:hover{background:rgba(31,204,124,.08);border-color:rgba(31,204,124,.25);color:var(--acc);}
+.hint-row{margin-top:14px;font-size:10px;color:rgba(255,255,255,.15);text-align:center;font-family:'Courier New',monospace;letter-spacing:.3px;position:relative;z-index:1;}
+
+/* ── Page header ── */
+.page-header{display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:24px;position:relative;z-index:1;}
+.ph-logo{font-family:'Courier New',monospace;font-size:26px;font-weight:800;letter-spacing:-1px;background:linear-gradient(135deg,#1FCC7C 0%,#2DA8FF 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.ph-sub{font-family:'Courier New',monospace;font-size:10px;color:var(--mut);letter-spacing:.5px;text-align:center;}
+.ph-badges{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;}
+.ph-badge{font-family:'Courier New',monospace;font-size:9px;padding:2px 9px;border-radius:20px;border:1px solid;}
+.ph-badge.g{background:rgba(31,204,124,.09);border-color:rgba(31,204,124,.28);color:var(--acc);}
+.ph-badge.b{background:rgba(45,168,255,.09);border-color:rgba(45,168,255,.28);color:var(--blu);}
+.ph-badge.r{background:rgba(255,71,87,.07);border-color:rgba(255,71,87,.22);color:var(--dan);}
+.ph-badge.y{background:rgba(255,140,66,.07);border-color:rgba(255,140,66,.22);color:var(--warn);}
+
+/* ── Device stage (glow) ── */
+.device-stage{position:relative;z-index:1;}
+.device-stage::before{content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:320px;height:320px;background:radial-gradient(ellipse,rgba(31,204,124,.1) 0%,transparent 70%);pointer-events:none;z-index:0;}
+.device-stage::after{content:'';position:absolute;left:50%;bottom:-20px;transform:translateX(-50%);width:200px;height:20px;background:radial-gradient(ellipse,rgba(0,0,0,.6) 0%,transparent 70%);pointer-events:none;}
+
+/* ── Dot grid background ── */
+body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(rgba(31,204,124,.07) 1px,transparent 1px);background-size:26px 26px;pointer-events:none;z-index:0;}
+body>*{position:relative;z-index:1;}
+
 @media(prefers-color-scheme:light){body{background:#E8EDF5}.device{background:linear-gradient(160deg,#CDD5E0 0%,#B8C2D0 100%)}}
 </style>
 
-<div class="test-banner">📱 <strong>FlipKit</strong> &nbsp;<span class="dim">Jailbroken iPhone + Pi Zero 2W · BLE · HID · NFC</span></div>
+<div class="page-header">
+  <div class="ph-logo">FlipKit</div>
+  <div class="ph-sub">Jailbroken iPhone + Pi Zero 2W &nbsp;·&nbsp; Portable Pentest Platform</div>
+  <div class="ph-badges">
+    <span class="ph-badge g">BLE</span>
+    <span class="ph-badge b">WiFi</span>
+    <span class="ph-badge r">BadUSB</span>
+    <span class="ph-badge g">NFC/RFID</span>
+    <span class="ph-badge y">IR</span>
+    <span class="ph-badge b">100+ Games</span>
+  </div>
+</div>
+<div class="device-stage">
 <div class="device">
   <div class="side-btns">
     <div class="sbtn" title="Vol UP"   onclick="sKey('up')"    style="height:22px;"></div>
@@ -218,6 +252,7 @@ body{background:radial-gradient(ellipse at top,#0D1420 0%,#050709 70%);min-heigh
     <div class="bot-bezel"><div class="home-bar"></div></div>
   </div>
 </div>
+</div><!-- /device-stage -->
 <div class="chips">
   <div class="chip">BLE Spam</div><div class="chip">WiFi Hotspot</div>
   <div class="chip">Custom Popups</div><div class="chip">Bad USB HID</div>
