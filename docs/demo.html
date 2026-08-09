@@ -1018,41 +1018,115 @@ function buildBleLure(v){
   let selPay=0;
   const payList=document.createElement('div');payList.style.cssText='display:flex;flex-direction:column;gap:3px;';
 
-  // — Custom script editor (shown when Custom Script is selected) —
+  // — Custom on-screen keyboard —
   const customWrap=document.createElement('div');
-  customWrap.style.cssText='display:none;flex-direction:column;gap:5px;margin-top:6px;';
+  customWrap.style.cssText='display:none;flex-direction:column;gap:4px;margin-top:6px;';
 
-  // Quick-insert toolbar
-  const QUICK=[
-    ['STRING ','str'],['ENTER','↵'],['DELAY 200','dly'],['GUI r','⊞r'],
-    ['TAB','⇥'],['BACKSPACE','⌫'],['CTRL c','^c'],['CTRL v','^v'],
-    ['CTRL a','^a'],['ALT F4','⎇F4'],['GUI d','⊞d'],['SHIFT TAB','⇧⇥'],
-  ];
-  const toolbar=document.createElement('div');
-  toolbar.style.cssText='display:flex;flex-wrap:wrap;gap:3px;';
+  const _kbLines=[];let _kbPend='';
+  const _kbMods={ctrl:false,alt:false,shift:false,gui:false};let _kbCaps=false;
+
+  // Script output display
   const scriptTA=document.createElement('textarea');
-  scriptTA.rows=6;
-  scriptTA.placeholder='Type DuckyScript here…\nSTRING Hello World\nENTER\nDELAY 500\nSTRING notepad\nENTER';
-  scriptTA.style.cssText='width:100%;box-sizing:border-box;background:var(--elev);border:1px solid var(--brd);border-radius:6px;padding:8px 10px;font-family:\'Courier New\',monospace;font-size:10px;color:var(--txt);outline:none;resize:vertical;line-height:1.55;';
-  scriptTA.addEventListener('focus',()=>{scriptTA.style.borderColor='var(--acc)';});
-  scriptTA.addEventListener('blur', ()=>{scriptTA.style.borderColor='var(--brd)';});
+  scriptTA.rows=3;scriptTA.readOnly=true;
+  scriptTA.style.cssText='width:100%;box-sizing:border-box;background:var(--elev);border:1px solid var(--brd);border-radius:5px;padding:5px 8px;font-family:\'Courier New\',monospace;font-size:9px;color:var(--txt);outline:none;resize:none;line-height:1.5;';
+  scriptTA.placeholder='Script output…';
 
-  QUICK.forEach(([cmd,lbl])=>{
-    const b=document.createElement('div');
-    b.style.cssText='padding:3px 7px;border-radius:4px;background:var(--elev);border:1px solid var(--brd);font-family:\'Courier New\',monospace;font-size:9px;color:var(--mut);cursor:pointer;user-select:none;white-space:nowrap;';
-    b.title=cmd;b.textContent=lbl;
-    b.addEventListener('mouseenter',()=>{b.style.borderColor='var(--acc)';b.style.color='var(--acc)';});
-    b.addEventListener('mouseleave',()=>{b.style.borderColor='var(--brd)';b.style.color='var(--mut)';});
-    b.onclick=()=>{
-      const start=scriptTA.selectionStart,end=scriptTA.selectionEnd;
-      const ins=(start>0&&scriptTA.value[start-1]!=='\n'?'\n':'')+cmd+(cmd.endsWith(' ')?'':'\n');
-      scriptTA.value=scriptTA.value.slice(0,start)+ins+scriptTA.value.slice(end);
-      scriptTA.selectionStart=scriptTA.selectionEnd=start+ins.length;
-      scriptTA.focus();
-    };
-    toolbar.appendChild(b);
+  const clearKbBtn=document.createElement('div');
+  clearKbBtn.style.cssText='align-self:flex-end;padding:2px 7px;border-radius:4px;background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.3);font-family:\'Courier New\',monospace;font-size:8px;color:#FF4757;cursor:pointer;user-select:none;';
+  clearKbBtn.textContent='CLEAR';
+  clearKbBtn.onclick=()=>{_kbLines.length=0;_kbPend='';_kbUpd();};
+
+  const taWrap=document.createElement('div');taWrap.style.cssText='display:flex;flex-direction:column;gap:2px;';
+  taWrap.appendChild(scriptTA);taWrap.appendChild(clearKbBtn);
+  customWrap.appendChild(taWrap);
+
+  function _kbUpd(){const a=[..._kbLines];if(_kbPend)a.push('STRING '+_kbPend);scriptTA.value=a.join('\n');scriptTA.scrollTop=scriptTA.scrollHeight;}
+  function _kbFlush(){if(_kbPend){_kbLines.push('STRING '+_kbPend);_kbPend='';}}
+  function kbGetLines(){_kbFlush();return[..._kbLines];}
+
+  const _SM={'`':'~','1':'!','2':'@','3':'#','4':'$','5':'%','6':'^','7':'&','8':'*','9':'(','0':')','-':'_','=':'+','[':'{',']':'}','\\':'|',';':':','\'':'"',',':'<','.':'>','/':'?'};
+  const _kbEls={};
+
+  function _kbSetMod(m,v){
+    _kbMods[m]=v;
+    if(_kbEls[m])_kbEls[m].forEach(el=>{el.style.background=v?'var(--acc)':el._bg;el.style.color=v?'#000':el._tc;});
+  }
+
+  function _kbPress(spec){
+    const{k,s,d,sp,ch}=spec;
+    if(sp==='shift'){_kbSetMod('shift',!_kbMods.shift);return;}
+    if(sp==='caps'){_kbCaps=!_kbCaps;if(_kbEls.caps)_kbEls.caps.forEach(el=>{el.style.background=_kbCaps?'var(--acc)':el._bg;el.style.color=_kbCaps?'#000':el._tc;});return;}
+    if(sp==='ctrl'){_kbSetMod('ctrl',!_kbMods.ctrl);return;}
+    if(sp==='alt'){_kbSetMod('alt',!_kbMods.alt);return;}
+    if(sp==='gui'){_kbSetMod('gui',!_kbMods.gui);return;}
+    const anyM=_kbMods.ctrl||_kbMods.alt||_kbMods.gui;
+    const duck=d||(k.length===1?k.toUpperCase():k.toUpperCase());
+    // Backspace
+    if(duck==='BACKSPACE'&&!anyM){
+      if(_kbPend){_kbPend=_kbPend.slice(0,-1);}else{_kbFlush();_kbLines.push('BACKSPACE');}
+      if(_kbMods.shift)_kbSetMod('shift',false);
+      _kbUpd();return;
+    }
+    // Space
+    if(ch===' '&&!anyM){_kbPend+=' ';if(_kbMods.shift)_kbSetMod('shift',false);_kbUpd();return;}
+    // Regular char (no ctrl/alt/gui)
+    if(k.length===1&&!anyM){
+      let c=_kbMods.shift?(_SM[k]||(_kbCaps?k.toLowerCase():k.toUpperCase())):(_kbCaps&&/[a-z]/i.test(k)?k.toUpperCase():k.toLowerCase());
+      _kbPend+=c;if(_kbMods.shift)_kbSetMod('shift',false);_kbUpd();return;
+    }
+    // Special / combo
+    _kbFlush();
+    if(anyM){
+      const p=[_kbMods.ctrl?'CTRL':'',_kbMods.alt?'ALT':'',_kbMods.gui?'GUI':''].filter(Boolean);
+      _kbLines.push(p.join(' ')+' '+duck);
+      _kbSetMod('ctrl',false);_kbSetMod('alt',false);_kbSetMod('gui',false);
+    }else{_kbLines.push(duck);}
+    if(_kbMods.shift)_kbSetMod('shift',false);
+    _kbUpd();
+  }
+
+  // Keyboard rows: {k, s(shifted), d(ducky), sp(special), ch(char), w(flex)}
+  const _KROWS=[
+    [{k:'ESC',d:'ESC'},{k:'F1',d:'F1'},{k:'F2',d:'F2'},{k:'F3',d:'F3'},{k:'F4',d:'F4'},{k:'F5',d:'F5'},{k:'F6',d:'F6'},{k:'F7',d:'F7'},{k:'F8',d:'F8'},{k:'F9',d:'F9'},{k:'F10',d:'F10'},{k:'F11',d:'F11'},{k:'F12',d:'F12'},{k:'DEL',d:'DELETE'}],
+    [{k:'`',s:'~'},{k:'1',s:'!'},{k:'2',s:'@'},{k:'3',s:'#'},{k:'4',s:'$'},{k:'5',s:'%'},{k:'6',s:'^'},{k:'7',s:'&'},{k:'8',s:'*'},{k:'9',s:'('},{k:'0',s:')'},{k:'-',s:'_'},{k:'=',s:'+'},{k:'⌫',d:'BACKSPACE',w:1.8}],
+    [{k:'TAB',d:'TAB',w:1.5},{k:'q'},{k:'w'},{k:'e'},{k:'r'},{k:'t'},{k:'y'},{k:'u'},{k:'i'},{k:'o'},{k:'p'},{k:'[',s:'{'},{k:']',s:'}'},{k:'\\',s:'|',w:1.3}],
+    [{k:'CAPS',sp:'caps',w:1.8},{k:'a'},{k:'s'},{k:'d'},{k:'f'},{k:'g'},{k:'h'},{k:'j'},{k:'k'},{k:'l'},{k:';',s:':'},{k:"'",s:'"'},{k:'↵',d:'ENTER',w:2}],
+    [{k:'⇧',d:'SHIFT',sp:'shift',w:2.3},{k:'z'},{k:'x'},{k:'c'},{k:'v'},{k:'b'},{k:'n'},{k:'m'},{k:',',s:'<'},{k:'.',s:'>'},{k:'/',s:'?'},{k:'⇧',d:'SHIFT',sp:'shift',w:2.3}],
+    [{k:'CTL',d:'CTRL',sp:'ctrl',w:1.6},{k:'ALT',d:'ALT',sp:'alt',w:1.4},{k:'⊞',d:'GUI',sp:'gui',w:1.2},{k:'',d:'SPACE',ch:' ',w:5},{k:'ALT',d:'ALT',sp:'alt',w:1.4},{k:'CTL',d:'CTRL',sp:'ctrl',w:1.6}],
+  ];
+
+  function _kbMkKey(spec){
+    const el=document.createElement('div');
+    const isMod=!!spec.sp;
+    const bg=isMod?'rgba(45,168,255,.1)':'rgba(255,255,255,.06)';
+    const tc=isMod?'#2DA8FF':'var(--txt)';
+    el._bg=bg;el._tc=tc;
+    const fs=spec.k.length>4?6:spec.k.length>2?7:8;
+    el.style.cssText=`flex:${spec.w||1};min-width:0;height:21px;display:flex;align-items:center;justify-content:center;border-radius:3px;background:${bg};border:1px solid rgba(255,255,255,.12);font-family:'Courier New',monospace;font-size:${fs}px;color:${tc};cursor:pointer;user-select:none;-webkit-user-select:none;position:relative;transition:background .07s;`;
+    el.textContent=spec.k;
+    if(spec.s){
+      const sh=document.createElement('span');
+      sh.style.cssText='position:absolute;top:1px;right:2px;font-size:6px;color:rgba(255,255,255,.35);line-height:1;pointer-events:none;';
+      sh.textContent=spec.s;el.appendChild(sh);
+    }
+    const fire=e=>{e.preventDefault();e.stopPropagation();_kbPress(spec);};
+    el.addEventListener('mousedown',e=>{e.preventDefault();if(!spec.sp){el.style.background='var(--acc)';el.style.color='#000';}});
+    el.addEventListener('mouseup',e=>{e.preventDefault();e.stopPropagation();_kbPress(spec);if(!spec.sp){setTimeout(()=>{el.style.background=bg;el.style.color=tc;},120);}});
+    el.addEventListener('mouseleave',()=>{if(!spec.sp||!_kbMods[spec.sp])el.style.background=bg;});
+    el.addEventListener('touchstart',e=>{e.preventDefault();if(!spec.sp){el.style.background='var(--acc)';el.style.color='#000';}},{passive:false});
+    el.addEventListener('touchend',fire,{passive:false});
+    if(spec.sp){if(!_kbEls[spec.sp])_kbEls[spec.sp]=[];_kbEls[spec.sp].push(el);}
+    return el;
+  }
+
+  const kb=document.createElement('div');
+  kb.style.cssText='display:flex;flex-direction:column;gap:2px;background:#111;border:1px solid var(--brd);border-radius:8px;padding:5px;';
+  _KROWS.forEach(row=>{
+    const r=document.createElement('div');r.style.cssText='display:flex;gap:2px;';
+    row.forEach(spec=>r.appendChild(_kbMkKey(spec)));
+    kb.appendChild(r);
   });
-  customWrap.appendChild(toolbar);customWrap.appendChild(scriptTA);
+  customWrap.appendChild(kb);
 
   PAYLOADS.forEach((p,i)=>{
     const row=document.createElement('div');
@@ -1133,8 +1207,8 @@ function buildBleLure(v){
         {delay:2800,color:'#FFD700', text:'[USB] Enumerating as HID keyboard…'},
         {delay:3400,color:'#FFD700', text:'[USB] HID ready  ✓'},
         {delay:3900,color:'#FF4757', text:'[PAY] Running: '+PAYLOADS[selPay].label},
-        ...((selPay===PAYLOADS.length-1?scriptTA.value.split('\n').filter(l=>l.trim()):PAYLOADS[selPay].lines)).map((line,i)=>({delay:4400+i*420,color:'#aaa',text:'  > '+line})),
-        {delay:4400+((selPay===PAYLOADS.length-1?scriptTA.value.split('\n').filter(l=>l.trim()):PAYLOADS[selPay].lines)).length*420, color:'#1FCC7C', text:'[PAY] Payload complete  ✓'},
+        ...((selPay===PAYLOADS.length-1?kbGetLines():PAYLOADS[selPay].lines)).map((line,i)=>({delay:4400+i*420,color:'#aaa',text:'  > '+line})),
+        {delay:4400+((selPay===PAYLOADS.length-1?kbGetLines():PAYLOADS[selPay].lines)).length*420, color:'#1FCC7C', text:'[PAY] Payload complete  ✓'},
       ];
 
       let i=0;
