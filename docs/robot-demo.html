@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Robot Control — Live Demo (no hardware needed)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: #14161a; color: #eee;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  #scene { position: fixed; inset: 0; display: block; touch-action: none; cursor: default; }
+  #scene.driving { cursor: none; }
+
+  #status {
+    position: fixed; top: 12px; right: 16px;
+    padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700;
+    letter-spacing: .04em; background: #1e3a4d; color: #7ec8e2;
+    border: 1px solid #2c5670;
+  }
+
+  #overlay {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: rgba(10, 11, 13, 0.92); text-align: center; z-index: 10;
+  }
+  #overlay.hidden { display: none; }
+  #overlay h1 { margin-bottom: 4px; font-size: 22px; }
+  #overlay p { color: #aaa; margin: 6px 0 0; max-width: 380px; line-height: 1.5; }
+  #overlay button {
+    margin-top: 18px; padding: 12px 28px; font-size: 16px; border: none;
+    border-radius: 8px; background: #4f8cff; color: white; cursor: pointer;
+  }
+  #overlay button:hover { background: #3d78e6; }
+  #overlay .note { margin-top: 14px; font-size: 12px; color: #666; max-width: 340px; }
+
+  #hud {
+    position: fixed; bottom: 20px; left: 0; right: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    pointer-events: none;
+  }
+  .keys { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .keys .row { display: flex; gap: 6px; }
+  .claw { display: flex; gap: 6px; }
+  .key {
+    min-width: 40px; padding: 8px 12px; border-radius: 8px;
+    background: #23262d; border: 1px solid #34383f; text-align: center;
+    font-size: 13px; font-weight: 600; color: #8a8f98;
+    transition: background 0.08s, color 0.08s;
+  }
+  .key.active { background: #4f8cff; color: white; border-color: #4f8cff; }
+  .help { color: #777; font-size: 12px; }
+
+  #readout {
+    position: fixed; top: 12px; left: 16px;
+    background: rgba(20, 22, 26, 0.85); border: 1px solid #2a2e35;
+    border-radius: 10px; padding: 10px 14px; font-size: 12px;
+    font-variant-numeric: tabular-nums; line-height: 1.7; color: #aab0bb;
+    min-width: 148px;
+  }
+  #readout .row { display: flex; justify-content: space-between; gap: 16px; }
+  #readout .label { color: #6b7280; }
+  #readout .val { color: #eee; font-weight: 600; }
+  #readout hr { border: none; border-top: 1px solid #2a2e35; margin: 6px 0; }
+</style>
+</head>
+<body>
+
+<svg id="scene"></svg>
+
+<div id="status">SIMULATED — no hardware</div>
+
+<div id="readout">
+  <div class="row"><span class="label">L track</span><span class="val" id="rd-l">0%</span></div>
+  <div class="row"><span class="label">R track</span><span class="val" id="rd-r">0%</span></div>
+  <hr>
+  <div class="row"><span class="label">Turret</span><span class="val" id="rd-turret">90°</span></div>
+  <div class="row"><span class="label">Boom</span><span class="val" id="rd-boom">90°</span></div>
+  <div class="row"><span class="label">Claw</span><span class="val" id="rd-claw">open</span></div>
+</div>
+
+<div id="overlay">
+  <h1>Robot Control — Live Demo</h1>
+  <p>A fully client-side simulation of the real control page — same WASD/mouse/arrow scheme,
+     same motor &amp; servo math as <code>hardware/motors.py</code> and
+     <code>hardware/servos.py</code>. No Pi, no server, nothing to wire up.</p>
+  <button id="start">Click to drive</button>
+  <p class="note">WASD drives the tracks &middot; mouse rotates the turret and raises/lowers the boom
+     &middot; Arrow Up/Down closes/opens the claw &middot; Esc releases the mouse.</p>
+</div>
+
+<div id="hud">
+  <div class="keys">
+    <div class="key" data-key="w">W</div>
+    <div class="row">
+      <div class="key" data-key="a">A</div>
+      <div class="key" data-key="s">S</div>
+      <div class="key" data-key="d">D</div>
+    </div>
+  </div>
+  <div class="claw">
+    <div class="key" data-key="ArrowUp">&#8593; close claw</div>
+    <div class="key" data-key="ArrowDown">&#8595; open claw</div>
+  </div>
+  <div class="help">This is a simulation — driving here does not move the real robot.</div>
+</div>
+
+<script>
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('scene');
+const overlay = document.getElementById('overlay');
+const startBtn = document.getElementById('start');
+const el = (tag, attrs = {}) => {
+  const n = document.createElementNS(NS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  return n;
+};
+
+// ---- scene setup -----------------------------------------------------
+let W = innerWidth, H = innerHeight;
+function resize() {
+  W = innerWidth; H = innerHeight;
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+}
+addEventListener('resize', resize);
+
+const world = el('g');           // floor grid + trail, panned under the robot
+const trailPath = el('path', { fill: 'none', stroke: '#2a3a52', 'stroke-width': 3,
+                                'stroke-linecap': 'round', opacity: 0.7 });
+const gridGroup = el('g');
+world.appendChild(gridGroup);
+world.appendChild(trailPath);
+svg.appendChild(world);
+
+const robot = el('g');           // the robot itself, always centered on screen
+svg.appendChild(robot);
+
+// chassis
+const TRACK_W = 26, TRACK_LEN = 110, BODY_W = 70, BODY_LEN = 96;
+const leftTrack = el('rect', { x: -BODY_W/2 - TRACK_W, y: -TRACK_LEN/2, width: TRACK_W,
+                                height: TRACK_LEN, rx: 6, fill: '#2a2e35', stroke: '#3a3f48' });
+const rightTrack = el('rect', { x: BODY_W/2, y: -TRACK_LEN/2, width: TRACK_W,
+                                 height: TRACK_LEN, rx: 6, fill: '#2a2e35', stroke: '#3a3f48' });
+const leftTreads = el('g', { stroke: '#4f8cff', 'stroke-width': 3, 'stroke-linecap': 'round', opacity: 0.85 });
+const rightTreads = el('g', { stroke: '#4f8cff', 'stroke-width': 3, 'stroke-linecap': 'round', opacity: 0.85 });
+for (let i = 0; i < 6; i++) {
+  leftTreads.appendChild(el('line', { x1: -BODY_W/2 - TRACK_W + 4, x2: -BODY_W/2 - 4 }));
+  rightTreads.appendChild(el('line', { x1: BODY_W/2 + 4, x2: BODY_W/2 + TRACK_W - 4 }));
+}
+const body = el('rect', { x: -BODY_W/2, y: -BODY_LEN/2, width: BODY_W, height: BODY_LEN, rx: 10,
+                           fill: '#1c2530', stroke: '#3a4a63', 'stroke-width': 2 });
+const nose = el('polygon', { points: `0,${-BODY_LEN/2 - 14} -10,${-BODY_LEN/2 + 2} 10,${-BODY_LEN/2 + 2}`,
+                              fill: '#4f8cff' });
+
+// turret + boom + claw, mounted on the chassis, shown from above
+const turretHub = el('circle', { r: 16, fill: '#23262d', stroke: '#4f8cff', 'stroke-width': 2 });
+const turretArm = el('g');
+const boomLine = el('line', { x1: 0, y1: 0, x2: 0, y2: -48, stroke: '#7ee2a0', 'stroke-width': 6,
+                               'stroke-linecap': 'round' });
+const clawL = el('line', { x1: 0, y1: -48, x2: -10, y2: -62, stroke: '#e2c37e', 'stroke-width': 5,
+                            'stroke-linecap': 'round' });
+const clawR = el('line', { x1: 0, y1: -48, x2: 10, y2: -62, stroke: '#e2c37e', 'stroke-width': 5,
+                            'stroke-linecap': 'round' });
+turretArm.append(boomLine, clawL, clawR);
+
+robot.append(leftTrack, rightTrack, leftTreads, rightTreads, body, nose, turretHub, turretArm);
+
+resize();
+
+// ---- state (mirrors hardware/motors.py + hardware/servos.py exactly) --
+const MOTOR_SPEED = 0.8;        // DriveBase(speed=0.8)
+const MOUSE_SENS = 0.3;         // Arm(mouse_sensitivity=0.3)
+const CLAW_STEP = 3;            // Arm(claw_step=3)
+const PX_PER_UNIT = 90;         // world scale: full track power -> px/s
+
+const state = {
+  left: 0, right: 0,            // -1..1 per hardware/motors.py
+  x: 0, y: 0, heading: 0,       // world pose (heading: radians, 0 = facing up)
+  turret: 90, boom: 90, claw: 0 // degrees, same home position as servos.py
+};
+const trail = [];
+
+const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowDown: false };
+function setKey(key, isDown) {
+  if (!(key in keys)) return;
+  keys[key] = isDown;
+  const k = document.querySelector(`.key[data-key="${key}"]`);
+  if (k) k.classList.toggle('active', isDown);
+}
+addEventListener('keydown', (e) => {
+  const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (key in keys) { setKey(key, true); e.preventDefault(); }
+});
+addEventListener('keyup', (e) => {
+  const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (key in keys) { setKey(key, false); e.preventDefault(); }
+});
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// port of DriveBase.set_drive
+function setDrive(forward, backward, left, right) {
+  let l = 0, r = 0;
+  if (forward) { l += 1; r += 1; }
+  if (backward) { l -= 1; r -= 1; }
+  if (left) { l -= 1; r += 1; }
+  if (right) { l += 1; r -= 1; }
+  state.left = clamp(l, -1, 1) * MOTOR_SPEED;
+  state.right = clamp(r, -1, 1) * MOTOR_SPEED;
+}
+
+// port of Arm.nudge — driven by pointer-locked mouse movement
+document.addEventListener('mousemove', (e) => {
+  if (document.pointerLockElement !== svg) return;
+  state.turret = clamp(state.turret + e.movementX * MOUSE_SENS, 0, 180);
+  state.boom = clamp(state.boom - e.movementY * MOUSE_SENS, 0, 180);
+});
+
+// 50ms tick — matches the 20Hz state message control.js sends over the websocket
+setInterval(() => {
+  setDrive(keys.w, keys.s, keys.a, keys.d);
+  // port of Arm.claw_move, driven at the same rate the real page sends arrowUp/arrowDown
+  if (keys.ArrowUp) state.claw = clamp(state.claw + CLAW_STEP, 0, 90);
+  else if (keys.ArrowDown) state.claw = clamp(state.claw - CLAW_STEP, 0, 90);
+}, 50);
+
+// ---- pointer lock ------------------------------------------------------
+startBtn.addEventListener('click', () => svg.requestPointerLock());
+document.addEventListener('pointerlockchange', () => {
+  const locked = document.pointerLockElement === svg;
+  overlay.classList.toggle('hidden', locked);
+  svg.classList.toggle('driving', locked);
+});
+document.addEventListener('pointerlockerror', () => {
+  overlay.querySelector('.note').textContent =
+    "This browser blocked pointer lock (common on file:// — serve the folder instead, " +
+    "e.g. `python3 -m http.server` from docs/, then reopen over http://localhost).";
+});
+
+// ---- simulation + render loop ------------------------------------------
+const GRID = 60;
+function drawGrid() {
+  gridGroup.textContent = '';
+  const cols = Math.ceil(W / GRID) + 2, rows = Math.ceil(H / GRID) + 2;
+  const ox = -((state.x % GRID) + GRID) % GRID;
+  const oy = -((state.y % GRID) + GRID) % GRID;
+  for (let i = -1; i < cols; i++) {
+    gridGroup.appendChild(el('line', { x1: ox + i*GRID, y1: -GRID, x2: ox + i*GRID, y2: rows*GRID,
+                                        stroke: '#1d232c', 'stroke-width': 1 }));
+  }
+  for (let j = -1; j < rows; j++) {
+    gridGroup.appendChild(el('line', { x1: -GRID, y1: oy + j*GRID, x2: cols*GRID, y2: oy + j*GRID,
+                                        stroke: '#1d232c', 'stroke-width': 1 }));
+  }
+}
+
+let lastT = performance.now();
+let treadPhase = 0;
+
+function step(dt) {
+  // differential-drive kinematics from the two track speeds
+  const vL = state.left * PX_PER_UNIT, vR = state.right * PX_PER_UNIT;
+  const v = (vL + vR) / 2;
+  const omega = (vR - vL) / BODY_W; // rad/s
+  state.heading += omega * dt;
+  state.x += Math.sin(state.heading) * v * dt;
+  state.y -= Math.cos(state.heading) * v * dt;
+
+  treadPhase += (Math.abs(vL) + Math.abs(vR)) / 2 * dt;
+
+  trail.push([state.x, state.y]);
+  if (trail.length > 400) trail.shift();
+}
+
+function render() {
+  drawGrid();
+  world.setAttribute('transform', `translate(${W/2}, ${H/2})`);
+  const d = trail.map(([x, y], i) =>
+    `${i === 0 ? 'M' : 'L'} ${x - state.x} ${y - state.y}`).join(' ');
+  trailPath.setAttribute('d', d);
+
+  robot.setAttribute('transform',
+    `translate(${W/2}, ${H/2}) rotate(${state.heading * 180 / Math.PI})`);
+
+  const phase = (treadPhase % 16);
+  [leftTreads, rightTreads].forEach(g => {
+    [...g.children].forEach((line, i) => {
+      const y = -TRACK_LEN/2 + 8 + ((i * 16 + phase) % (TRACK_LEN - 16));
+      line.setAttribute('y1', y); line.setAttribute('y2', y);
+    });
+  });
+
+  // turret hub tracks chassis center; arm rotates relative to chassis
+  const turretVisual = state.turret - 90; // 90° = straight ahead, matches home position
+  turretArm.setAttribute('transform', `rotate(${turretVisual})`);
+
+  // boom: foreshorten + fade as it lifts, since it's really rotating out of the top-down plane
+  const boomLift = (state.boom - 90) / 90; // -1 (down) .. 0 (level) .. 1 (up)
+  const boomLen = 48 * (1 - Math.abs(boomLift) * 0.55);
+  boomLine.setAttribute('y2', -boomLen);
+  boomLine.setAttribute('opacity', 1 - Math.abs(boomLift) * 0.35);
+  const clawGap = 10 - (state.claw / 90) * 8; // closes toward the centerline
+  clawL.setAttribute('x1', 0); clawL.setAttribute('y1', -boomLen);
+  clawL.setAttribute('x2', -clawGap); clawL.setAttribute('y2', -boomLen - 14);
+  clawR.setAttribute('x1', 0); clawR.setAttribute('y1', -boomLen);
+  clawR.setAttribute('x2', clawGap); clawR.setAttribute('y2', -boomLen - 14);
+
+  document.getElementById('rd-l').textContent = Math.round(state.left * 100) + '%';
+  document.getElementById('rd-r').textContent = Math.round(state.right * 100) + '%';
+  document.getElementById('rd-turret').textContent = Math.round(state.turret) + '°';
+  document.getElementById('rd-boom').textContent = Math.round(state.boom) + '°';
+  document.getElementById('rd-claw').textContent =
+    state.claw < 5 ? 'open' : state.claw > 85 ? 'closed' : Math.round(state.claw) + '°';
+}
+
+function frame(t) {
+  const dt = Math.min(0.05, (t - lastT) / 1000);
+  lastT = t;
+  step(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
