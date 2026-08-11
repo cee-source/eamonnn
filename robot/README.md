@@ -12,16 +12,19 @@ repo — it uses its own Pi and its own pins, so the two don't interfere.
 ## 0. Try it without any hardware
 
 [`docs/robot-demo.html`](../docs/robot-demo.html) is a self-contained,
-client-side simulation of the control page — same WASD/mouse/arrow scheme,
-same drive/servo math as `hardware/motors.py` and `hardware/servos.py`, but
-driving a virtual robot on a canvas instead of real motors. No Pi, no
+client-side simulation — the first-person feed from a camera mounted on the
+arm, not a top-down view. Same WASD/drag/arrow scheme and the same
+drive/servo math as `hardware/motors.py` and `hardware/servos.py`, just
+steering a virtual chassis instead of the physical one. No Pi, no
 `server.py`, nothing to wire up.
 
+- **W A S D** drives the tracks, **click-and-drag** pans/tilts the arm
+  camera (turret + boom), **arrow up/down** grips/releases the claw, which
+  you can see reaching into the bottom of frame.
 - Once this branch is deployed to GitHub Pages, it's live at
   `https://cee-source.github.io/eamonnn/robot-demo.html`.
-- Or run it locally: `python3 -m http.server 8080` from `docs/`, then open
-  `http://localhost:8080/robot-demo.html` (pointer lock for the mouse
-  control needs `http://`/`https://`, not a bare `file://` open).
+- Or open `docs/robot-demo.html` directly in a browser — it's a static
+  file with no server dependency.
 
 ---
 

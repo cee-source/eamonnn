@@ -2,189 +2,299 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Robot Control — Live Demo (no hardware needed)</title>
+<title>Arm Cam — Robot Live Demo (no hardware needed)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
+  /* ---------------------------------------------------------------
+     Committed single-world aesthetic: a mounted action-cam viewfinder.
+     This is diegetic chrome (a camera HUD), not a themeable document,
+     so every color is painted explicitly rather than token-switched.
+  ----------------------------------------------------------------*/
   * { box-sizing: border-box; }
-  html, body {
-    margin: 0; height: 100%; overflow: hidden;
-    background: #14161a; color: #eee;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: #05070a;
+    color: #cfe3f5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: clamp(14px, 3vw, 28px);
+    gap: 14px;
   }
-  #scene { position: fixed; inset: 0; display: block; touch-action: none; cursor: default; }
-  #scene.driving { cursor: none; }
+  .mono { font-family: ui-monospace, "Cascadia Code", "SF Mono", "Liberation Mono", Menlo, Consolas, monospace; }
 
-  #status {
-    position: fixed; top: 12px; right: 16px;
-    padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700;
-    letter-spacing: .04em; background: #1e3a4d; color: #7ec8e2;
-    border: 1px solid #2c5670;
+  .housing {
+    width: 100%;
+    max-width: 1040px;
+    background: #101317;
+    border: 1px solid #262e38;
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 16px 40px rgba(0,0,0,.55);
+    overflow: hidden;
   }
 
-  #overlay {
-    position: fixed; inset: 0; display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    background: rgba(10, 11, 13, 0.92); text-align: center; z-index: 10;
+  .top-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 12px 16px;
+    border-bottom: 1px solid #262e38;
+    background: #0c0f13;
   }
-  #overlay.hidden { display: none; }
-  #overlay h1 { margin-bottom: 4px; font-size: 22px; }
-  #overlay p { color: #aaa; margin: 6px 0 0; max-width: 380px; line-height: 1.5; }
-  #overlay button {
-    margin-top: 18px; padding: 12px 28px; font-size: 16px; border: none;
-    border-radius: 8px; background: #4f8cff; color: white; cursor: pointer;
+  .top-bar .id { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .top-bar .tag { font-size: 11px; letter-spacing: .14em; color: #5b6b7d; white-space: nowrap; }
+  .top-bar h1 {
+    margin: 0; font-size: 14px; letter-spacing: .1em; text-transform: uppercase;
+    font-weight: 700; color: #e7eef5; white-space: nowrap;
   }
-  #overlay button:hover { background: #3d78e6; }
-  #overlay .note { margin-top: 14px; font-size: 12px; color: #666; max-width: 340px; }
+  .rec { display: flex; align-items: center; gap: 6px; font-size: 12px; letter-spacing: .06em; color: #ff8a8a; flex-shrink: 0; }
+  .rec .dot { width: 7px; height: 7px; border-radius: 50%; background: #ff3b3b; animation: blink 1.6s step-start infinite; }
+  @media (prefers-reduced-motion: reduce) { .rec .dot { animation: none; } }
+  @keyframes blink { 50% { opacity: .25; } }
+  .rec .t { color: #8a97a8; }
 
-  #hud {
-    position: fixed; bottom: 20px; left: 0; right: 0;
-    display: flex; flex-direction: column; align-items: center; gap: 10px;
-    pointer-events: none;
+  /* ---------------------------------------------------------------
+     Lens: the live 3D floor + foreground claw + HUD overlays
+  ----------------------------------------------------------------*/
+  .lens {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    min-height: 340px;
+    background: #05070a;
+    overflow: hidden;
+    touch-action: none;
+    cursor: grab;
   }
-  .keys { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  .keys .row { display: flex; gap: 6px; }
-  .claw { display: flex; gap: 6px; }
+  .lens.aiming { cursor: grabbing; }
+
+  .stage { position: absolute; inset: 0; perspective: 440px; overflow: hidden; }
+  .sky {
+    position: absolute; left: 0; right: 0; top: 0; height: 56%;
+    background: linear-gradient(#0a0f16, #131b26 75%, #1a2534);
+  }
+  .sky::after {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 100%, rgba(90,114,145,.18), transparent 70%);
+  }
+  .floor {
+    position: absolute; left: -20%; right: -20%; top: 50%; bottom: 0;
+    overflow: hidden;
+    transform-origin: 50% 0%;
+  }
+  .floor-inner {
+    position: absolute; left: 50%; top: 50%; width: 3200px; height: 3200px; margin: -1600px 0 0 -1600px;
+    background-image:
+      repeating-linear-gradient(to right, #4d7095 0 2px, transparent 2px 130px),
+      repeating-linear-gradient(to bottom, #4d7095 0 2px, transparent 2px 130px);
+    background-position: center center;
+    opacity: .8;
+  }
+  .floor::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(to bottom, rgba(5,7,10,.9), transparent 30%);
+  }
+
+  .vignette {
+    position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0,0,0,.55) 100%);
+  }
+  .scanlines {
+    position: absolute; inset: 0; pointer-events: none; opacity: .5;
+    background: repeating-linear-gradient(to bottom, rgba(255,255,255,.028) 0 1px, transparent 1px 3px);
+    mix-blend-mode: overlay;
+  }
+
+  .brackets i { position: absolute; width: 18px; height: 18px; border: 2px solid #cfe3f5; opacity: .55; pointer-events: none; }
+  .brackets .tl { top: 10px; left: 10px; border-right: none; border-bottom: none; }
+  .brackets .tr { top: 10px; right: 10px; border-left: none; border-bottom: none; }
+  .brackets .bl { bottom: 10px; left: 10px; border-right: none; border-top: none; }
+  .brackets .br { bottom: 10px; right: 10px; border-left: none; border-top: none; }
+
+  .reticle { position: absolute; left: 50%; top: 44%; width: 26px; height: 26px; margin: -13px 0 0 -13px; opacity: .5; pointer-events: none; }
+  .reticle line, .reticle circle { stroke: #cfe3f5; stroke-width: 2; fill: none; }
+
+  /* claw fingers, mounted at the camera itself — reaching into the bottom of frame */
+  .claw-finger { position: absolute; bottom: -8%; width: 30%; height: 44%; pointer-events: none; filter: drop-shadow(0 -2px 6px rgba(0,0,0,.5)); }
+  .claw-finger.left { left: -4%; transform-origin: 88% 96%; }
+  .claw-finger.right { right: -4%; transform-origin: 12% 96%; transform: scaleX(-1); }
+  .claw-finger svg { width: 100%; height: 100%; display: block; }
+  .claw-finger path { fill: #1b2530; stroke: #4d7095; stroke-width: 3; transition: stroke 120ms; }
+  .claw-finger.gripped path { stroke: #ff8a3d; }
+
+  .minimap {
+    position: absolute; right: 12px; bottom: 12px; width: 92px; height: 92px;
+    border-radius: 999px; background: rgba(8,11,15,.72); border: 1px solid #2a3441;
+    backdrop-filter: blur(1px); pointer-events: none;
+  }
+  .minimap svg { width: 100%; height: 100%; }
+
+  .hud-strip {
+    position: absolute; left: 12px; bottom: 12px;
+    display: flex; gap: 12px; padding: 6px 10px;
+    background: rgba(8,11,15,.72); border: 1px solid #2a3441; border-radius: 8px;
+    font-size: 11px; letter-spacing: .04em; pointer-events: none;
+  }
+  .hud-strip span { color: #5b6b7d; }
+  .hud-strip b { color: #e7eef5; font-variant-numeric: tabular-nums; font-weight: 700; margin-left: 4px; }
+  .hud-strip b.engaged { color: #ff8a3d; }
+  .hud-strip b.open { color: #4fae7a; }
+
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px;
+    background: rgba(5,7,10,.9);
+    text-align: center; padding: 20px;
+  }
+  .overlay.hidden { display: none; }
+  .overlay h2 { margin: 0; font-size: 15px; letter-spacing: .1em; color: #e7eef5; }
+  .overlay p { margin: 0; max-width: 320px; color: #7d8ba0; font-size: 13px; line-height: 1.5; }
+  .overlay button {
+    margin-top: 6px; padding: 10px 22px; font-size: 13px; font-weight: 700;
+    letter-spacing: .04em; text-transform: uppercase;
+    border: 1px solid #ff8a3d; border-radius: 8px; background: #ff8a3d; color: #1b1103;
+    cursor: pointer;
+  }
+  .overlay button:hover { filter: brightness(1.08); }
+  .overlay button:focus-visible { outline: 2px solid #4d7095; outline-offset: 2px; }
+
+  /* ---------------------------------------------------------------
+     Key legend
+  ----------------------------------------------------------------*/
+  .legend {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+    gap: 20px; padding: 14px 18px;
+    border-top: 1px solid #262e38; background: #0c0f13;
+  }
+  .cluster { display: flex; align-items: center; gap: 8px; }
+  .cluster .keys { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .cluster .keys .row { display: flex; gap: 4px; }
   .key {
-    min-width: 40px; padding: 8px 12px; border-radius: 8px;
-    background: #23262d; border: 1px solid #34383f; text-align: center;
-    font-size: 13px; font-weight: 600; color: #8a8f98;
-    transition: background 0.08s, color 0.08s;
+    min-width: 26px; height: 26px; padding: 0 8px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px; background: #171b21; border: 1px solid #2a3441;
+    font-size: 11px; font-weight: 700; color: #5b6b7d;
+    transition: background 90ms, color 90ms, border-color 90ms;
   }
-  .key.active { background: #4f8cff; color: white; border-color: #4f8cff; }
-  .help { color: #777; font-size: 12px; }
+  .key.active { background: #ff8a3d; border-color: #ff8a3d; color: #1b1103; }
+  .cluster .desc { font-size: 11px; color: #5b6b7d; max-width: 130px; line-height: 1.4; }
 
-  #readout {
-    position: fixed; top: 12px; left: 16px;
-    background: rgba(20, 22, 26, 0.85); border: 1px solid #2a2e35;
-    border-radius: 10px; padding: 10px 14px; font-size: 12px;
-    font-variant-numeric: tabular-nums; line-height: 1.7; color: #aab0bb;
-    min-width: 148px;
+  footer {
+    width: 100%; max-width: 1040px;
+    display: flex; justify-content: space-between; gap: 12px;
+    font-size: 11px; color: #4a5666;
   }
-  #readout .row { display: flex; justify-content: space-between; gap: 16px; }
-  #readout .label { color: #6b7280; }
-  #readout .val { color: #eee; font-weight: 600; }
-  #readout hr { border: none; border-top: 1px solid #2a2e35; margin: 6px 0; }
 </style>
 </head>
 <body>
 
-<svg id="scene"></svg>
+<main class="housing">
+  <div class="top-bar">
+    <div class="id">
+      <span class="tag mono">MODEL&nbsp;RX-1</span>
+      <h1>Arm cam</h1>
+    </div>
+    <div class="rec mono"><span class="dot"></span>REC <span class="t" id="timer">00:00</span></div>
+  </div>
 
-<div id="status">SIMULATED — no hardware</div>
+  <div class="lens" id="lens">
+    <div class="stage">
+      <div class="sky"></div>
+      <div class="floor" id="floor"><div class="floor-inner" id="floorInner"></div></div>
+    </div>
+    <div class="vignette"></div>
+    <div class="scanlines"></div>
 
-<div id="readout">
-  <div class="row"><span class="label">L track</span><span class="val" id="rd-l">0%</span></div>
-  <div class="row"><span class="label">R track</span><span class="val" id="rd-r">0%</span></div>
-  <hr>
-  <div class="row"><span class="label">Turret</span><span class="val" id="rd-turret">90°</span></div>
-  <div class="row"><span class="label">Boom</span><span class="val" id="rd-boom">90°</span></div>
-  <div class="row"><span class="label">Claw</span><span class="val" id="rd-claw">open</span></div>
-</div>
+    <svg class="reticle" viewBox="0 0 26 26">
+      <circle cx="13" cy="13" r="7"></circle>
+      <line x1="13" y1="0" x2="13" y2="6"></line>
+      <line x1="13" y1="20" x2="13" y2="26"></line>
+      <line x1="0" y1="13" x2="6" y2="13"></line>
+      <line x1="20" y1="13" x2="26" y2="13"></line>
+    </svg>
 
-<div id="overlay">
-  <h1>Robot Control — Live Demo</h1>
-  <p>A fully client-side simulation of the real control page — same WASD/mouse/arrow scheme,
-     same motor &amp; servo math as <code>hardware/motors.py</code> and
-     <code>hardware/servos.py</code>. No Pi, no server, nothing to wire up.</p>
-  <button id="start">Click to drive</button>
-  <p class="note">WASD drives the tracks &middot; mouse rotates the turret and raises/lowers the boom
-     &middot; Arrow Up/Down closes/opens the claw &middot; Esc releases the mouse.</p>
-</div>
+    <div class="brackets"><i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i></div>
 
-<div id="hud">
-  <div class="keys">
-    <div class="key" data-key="w">W</div>
-    <div class="row">
-      <div class="key" data-key="a">A</div>
-      <div class="key" data-key="s">S</div>
-      <div class="key" data-key="d">D</div>
+    <div class="claw-finger left" id="clawL">
+      <svg viewBox="0 0 100 140" preserveAspectRatio="none">
+        <path d="M18,140 L2,60 Q0,30 24,8 L46,0 L40,30 Q30,70 44,140 Z"></path>
+      </svg>
+    </div>
+    <div class="claw-finger right" id="clawR">
+      <svg viewBox="0 0 100 140" preserveAspectRatio="none">
+        <path d="M18,140 L2,60 Q0,30 24,8 L46,0 L40,30 Q30,70 44,140 Z"></path>
+      </svg>
+    </div>
+
+    <div class="minimap">
+      <svg id="miniSvg" viewBox="-70 -70 140 140">
+        <circle cx="0" cy="0" r="68" fill="none" stroke="#2a3441" stroke-width="1"></circle>
+        <circle cx="0" cy="0" r="42" fill="none" stroke="#1c2530" stroke-width="1"></circle>
+        <path id="miniTrail" fill="none" stroke="#4d7095" stroke-width="2" opacity="0.8"></path>
+        <g id="miniBot">
+          <polygon points="0,-9 -6,7 6,7" fill="#ff8a3d"></polygon>
+        </g>
+      </svg>
+    </div>
+
+    <div class="hud-strip mono">
+      <span>PAN<b id="hud-pan">90°</b></span>
+      <span>TILT<b id="hud-tilt">90°</b></span>
+      <span>GRIP<b id="hud-grip" class="open">OPEN</b></span>
+      <span>SPD<b id="hud-spd">0%</b></span>
+    </div>
+
+    <div class="overlay" id="overlay">
+      <h2>ARM CAM — NO SIGNAL</h2>
+      <p>This is the view from a camera mounted on the arm, not the chassis —
+         same drive and servo math as the real robot, steering a virtual one instead.</p>
+      <button id="start">Start feed</button>
     </div>
   </div>
-  <div class="claw">
-    <div class="key" data-key="ArrowUp">&#8593; close claw</div>
-    <div class="key" data-key="ArrowDown">&#8595; open claw</div>
+
+  <div class="legend">
+    <div class="cluster">
+      <div class="keys">
+        <div class="key" data-key="w">W</div>
+        <div class="row"><div class="key" data-key="a">A</div><div class="key" data-key="s">S</div><div class="key" data-key="d">D</div></div>
+      </div>
+      <span class="desc">Drive the tracks</span>
+    </div>
+    <div class="cluster">
+      <div class="keys"><div class="key" style="min-width:74px;" data-key="mouse">DRAG</div></div>
+      <span class="desc">Pan + tilt the cam</span>
+    </div>
+    <div class="cluster">
+      <div class="keys">
+        <div class="row"><div class="key" data-key="ArrowUp">&#8593;</div><div class="key" data-key="ArrowDown">&#8595;</div></div>
+      </div>
+      <span class="desc">Close / open claw</span>
+    </div>
   </div>
-  <div class="help">This is a simulation — driving here does not move the real robot.</div>
-</div>
+</main>
+
+<footer class="mono">
+  <span>chassis/servo math ported 1:1 from the build's control firmware</span>
+  <span id="clock"></span>
+</footer>
 
 <script>
-const NS = 'http://www.w3.org/2000/svg';
-const svg = document.getElementById('scene');
+const lens = document.getElementById('lens');
 const overlay = document.getElementById('overlay');
 const startBtn = document.getElementById('start');
-const el = (tag, attrs = {}) => {
-  const n = document.createElementNS(NS, tag);
-  for (const k in attrs) n.setAttribute(k, attrs[k]);
-  return n;
-};
+const floor = document.getElementById('floor');
+const floorInner = document.getElementById('floorInner');
+const clawLEl = document.getElementById('clawL');
+const clawREl = document.getElementById('clawR');
+const miniTrail = document.getElementById('miniTrail');
+const miniBot = document.getElementById('miniBot');
 
-// ---- scene setup -----------------------------------------------------
-let W = innerWidth, H = innerHeight;
-function resize() {
-  W = innerWidth; H = innerHeight;
-  svg.setAttribute('width', W);
-  svg.setAttribute('height', H);
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-}
-addEventListener('resize', resize);
-
-const world = el('g');           // floor grid + trail, panned under the robot
-const trailPath = el('path', { fill: 'none', stroke: '#2a3a52', 'stroke-width': 3,
-                                'stroke-linecap': 'round', opacity: 0.7 });
-const gridGroup = el('g');
-world.appendChild(gridGroup);
-world.appendChild(trailPath);
-svg.appendChild(world);
-
-const robot = el('g');           // the robot itself, always centered on screen
-svg.appendChild(robot);
-
-// chassis
-const TRACK_W = 26, TRACK_LEN = 110, BODY_W = 70, BODY_LEN = 96;
-const leftTrack = el('rect', { x: -BODY_W/2 - TRACK_W, y: -TRACK_LEN/2, width: TRACK_W,
-                                height: TRACK_LEN, rx: 6, fill: '#2a2e35', stroke: '#3a3f48' });
-const rightTrack = el('rect', { x: BODY_W/2, y: -TRACK_LEN/2, width: TRACK_W,
-                                 height: TRACK_LEN, rx: 6, fill: '#2a2e35', stroke: '#3a3f48' });
-const leftTreads = el('g', { stroke: '#4f8cff', 'stroke-width': 3, 'stroke-linecap': 'round', opacity: 0.85 });
-const rightTreads = el('g', { stroke: '#4f8cff', 'stroke-width': 3, 'stroke-linecap': 'round', opacity: 0.85 });
-for (let i = 0; i < 6; i++) {
-  leftTreads.appendChild(el('line', { x1: -BODY_W/2 - TRACK_W + 4, x2: -BODY_W/2 - 4 }));
-  rightTreads.appendChild(el('line', { x1: BODY_W/2 + 4, x2: BODY_W/2 + TRACK_W - 4 }));
-}
-const body = el('rect', { x: -BODY_W/2, y: -BODY_LEN/2, width: BODY_W, height: BODY_LEN, rx: 10,
-                           fill: '#1c2530', stroke: '#3a4a63', 'stroke-width': 2 });
-const nose = el('polygon', { points: `0,${-BODY_LEN/2 - 14} -10,${-BODY_LEN/2 + 2} 10,${-BODY_LEN/2 + 2}`,
-                              fill: '#4f8cff' });
-
-// turret + boom + claw, mounted on the chassis, shown from above
-const turretHub = el('circle', { r: 16, fill: '#23262d', stroke: '#4f8cff', 'stroke-width': 2 });
-const turretArm = el('g');
-const boomLine = el('line', { x1: 0, y1: 0, x2: 0, y2: -48, stroke: '#7ee2a0', 'stroke-width': 6,
-                               'stroke-linecap': 'round' });
-const clawL = el('line', { x1: 0, y1: -48, x2: -10, y2: -62, stroke: '#e2c37e', 'stroke-width': 5,
-                            'stroke-linecap': 'round' });
-const clawR = el('line', { x1: 0, y1: -48, x2: 10, y2: -62, stroke: '#e2c37e', 'stroke-width': 5,
-                            'stroke-linecap': 'round' });
-turretArm.append(boomLine, clawL, clawR);
-
-robot.append(leftTrack, rightTrack, leftTreads, rightTreads, body, nose, turretHub, turretArm);
-
-resize();
-
-// ---- state (mirrors hardware/motors.py + hardware/servos.py exactly) --
-const MOTOR_SPEED = 0.8;        // DriveBase(speed=0.8)
-const MOUSE_SENS = 0.3;         // Arm(mouse_sensitivity=0.3)
-const CLAW_STEP = 3;            // Arm(claw_step=3)
-const PX_PER_UNIT = 90;         // world scale: full track power -> px/s
-
-const state = {
-  left: 0, right: 0,            // -1..1 per hardware/motors.py
-  x: 0, y: 0, heading: 0,       // world pose (heading: radians, 0 = facing up)
-  turret: 90, boom: 90, claw: 0 // degrees, same home position as servos.py
-};
+// ---- state: ported 1:1 from hardware/motors.py + hardware/servos.py --
+const MOTOR_SPEED = 0.8, MOUSE_SENS = 0.3, CLAW_STEP = 3, WORLD_SCALE = 90;
+const state = { left: 0, right: 0, x: 0, y: 0, heading: 0, turret: 90, boom: 90, claw: 0 };
 const trail = [];
-
 const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowDown: false };
+
 function setKey(key, isDown) {
   if (!(key in keys)) return;
   keys[key] = isDown;
@@ -200,9 +310,8 @@ addEventListener('keyup', (e) => {
   if (key in keys) { setKey(key, false); e.preventDefault(); }
 });
 
-function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-// port of DriveBase.set_drive
 function setDrive(forward, backward, left, right) {
   let l = 0, r = 0;
   if (forward) { l += 1; r += 1; }
@@ -213,108 +322,84 @@ function setDrive(forward, backward, left, right) {
   state.right = clamp(r, -1, 1) * MOTOR_SPEED;
 }
 
-// port of Arm.nudge — driven by pointer-locked mouse movement
-document.addEventListener('mousemove', (e) => {
-  if (document.pointerLockElement !== svg) return;
+// Click-and-drag aiming (turret pan + boom tilt) — works everywhere,
+// including inside sandboxed iframes that block the Pointer Lock API.
+let aiming = false;
+const mouseKey = document.querySelector('.key[data-key="mouse"]');
+lens.addEventListener('pointerdown', (e) => {
+  if (!overlay.classList.contains('hidden')) return; // let the Start button's click through
+  aiming = true;
+  lens.setPointerCapture(e.pointerId);
+  lens.classList.add('aiming');
+  mouseKey.classList.add('active');
+  e.preventDefault();
+});
+lens.addEventListener('pointermove', (e) => {
+  if (!aiming) return;
   state.turret = clamp(state.turret + e.movementX * MOUSE_SENS, 0, 180);
   state.boom = clamp(state.boom - e.movementY * MOUSE_SENS, 0, 180);
 });
+function stopAiming() {
+  aiming = false;
+  lens.classList.remove('aiming');
+  mouseKey.classList.remove('active');
+}
+lens.addEventListener('pointerup', stopAiming);
+lens.addEventListener('pointercancel', stopAiming);
 
-// 50ms tick — matches the 20Hz state message control.js sends over the websocket
 setInterval(() => {
   setDrive(keys.w, keys.s, keys.a, keys.d);
-  // port of Arm.claw_move, driven at the same rate the real page sends arrowUp/arrowDown
   if (keys.ArrowUp) state.claw = clamp(state.claw + CLAW_STEP, 0, 90);
   else if (keys.ArrowDown) state.claw = clamp(state.claw - CLAW_STEP, 0, 90);
 }, 50);
 
-// ---- pointer lock ------------------------------------------------------
-startBtn.addEventListener('click', () => svg.requestPointerLock());
-document.addEventListener('pointerlockchange', () => {
-  const locked = document.pointerLockElement === svg;
-  overlay.classList.toggle('hidden', locked);
-  svg.classList.toggle('driving', locked);
-});
-document.addEventListener('pointerlockerror', () => {
-  overlay.querySelector('.note').textContent =
-    "This browser blocked pointer lock (common on file:// — serve the folder instead, " +
-    "e.g. `python3 -m http.server` from docs/, then reopen over http://localhost).";
-});
+startBtn.addEventListener('click', () => overlay.classList.add('hidden'));
 
-// ---- simulation + render loop ------------------------------------------
-const GRID = 60;
-function drawGrid() {
-  gridGroup.textContent = '';
-  const cols = Math.ceil(W / GRID) + 2, rows = Math.ceil(H / GRID) + 2;
-  const ox = -((state.x % GRID) + GRID) % GRID;
-  const oy = -((state.y % GRID) + GRID) % GRID;
-  for (let i = -1; i < cols; i++) {
-    gridGroup.appendChild(el('line', { x1: ox + i*GRID, y1: -GRID, x2: ox + i*GRID, y2: rows*GRID,
-                                        stroke: '#1d232c', 'stroke-width': 1 }));
-  }
-  for (let j = -1; j < rows; j++) {
-    gridGroup.appendChild(el('line', { x1: -GRID, y1: oy + j*GRID, x2: cols*GRID, y2: oy + j*GRID,
-                                        stroke: '#1d232c', 'stroke-width': 1 }));
-  }
-}
-
-let lastT = performance.now();
-let treadPhase = 0;
-
+// ---- simulate + render ---------------------------------------------
 function step(dt) {
-  // differential-drive kinematics from the two track speeds
-  const vL = state.left * PX_PER_UNIT, vR = state.right * PX_PER_UNIT;
-  const v = (vL + vR) / 2;
-  const omega = (vR - vL) / BODY_W; // rad/s
+  const vL = state.left * WORLD_SCALE, vR = state.right * WORLD_SCALE;
+  const v = (vL + vR) / 2, omega = (vR - vL) / 58;
   state.heading += omega * dt;
   state.x += Math.sin(state.heading) * v * dt;
   state.y -= Math.cos(state.heading) * v * dt;
-
-  treadPhase += (Math.abs(vL) + Math.abs(vR)) / 2 * dt;
-
   trail.push([state.x, state.y]);
-  if (trail.length > 400) trail.shift();
+  if (trail.length > 240) trail.shift();
 }
 
+let lastT = performance.now();
 function render() {
-  drawGrid();
-  world.setAttribute('transform', `translate(${W/2}, ${H/2})`);
-  const d = trail.map(([x, y], i) =>
-    `${i === 0 ? 'M' : 'L'} ${x - state.x} ${y - state.y}`).join(' ');
-  trailPath.setAttribute('d', d);
+  // camera: pan = chassis heading + turret offset from home; tilt = boom offset from home
+  const headingDeg = state.heading * 180 / Math.PI;
+  const yawDeg = headingDeg + (state.turret - 90);
+  const tiltDeg = clamp(78 - (state.boom - 90) * 0.35, 46, 88);
 
-  robot.setAttribute('transform',
-    `translate(${W/2}, ${H/2}) rotate(${state.heading * 180 / Math.PI})`);
+  floor.style.transform = `rotateX(${tiltDeg}deg)`;
+  floorInner.style.transform = `rotate(${yawDeg}deg) translate(${-state.x}px, ${-state.y}px)`;
 
-  const phase = (treadPhase % 16);
-  [leftTreads, rightTreads].forEach(g => {
-    [...g.children].forEach((line, i) => {
-      const y = -TRACK_LEN/2 + 8 + ((i * 16 + phase) % (TRACK_LEN - 16));
-      line.setAttribute('y1', y); line.setAttribute('y2', y);
-    });
-  });
+  // claw fingers: open at rest, close in toward the reticle as the claw grips
+  const gripDeg = (state.claw / 90) * 34;
+  clawLEl.style.transform = `rotate(${-8 + gripDeg}deg)`;
+  clawREl.style.transform = `scaleX(-1) rotate(${-8 + gripDeg}deg)`;
+  const gripped = state.claw > 4;
+  clawLEl.classList.toggle('gripped', gripped);
+  clawREl.classList.toggle('gripped', gripped);
 
-  // turret hub tracks chassis center; arm rotates relative to chassis
-  const turretVisual = state.turret - 90; // 90° = straight ahead, matches home position
-  turretArm.setAttribute('transform', `rotate(${turretVisual})`);
+  // minimap: small world-follow top-down readout for orientation
+  miniBot.setAttribute('transform', `rotate(${headingDeg})`);
+  miniTrail.setAttribute('d', trail.map(([x, y], i) =>
+    `${i === 0 ? 'M' : 'L'} ${(x - state.x) / 6} ${(y - state.y) / 6}`).join(' '));
 
-  // boom: foreshorten + fade as it lifts, since it's really rotating out of the top-down plane
-  const boomLift = (state.boom - 90) / 90; // -1 (down) .. 0 (level) .. 1 (up)
-  const boomLen = 48 * (1 - Math.abs(boomLift) * 0.55);
-  boomLine.setAttribute('y2', -boomLen);
-  boomLine.setAttribute('opacity', 1 - Math.abs(boomLift) * 0.35);
-  const clawGap = 10 - (state.claw / 90) * 8; // closes toward the centerline
-  clawL.setAttribute('x1', 0); clawL.setAttribute('y1', -boomLen);
-  clawL.setAttribute('x2', -clawGap); clawL.setAttribute('y2', -boomLen - 14);
-  clawR.setAttribute('x1', 0); clawR.setAttribute('y1', -boomLen);
-  clawR.setAttribute('x2', clawGap); clawR.setAttribute('y2', -boomLen - 14);
+  document.getElementById('hud-pan').textContent = Math.round(state.turret) + '°';
+  document.getElementById('hud-tilt').textContent = Math.round(state.boom) + '°';
+  const spd = Math.round(Math.max(Math.abs(state.left), Math.abs(state.right)) * 100);
+  const spdEl = document.getElementById('hud-spd');
+  spdEl.textContent = spd + '%';
+  spdEl.classList.toggle('engaged', spd > 2);
 
-  document.getElementById('rd-l').textContent = Math.round(state.left * 100) + '%';
-  document.getElementById('rd-r').textContent = Math.round(state.right * 100) + '%';
-  document.getElementById('rd-turret').textContent = Math.round(state.turret) + '°';
-  document.getElementById('rd-boom').textContent = Math.round(state.boom) + '°';
-  document.getElementById('rd-claw').textContent =
-    state.claw < 5 ? 'open' : state.claw > 85 ? 'closed' : Math.round(state.claw) + '°';
+  const gripEl = document.getElementById('hud-grip');
+  if (state.claw < 5) { gripEl.textContent = 'OPEN'; gripEl.className = 'open'; }
+  else if (state.claw > 85) { gripEl.textContent = 'SHUT'; gripEl.className = 'engaged'; }
+  else { gripEl.textContent = Math.round(state.claw) + '°'; gripEl.className = ''; }
 }
 
 function frame(t) {
@@ -324,7 +409,22 @@ function frame(t) {
   render();
   requestAnimationFrame(frame);
 }
+render();
 requestAnimationFrame(frame);
+
+const clockEl = document.getElementById('clock');
+function tickClock() {
+  clockEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+const timerEl = document.getElementById('timer');
+const t0 = performance.now();
+setInterval(() => {
+  const s = Math.floor((performance.now() - t0) / 1000);
+  timerEl.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}, 500);
 </script>
 </body>
 </html>
