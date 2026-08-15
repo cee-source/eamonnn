@@ -44,13 +44,13 @@ body{background:radial-gradient(ellipse at top,#0D1420 0%,#050709 70%);min-heigh
 @keyframes blink{0%,100%{opacity:1}55%{opacity:.2}}
 
 /* ── Shared UI ── */
-.tbar{height:42px;display:flex;align-items:center;padding:0 10px;gap:9px;background:var(--surf);border-bottom:1px solid var(--brd);flex-shrink:0;}
-.back-btn{width:26px;height:26px;border-radius:6px;background:rgba(31,204,124,.12);border:1px solid rgba(31,204,124,.3);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--acc);font-size:16px;line-height:1;flex-shrink:0;transition:background .1s;user-select:none;}
-.back-btn:hover{background:rgba(31,204,124,.22)}.back-btn:active{background:rgba(31,204,124,.38)}
-.tbar-title{font-family:'Courier New',monospace;font-size:14px;font-weight:700;color:var(--txt);letter-spacing:.5px;}
+.tbar{height:44px;display:flex;align-items:center;padding:0 12px;gap:10px;background:rgba(15,20,32,.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;}
+.back-btn{display:flex;align-items:center;gap:3px;cursor:pointer;color:#2DA8FF;font-family:system-ui,-apple-system,sans-serif;font-size:14px;font-weight:400;flex-shrink:0;transition:opacity .1s;user-select:none;padding:4px 2px;}
+.back-btn:hover{opacity:.7}.back-btn:active{opacity:.4}
+.tbar-title{font-family:system-ui,-apple-system,sans-serif;font-size:17px;font-weight:600;color:var(--txt);letter-spacing:-.2px;flex:1;text-align:center;}
 
 /* ── Widgets ── */
-.widget-area{background:var(--surf);border-bottom:2px solid var(--brd);padding:10px 12px 8px;flex-shrink:0;}
+.widget-area{background:rgba(255,255,255,.04);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.06);padding:12px 14px 10px;flex-shrink:0;}
 .w-row1{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:7px;}
 .w-time{font-family:'Courier New',monospace;font-size:30px;font-weight:700;color:var(--acc);line-height:1;letter-spacing:-1px;}
 .w-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
@@ -68,16 +68,16 @@ body{background:radial-gradient(ellipse at top,#0D1420 0%,#050709 70%);min-heigh
 /* ── Menu ── */
 .menu-list{flex:1;overflow-y:auto;scrollbar-width:none;}
 .menu-list::-webkit-scrollbar{display:none}
-.mitem{display:flex;align-items:center;gap:11px;padding:0 12px;height:52px;border-bottom:1px solid var(--brd);cursor:pointer;transition:background .1s;position:relative;}
-.mitem:hover{background:var(--elev)}.mitem:active{background:rgba(45,168,255,.12)}
-.mitem.sel{background:rgba(45,168,255,.14)}
-.mitem.sel::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:3px;background:var(--blu);border-radius:0 2px 2px 0;}
-.mitem-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.mitem{display:flex;align-items:center;gap:12px;padding:0 14px;height:56px;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer;transition:background .12s;position:relative;}
+.mitem:hover{background:rgba(255,255,255,.04)}.mitem:active{background:rgba(255,255,255,.08)}
+.mitem.sel{background:rgba(45,168,255,.1)}
+.mitem.sel::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:3px;background:var(--blu);border-radius:0 3px 3px 0;}
+.mitem-icon{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.2);}
 .mitem-body{flex:1;min-width:0}
-.mitem-label{font-size:13px;font-family:'Courier New',monospace;color:var(--txt);font-weight:600;}
-.mitem-desc{font-size:10px;color:var(--mut);margin-top:1px}
-.mitem-arrow{color:var(--brd);font-size:14px}
-.kbd-hint{height:16px;display:flex;align-items:center;justify-content:center;font-family:monospace;font-size:9px;color:#1E2B3F;flex-shrink:0;background:var(--surf);border-top:1px solid var(--brd);}
+.mitem-label{font-size:14px;font-family:system-ui,-apple-system,sans-serif;color:var(--txt);font-weight:500;letter-spacing:-.1px;}
+.mitem-desc{font-size:10px;color:var(--mut);margin-top:2px;font-family:system-ui;}
+.mitem-arrow{color:rgba(255,255,255,.2);font-size:16px;font-weight:300;}
+.kbd-hint{height:16px;display:flex;align-items:center;justify-content:center;font-family:monospace;font-size:9px;color:rgba(255,255,255,.1);flex-shrink:0;background:transparent;border-top:1px solid rgba(255,255,255,.04);}
 
 /* ── Info ── */
 .info-scr{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;padding:18px;text-align:center;}
@@ -749,8 +749,9 @@ const dev={bat:72,wifi:3,btOn:false,sig:2};
 ═══════════════════════════════════════════════════════════ */
 function mkTbar(title,back){
   const bar=document.createElement('div');bar.className='tbar';
-  if(back){const b=document.createElement('div');b.className='back-btn';b.textContent='‹';b.onclick=goBack;bar.appendChild(b);}
+  if(back){const b=document.createElement('div');b.className='back-btn';b.innerHTML='<span style="font-size:18px;line-height:1;margin-top:-1px;">‹</span> Back';b.onclick=goBack;bar.appendChild(b);}
   const t=document.createElement('div');t.className='tbar-title';t.textContent=title;bar.appendChild(t);
+  if(back){const sp=document.createElement('div');sp.style.cssText='width:50px;flex-shrink:0;';bar.appendChild(sp);}// balance back btn
   return bar;
 }
 function killAll(){
@@ -898,6 +899,7 @@ function buildMenu(v,m){
   const isMain=stack.length===1;
   if(!isMain) v.appendChild(mkTbar(m.title,true));
   if(isMain){
+    v.style.cssText=(v.style.cssText||'')+'background:linear-gradient(168deg,#1e2a45 0%,#111a2e 40%,#090d18 100%);';
     // ── Widgets ──────────────────────────────────────────
     const wa=document.createElement('div');wa.className='widget-area';
     const now=new Date();
@@ -929,7 +931,8 @@ function buildMenu(v,m){
   const list=document.createElement('div');list.className='menu-list';
   (m.items||[]).forEach((it,i)=>{
     const d=document.createElement('div');d.className='mitem'+(i===menuSel?' sel':'');d.id='mi'+i;
-    d.innerHTML=`<div class="mitem-icon" style="background:${(it.color||'#1FCC7C')}1A">${it.icon}</div><div class="mitem-body"><div class="mitem-label">${it.label}</div><div class="mitem-desc">${it.desc||''}</div></div><div class="mitem-arrow">›</div>`;
+    const ic=it.color||'#1FCC7C';
+    d.innerHTML=`<div class="mitem-icon" style="background:linear-gradient(135deg,${ic}dd,${ic})">${it.icon}</div><div class="mitem-body"><div class="mitem-label">${it.label}</div><div class="mitem-desc">${it.desc||''}</div></div><div class="mitem-arrow">›</div>`;
     d.onclick=()=>{menuSel=i;pushItem(it);};
     list.appendChild(d);
   });
@@ -1621,7 +1624,7 @@ function buildIr(v){
 function buildMaps(v){
   v.appendChild(mkTbar('Maps',true));
   const wrap=document.createElement('div');
-  wrap.style.cssText='flex:1;display:flex;flex-direction:column;overflow:hidden;background:#1a1f2e;position:relative;';
+  wrap.style.cssText='flex:1;display:flex;flex-direction:column;overflow:hidden;background:#1e2537;position:relative;';
 
   // Search bar
   const searchBar=document.createElement('div');
@@ -1650,41 +1653,76 @@ function buildMaps(v){
 
   function drawMap(){
     const W=cvs.width,H=cvs.height;
-    ctx.fillStyle='#1a2030';ctx.fillRect(0,0,W,H);
 
-    // Grid of blocks (city grid)
+    // Apple Maps dark-mode palette
+    const C_LAND  ='#1e2537'; // dark blue-gray (terrain/land)
+    const C_BLOCK ='#28334a'; // buildings (clearly lighter than land)
+    const C_ROAD  ='#39496a'; // roads (lighter still = visible streets)
+    const C_ROAD2 ='#4a5c80'; // major roads (even lighter)
+    const C_PARK  ='#1e3d2a'; // parks (green tint)
+    const C_WATER ='#1a2d50'; // water (blue tint)
+
+    ctx.fillStyle=C_LAND;ctx.fillRect(0,0,W,H);
+
+    // Grid of blocks (city buildings)
     const blockW=36,blockH=28,gap=8;
     const offsetX=(panX%((blockW+gap))+(blockW+gap))%(blockW+gap);
     const offsetY=(panY%((blockH+gap))+(blockH+gap))%(blockH+gap);
+
+    // Draw road grid first (fills background with road color)
+    ctx.fillStyle=C_ROAD;ctx.fillRect(0,0,W,H);
+    // Then draw land/terrain on top as blocks
     for(let x=offsetX-blockW-gap;x<W+blockW;x+=blockW+gap){
       for(let y=offsetY-blockH-gap;y<H+blockH;y+=blockH+gap){
-        ctx.fillStyle='rgba(30,40,60,.9)';
+        ctx.fillStyle=C_BLOCK;
         ctx.fillRect(x,y,blockW,blockH);
       }
     }
-    // Roads (horizontal)
-    ctx.strokeStyle='rgba(40,55,80,1)';ctx.lineWidth=gap;
-    for(let y=offsetY-gap/2;y<H+gap;y+=blockH+gap){
+    // Major roads (wider, brighter)
+    ctx.strokeStyle=C_ROAD2;ctx.lineWidth=gap+2;
+    for(let y=offsetY+(blockH+gap)*2-gap/2;y<H+gap;y+=(blockH+gap)*3){
       ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
     }
-    // Roads (vertical)
-    for(let x=offsetX-gap/2;x<W+gap;x+=blockW+gap){
+    for(let x=offsetX+(blockW+gap)*2-gap/2;x<W+gap;x+=(blockW+gap)*3){
       ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();
     }
-    // Parks (random green blocks)
+    // Parks (green blocks)
     const seed=Math.floor(panX/10)*17+Math.floor(panY/10)*31;
-    for(let i=0;i<4;i++){
-      const px=(((seed*i*13)%7)*(blockW+gap))+offsetX-(blockW+gap);
-      const py=(((seed*i*7+3)%6)*(blockH+gap))+offsetY-(blockH+gap);
-      ctx.fillStyle='rgba(31,90,50,.6)';
-      ctx.fillRect(px,py,blockW,blockH);
+    for(let i=0;i<6;i++){
+      const px=(((seed*i*13+i*7)%8)*(blockW+gap))+offsetX-(blockW+gap);
+      const py=(((seed*i*7+i*11+3)%7)*(blockH+gap))+offsetY-(blockH+gap);
+      const pw=blockW+(i%2)*(blockW+gap);
+      const ph=blockH+(i%3===0?blockH+gap:0);
+      ctx.fillStyle=C_PARK;
+      ctx.fillRect(px,py,pw,ph);
+      // Park label dots
+      ctx.fillStyle='rgba(74,165,104,.4)';
+      ctx.beginPath();ctx.arc(px+pw/2,py+ph/2,3,0,Math.PI*2);ctx.fill();
     }
-    // Route line
-    ctx.strokeStyle='rgba(45,168,255,.7)';ctx.lineWidth=3;ctx.setLineDash([6,3]);
+    // Water body
+    ctx.fillStyle=C_WATER;
+    ctx.fillRect(0,H-55+(panY%30),W,55);
+    ctx.fillStyle='rgba(100,160,220,.06)';
+    for(let wx=0;wx<W;wx+=18){
+      ctx.beginPath();ctx.moveTo(wx,H-40+(panY%30));
+      ctx.bezierCurveTo(wx+6,H-44+(panY%30),wx+12,H-36+(panY%30),wx+18,H-40+(panY%30));
+      ctx.strokeStyle='rgba(100,160,220,.15)';ctx.lineWidth=1;ctx.stroke();
+    }
+
+    // Route line (Apple Maps blue)
+    ctx.strokeStyle='#4a9eff';ctx.lineWidth=4;ctx.setLineDash([]);
+    ctx.lineCap='round';ctx.lineJoin='round';
     ctx.beginPath();
-    ctx.moveTo(W/2-80+panX%40,H/2+60);
-    ctx.bezierCurveTo(W/2-40,H/2+40,W/2,H/2-30,W/2,H/2);
-    ctx.stroke();ctx.setLineDash([]);
+    ctx.moveTo(W/2-80+panX%40,H/2+55);
+    ctx.bezierCurveTo(W/2-50,H/2+35,W/2-20,H/2-20,W/2,H/2);
+    ctx.stroke();
+    // Route outline
+    ctx.strokeStyle='rgba(74,158,255,.25)';ctx.lineWidth=8;
+    ctx.beginPath();
+    ctx.moveTo(W/2-80+panX%40,H/2+55);
+    ctx.bezierCurveTo(W/2-50,H/2+35,W/2-20,H/2-20,W/2,H/2);
+    ctx.stroke();
+    ctx.setLineDash([]);ctx.lineCap='butt';
 
     // Location pin at center
     locPing=(locPing+0.04)%1;
