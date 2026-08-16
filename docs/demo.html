@@ -232,9 +232,9 @@ body>*{position:relative;z-index:1;}
 .screen::before{content:'';position:absolute;top:-15%;left:0;right:0;height:80px;background:linear-gradient(180deg,transparent 0%,rgba(31,204,124,.06) 50%,transparent 100%);animation:scanline 9s linear infinite;pointer-events:none;z-index:45;border-radius:20px;}
 
 /* Dynamic Island notch */
-.notch{position:absolute;top:15px;left:50%;transform:translateX(-50%);width:104px;height:30px;background:#000;border-radius:50px;display:flex;align-items:center;justify-content:center;gap:10px;z-index:30;box-shadow:0 0 0 1px rgba(255,255,255,.06),0 2px 8px rgba(0,0,0,.6);}
-.notch-cam{width:11px;height:11px;border-radius:50%;background:#111;border:1.5px solid #222;box-shadow:inset 0 0 4px rgba(0,0,0,.9),0 0 8px rgba(45,168,255,.12);}
-.notch-ear{width:28px;height:4px;border-radius:50px;background:#111;}
+.notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:126px;height:36px;background:#000;border-radius:22px;display:flex;align-items:center;justify-content:space-between;padding:0 11px;z-index:30;box-shadow:0 0 0 1px rgba(255,255,255,.04),0 6px 20px rgba(0,0,0,.8);}
+.notch-cam{width:13px;height:13px;border-radius:50%;background:#080818;border:1.5px solid #191928;box-shadow:inset 0 0 5px rgba(0,0,0,.95),0 0 8px rgba(50,150,255,.09);flex-shrink:0;}
+.notch-ear{width:9px;height:9px;border-radius:50%;background:#0d0d22;border:1px solid #1a1a30;flex-shrink:0;}
 
 /* Better background depth */
 body{background:radial-gradient(ellipse 100% 70% at 50% -5%,#0B1E2E 0%,#050A10 58%);}
@@ -296,6 +296,16 @@ body{background:radial-gradient(ellipse 100% 70% at 50% -5%,#0B1E2E 0%,#050A10 5
 .dock-icon{width:52px;height:52px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:26px;position:relative;overflow:hidden;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.15);-webkit-tap-highlight-color:transparent;transition:transform .12s,opacity .12s;}
 .dock-icon:active{transform:scale(.88);opacity:.85;}
 .dock-icon::after{content:'';position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,.22) 0%,rgba(255,255,255,.05) 100%);pointer-events:none;}
+/* ── App badge & launch ── */
+.app-icon-rel{position:relative;}
+.app-badge{position:absolute;top:-5px;right:-5px;background:#ff3b30;color:#fff;border-radius:10px;min-width:18px;height:18px;font-size:9.5px;font-weight:700;font-family:-apple-system,'Helvetica Neue',Helvetica,sans-serif;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2.5px solid #1c1c4e;z-index:5;line-height:1;box-sizing:border-box;letter-spacing:0;}
+@keyframes appLaunch{0%{transform:scale(1);opacity:1}100%{transform:scale(4.5);opacity:0}}
+.app-launching{animation:appLaunch .22s ease-in forwards;pointer-events:none;}
+.app-cell:active .app-icon-wrap{transform:none!important;opacity:.65;}
+/* ── App label legibility ── */
+.app-label{font-size:10px!important;font-weight:500!important;}
+/* ── Screen enter transition ── */
+@keyframes scrEnter{from{opacity:0;transform:scale(1.06)}to{opacity:1;transform:scale(1)}}
 </style>
 
 <div class="page-header">
@@ -918,6 +928,7 @@ function render(){
   if(dispatch[cur.type]) dispatch[cur.type](v,cur);
   else buildMenu(v,cur);
   el.appendChild(v);
+  v.style.animation='scrEnter .18s ease-out both';
 }
 
 function buildMenu(v,m){
@@ -952,11 +963,13 @@ function buildMenu(v,m){
   clkDiv.innerHTML=`<div class="ios-home-time" id="w-time">${hh}:${mm}</div><div class="ios-home-date">${DAYS[now.getDay()]}, ${MONS[now.getMonth()]} ${now.getDate()}</div>`;
   inner.appendChild(clkDiv);
   const grid=document.createElement('div');grid.className='app-grid';
+  const BADGES={blespam:'3',rfid:'1'};
   (m.items||[]).forEach((it,i)=>{
     const cell=document.createElement('div');cell.className='app-cell'+(i===menuSel?' sel':'');
     const ic=it.color||'#1FCC7C';
-    cell.innerHTML=`<div class="app-icon-wrap" style="background:linear-gradient(145deg,${ic}bb,${ic})">${it.icon}</div><div class="app-label">${it.label}</div>`;
-    cell.onclick=()=>{menuSel=i;pushItem(it);};
+    const bn=BADGES[it.type]||'';
+    cell.innerHTML=`<div class="app-icon-rel"><div class="app-icon-wrap" style="background:linear-gradient(145deg,${ic}bb,${ic})">${it.icon}</div>${bn?`<div class="app-badge">${bn}</div>`:''}</div><div class="app-label">${it.label}</div>`;
+    cell.onclick=()=>{const iw=cell.querySelector('.app-icon-wrap');iw.classList.add('app-launching');setTimeout(()=>{menuSel=i;pushItem(it);},180);};
     grid.appendChild(cell);
   });
   inner.appendChild(grid);
@@ -965,7 +978,7 @@ function buildMenu(v,m){
   inner.appendChild(dots);
   const dockWrap=document.createElement('div');dockWrap.className='dock-wrap';
   const dock=document.createElement('div');dock.className='dock';
-  [{ico:'📞',bg:'linear-gradient(145deg,#1b6b30,#30d158)'},{ico:'🧭',bg:'linear-gradient(145deg,#b22222,#ff453a)'},{ico:'⚡',bg:'linear-gradient(145deg,#055535,#1FCC7C)'},{ico:'⚙️',bg:'linear-gradient(145deg,#3a3a3c,#636366)'}].forEach(d=>{
+  [{ico:'📞',bg:'linear-gradient(145deg,#1a6e2a,#30d158)'},{ico:'🧭',bg:'linear-gradient(145deg,#0a4a90,#2196f3)'},{ico:'⚡',bg:'linear-gradient(145deg,#055535,#1FCC7C)'},{ico:'⚙️',bg:'linear-gradient(145deg,#3a3a3c,#8e8e93)'}].forEach(d=>{
     const di=document.createElement('div');di.className='dock-icon';
     di.style.background=d.bg;di.textContent=d.ico;
     dock.appendChild(di);
