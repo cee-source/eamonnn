@@ -273,6 +273,29 @@ body{background:radial-gradient(ellipse 100% 70% at 50% -5%,#0B1E2E 0%,#050A10 5
 #dl-btn:hover{background:rgba(45,168,255,.2)!important;transform:translateY(-1px);box-shadow:0 4px 16px rgba(45,168,255,.15);}
 
 @media(prefers-color-scheme:light){body{background:#E8EDF5}.device{background:linear-gradient(160deg,#CDD5E0 0%,#B8C2D0 100%)}}
+/* ── iOS Home Screen ───────────────────────────────── */
+.ios-home{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;}
+.ios-home-wallpaper{position:absolute;inset:0;background:linear-gradient(160deg,#1c1c4e 0%,#2d1b69 28%,#1e1248 55%,#0d0d2b 100%);}
+.ios-home-wallpaper::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 55% 35% at 25% 15%,rgba(130,80,255,.45) 0%,transparent 70%),radial-gradient(ellipse 45% 30% at 78% 55%,rgba(60,120,255,.3) 0%,transparent 65%),radial-gradient(ellipse 40% 25% at 50% 80%,rgba(0,180,255,.2) 0%,transparent 65%);}
+.ios-home-inner{position:relative;z-index:2;display:flex;flex-direction:column;height:100%;padding-top:4px;}
+.ios-home-clock{text-align:center;padding:12px 0 8px;}
+.ios-home-time{font-size:52px;font-weight:200;color:#fff;letter-spacing:-2px;line-height:1;font-family:-apple-system,'Helvetica Neue',Helvetica,sans-serif;text-shadow:0 2px 20px rgba(0,0,0,.25);}
+.ios-home-date{font-size:13px;color:rgba(255,255,255,.72);margin-top:4px;font-family:-apple-system,'Helvetica Neue',Helvetica,sans-serif;font-weight:400;letter-spacing:.1px;}
+.app-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px 6px;padding:6px 12px 0;flex:1;align-content:start;}
+.app-cell{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;}
+.app-cell:active .app-icon-wrap{transform:scale(.88);opacity:.85;}
+.app-icon-wrap{width:56px;height:56px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:28px;position:relative;overflow:hidden;box-shadow:0 3px 10px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.15);transition:transform .15s,opacity .15s;}
+.app-icon-wrap::after{content:'';position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,.22) 0%,rgba(255,255,255,.05) 100%);pointer-events:none;}
+.app-cell.sel .app-icon-wrap{box-shadow:0 0 0 2.5px rgba(255,255,255,.7),0 3px 10px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.15);}
+.app-label{font-size:9px;color:rgba(255,255,255,.9);text-align:center;line-height:1.2;max-width:62px;text-shadow:0 1px 3px rgba(0,0,0,.65);font-family:-apple-system,'Helvetica Neue',Helvetica,sans-serif;font-weight:400;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.home-dots{display:flex;justify-content:center;gap:6px;padding:4px 0 2px;flex-shrink:0;}
+.home-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.32);}
+.home-dot.active{background:rgba(255,255,255,.9);}
+.dock-wrap{padding:3px 14px 5px;flex-shrink:0;}
+.dock{background:rgba(255,255,255,.13);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-radius:22px;padding:7px 8px;display:flex;justify-content:space-around;align-items:center;border:1px solid rgba(255,255,255,.09);}
+.dock-icon{width:52px;height:52px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:26px;position:relative;overflow:hidden;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.15);-webkit-tap-highlight-color:transparent;transition:transform .12s,opacity .12s;}
+.dock-icon:active{transform:scale(.88);opacity:.85;}
+.dock-icon::after{content:'';position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,.22) 0%,rgba(255,255,255,.05) 100%);pointer-events:none;}
 </style>
 
 <div class="page-header">
@@ -302,9 +325,9 @@ body{background:radial-gradient(ellipse 100% 70% at 50% -5%,#0B1E2E 0%,#050A10 5
     <div class="sbar">
       <div class="sbar-l"><span id="clk">9:41</span></div>
       <div class="sbar-r">
-        <div class="sbar-sig"><span style="height:3px;"></span><span style="height:5px;"></span><span style="height:7px;"></span><span style="height:9px;"></span></div>
-        <span style="font-size:10px;">WiFi</span>
-        <div class="bat"><div class="bat-fill"></div></div>
+        <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor" style="opacity:.85"><rect x="0" y="7.5" width="3" height="3.5" rx=".5"/><rect x="4.5" y="5" width="3" height="6" rx=".5"/><rect x="9" y="2.5" width="3" height="8.5" rx=".5"/><rect x="13.5" y="0" width="3" height="11" rx=".5" opacity=".3"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12" fill="none" style="opacity:.85"><circle cx="8" cy="10.5" r="1.5" fill="currentColor"/><path d="M4.4 7.2a5.1 5.1 0 0 1 7.2 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M1.3 4A9.3 9.3 0 0 1 14.7 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <div class="bat"><div class="bat-fill" id="sbar-bat"></div></div>
       </div>
     </div>
     <div class="scr-content" id="scr"></div>
@@ -779,6 +802,7 @@ function render(){
   killAll();
   const cur=stack[stack.length-1],el=document.getElementById('scr');
   el.innerHTML='';
+  document.querySelector('.screen').style.background='';
   const v=document.createElement('div');
   v.style.cssText='display:flex;flex-direction:column;height:100%;';
   const dispatch={
@@ -898,48 +922,56 @@ function render(){
 
 function buildMenu(v,m){
   const isMain=stack.length===1;
-  if(!isMain) v.appendChild(mkTbar(m.title,true));
-  if(isMain){
-    v.style.cssText=(v.style.cssText||'')+'background:linear-gradient(168deg,#1e2a45 0%,#111a2e 40%,#090d18 100%);';
-    // ── Widgets ──────────────────────────────────────────
-    const wa=document.createElement('div');wa.className='widget-area';
-    const now=new Date();
-    const hh=String(now.getHours()).padStart(2,'0'),mm=String(now.getMinutes()).padStart(2,'0');
-    const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const dateStr=`${days[now.getDay()]} ${String(now.getDate()).padStart(2,'0')} ${months[now.getMonth()]}`;
-    const batW=Math.round(dev.bat*32/100);
-    const batCol=dev.bat>30?'var(--acc)':'var(--dan)';
-    wa.innerHTML=`
-      <div class="w-row1">
-        <div class="w-time" id="w-time">${hh}:${mm}</div>
-        <div class="w-right">
-          <div class="w-date">${dateStr}</div>
-          <div class="w-bat-row">
-            <div class="w-bat-bar"><div class="w-bat-fill" id="w-bat-fill" style="width:${batW}px;background:${batCol}"></div></div>
-            <span class="w-bat-pct">${dev.bat}%</span>
-          </div>
-        </div>
-      </div>
-      <div class="w-row2">
-        <div class="w-badge ${hotspotOn?'on':''}" id="w-hs">${hotspotOn?'🌐 Hotspot ON':'🌐 Hotspot OFF'}</div>
-        <div class="w-badge on">📶 WiFi ${dev.wifi}/3</div>
-        <div class="w-badge ${dev.btOn?'on':''}">🦷 BT ${dev.btOn?'ON':'OFF'}</div>
-        <div class="w-badge">📡 ${dev.sig}/3 sig</div>
-      </div>`;
-    v.appendChild(wa);
+  if(!isMain){
+    v.appendChild(mkTbar(m.title,true));
+    const list=document.createElement('div');list.className='menu-list';
+    (m.items||[]).forEach((it,i)=>{
+      const d=document.createElement('div');d.className='mitem'+(i===menuSel?' sel':'');d.id='mi'+i;
+      const ic=it.color||'#1FCC7C';
+      d.innerHTML=`<div class="mitem-icon" style="background:linear-gradient(135deg,${ic}dd,${ic})">${it.icon}</div><div class="mitem-body"><div class="mitem-label">${it.label}</div><div class="mitem-desc">${it.desc||''}</div></div><div class="mitem-arrow">›</div>`;
+      d.onclick=()=>{menuSel=i;pushItem(it);};
+      list.appendChild(d);
+    });
+    v.appendChild(list);
+    const kh=document.createElement('div');kh.className='kbd-hint';kh.textContent='↑ ↓ navigate · Enter select · Esc back';v.appendChild(kh);
+    setTimeout(()=>{const el=document.getElementById('mi'+menuSel);if(el)el.scrollIntoView({block:'nearest'});},0);
+    return;
   }
-  const list=document.createElement('div');list.className='menu-list';
+  // ── iOS Home Screen ──────────────────────────────────────────
+  v.style.cssText='display:flex;flex-direction:column;height:100%;padding:0;overflow:hidden;';
+  document.querySelector('.screen').style.background='linear-gradient(160deg,#1c1c4e 0%,#2d1b69 28%,#1e1248 55%,#0d0d2b 100%)';
+  const home=document.createElement('div');home.className='ios-home';
+  const wp=document.createElement('div');wp.className='ios-home-wallpaper';
+  home.appendChild(wp);
+  const inner=document.createElement('div');inner.className='ios-home-inner';
+  const now=new Date();
+  const hh=String(now.getHours()).padStart(2,'0'),mm=String(now.getMinutes()).padStart(2,'0');
+  const DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const MONS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const clkDiv=document.createElement('div');clkDiv.className='ios-home-clock';
+  clkDiv.innerHTML=`<div class="ios-home-time" id="w-time">${hh}:${mm}</div><div class="ios-home-date">${DAYS[now.getDay()]}, ${MONS[now.getMonth()]} ${now.getDate()}</div>`;
+  inner.appendChild(clkDiv);
+  const grid=document.createElement('div');grid.className='app-grid';
   (m.items||[]).forEach((it,i)=>{
-    const d=document.createElement('div');d.className='mitem'+(i===menuSel?' sel':'');d.id='mi'+i;
+    const cell=document.createElement('div');cell.className='app-cell'+(i===menuSel?' sel':'');
     const ic=it.color||'#1FCC7C';
-    d.innerHTML=`<div class="mitem-icon" style="background:linear-gradient(135deg,${ic}dd,${ic})">${it.icon}</div><div class="mitem-body"><div class="mitem-label">${it.label}</div><div class="mitem-desc">${it.desc||''}</div></div><div class="mitem-arrow">›</div>`;
-    d.onclick=()=>{menuSel=i;pushItem(it);};
-    list.appendChild(d);
+    cell.innerHTML=`<div class="app-icon-wrap" style="background:linear-gradient(145deg,${ic}bb,${ic})">${it.icon}</div><div class="app-label">${it.label}</div>`;
+    cell.onclick=()=>{menuSel=i;pushItem(it);};
+    grid.appendChild(cell);
   });
-  v.appendChild(list);
-  const kh=document.createElement('div');kh.className='kbd-hint';kh.textContent='↑ ↓ navigate · Enter select · Esc back';v.appendChild(kh);
-  setTimeout(()=>{const el=document.getElementById('mi'+menuSel);if(el)el.scrollIntoView({block:'nearest'});},0);
+  inner.appendChild(grid);
+  const dots=document.createElement('div');dots.className='home-dots';
+  dots.innerHTML='<div class="home-dot active"></div><div class="home-dot"></div>';
+  inner.appendChild(dots);
+  const dockWrap=document.createElement('div');dockWrap.className='dock-wrap';
+  const dock=document.createElement('div');dock.className='dock';
+  [{ico:'📞',bg:'linear-gradient(145deg,#1b6b30,#30d158)'},{ico:'🧭',bg:'linear-gradient(145deg,#b22222,#ff453a)'},{ico:'⚡',bg:'linear-gradient(145deg,#055535,#1FCC7C)'},{ico:'⚙️',bg:'linear-gradient(145deg,#3a3a3c,#636366)'}].forEach(d=>{
+    const di=document.createElement('div');di.className='dock-icon';
+    di.style.background=d.bg;di.textContent=d.ico;
+    dock.appendChild(di);
+  });
+  dockWrap.appendChild(dock);inner.appendChild(dockWrap);
+  home.appendChild(inner);v.appendChild(home);
 }
 
 function buildInfo(v,d){
@@ -11387,6 +11419,7 @@ function tick(){
   if(Math.random()<.01&&dev.bat>5)dev.bat--;
   const wh=document.getElementById('w-hs');if(wh){wh.textContent=hotspotOn?'🌐 Hotspot ON':'🌐 Hotspot OFF';wh.className='w-badge'+(hotspotOn?' on':'');}
   const bf=document.getElementById('w-bat-fill');if(bf){const c=dev.bat>30?'var(--acc)':'var(--dan)';bf.style.width=Math.round(dev.bat*32/100)+'px';bf.style.background=c;}
+  const sb=document.getElementById('sbar-bat');if(sb){sb.style.width=dev.bat+'%';sb.style.background=dev.bat>30?'#30d158':'var(--dan)';}
 }
 tick();setInterval(tick,8000);
 
