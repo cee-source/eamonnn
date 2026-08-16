@@ -2832,20 +2832,34 @@ function buildCustomPopup(v){
    SHOPPING LIST
 ═══════════════════════════════════════════════════════════ */
 function buildShoppingList(v){
-  v.appendChild(mkTbar('Shopping List',true));
-  const CATS=['All','Produce','Dairy','Meat','Bakery','Frozen','Drinks','Other'];
-  const CAT_ICO={All:'🛒',Produce:'🥦',Dairy:'🧀',Meat:'🥩',Bakery:'🍞',Frozen:'🧊',Drinks:'🥤',Other:'📦'};
+  v.appendChild(mkTbar('Parts List',true));
+  const CATS=['All','Core','RF','RFID','IR','Power','Cables','iPhone','Optional'];
+  const CAT_ICO={All:'🛒',Core:'🔲',RF:'📡',RFID:'💳',IR:'🔴',Power:'🔋',Cables:'🔌',iPhone:'📱',Optional:'⚡'};
   let items=[
-    {id:1,name:'Milk',qty:'2L',cat:'Dairy',checked:false},
-    {id:2,name:'Bread',qty:'1 loaf',cat:'Bakery',checked:false},
-    {id:3,name:'Eggs',qty:'12',cat:'Dairy',checked:false},
-    {id:4,name:'Apples',qty:'6',cat:'Produce',checked:false},
-    {id:5,name:'Chicken breast',qty:'500g',cat:'Meat',checked:false},
-    {id:6,name:'Orange juice',qty:'2L',cat:'Drinks',checked:false},
-    {id:7,name:'Frozen pizza',qty:'2',cat:'Frozen',checked:false},
-    {id:8,name:'Broccoli',qty:'1 head',cat:'Produce',checked:false},
+    {id:1, name:'Raspberry Pi Zero 2W',  qty:'×1',      cat:'Core',    checked:false},
+    {id:2, name:'MicroSD Card 32GB',      qty:'Class 10',cat:'Core',    checked:false},
+    {id:3, name:'40-pin GPIO header',     qty:'×1',      cat:'Core',    checked:false},
+    {id:4, name:'PN532 NFC/RFID Module',  qty:'×1',      cat:'RFID',    checked:false},
+    {id:5, name:'RFID test cards',        qty:'10-pack', cat:'RFID',    checked:false},
+    {id:6, name:'IR LED 940nm',           qty:'×5',      cat:'IR',      checked:false},
+    {id:7, name:'IR Receiver (38kHz)',    qty:'×1',      cat:'IR',      checked:false},
+    {id:8, name:'100Ω resistors',         qty:'×5',      cat:'IR',      checked:false},
+    {id:9, name:'USB Power Bank 5000mAh', qty:'×1',      cat:'Power',   checked:false},
+    {id:10,name:'Micro USB OTG cable',    qty:'×1',      cat:'Cables',  checked:false},
+    {id:11,name:'Dupont jumper wires F-F',qty:'20-pack', cat:'Cables',  checked:false},
+    {id:12,name:'Micro USB power cable',  qty:'×1',      cat:'Cables',  checked:false},
+    {id:13,name:'Mini HDMI adapter',      qty:'×1',      cat:'Cables',  checked:false},
+    {id:14,name:'iPhone X (jailbroken)',  qty:'×1',      cat:'iPhone',  checked:false},
+    {id:15,name:'checkra1n / palera1n',   qty:'software',cat:'iPhone',  checked:false},
+    {id:16,name:'Cydia: OpenSSH',         qty:'package', cat:'iPhone',  checked:false},
+    {id:17,name:'Cydia: NewTerm 3',       qty:'package', cat:'iPhone',  checked:false},
+    {id:18,name:'USB WiFi (monitor mode)',qty:'×1',      cat:'Optional',checked:false},
+    {id:19,name:'3D-printed case',        qty:'×1',      cat:'Optional',checked:false},
+    {id:20,name:'LiPo 3.7V 2000mAh',     qty:'×1',      cat:'Optional',checked:false},
+    {id:21,name:'TP4056 charger module',  qty:'×1',      cat:'Optional',checked:false},
+    {id:22,name:'5V boost converter',     qty:'×1',      cat:'Optional',checked:false},
   ];
-  let nextId=9,activeCat='All',editId=null;
+  let nextId=23,activeCat='All',editId=null;
 
   const wrap=document.createElement('div');wrap.style.cssText='flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);';
 
