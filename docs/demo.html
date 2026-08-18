@@ -917,177 +917,110 @@ function render(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   MUSIC PLAYER
+   MUSIC PLAYER (YouTube)
 ═══════════════════════════════════════════════════════════ */
 function buildMusic(v,d){
   v.appendChild(mkTbar('Music',true));
   v.style.cssText+='display:flex;flex-direction:column;background:#0a0a0f;';
 
-  // Note frequency table
-  const F={C3:130.81,D3:146.83,E3:164.81,F3:174.61,G3:196,Ab3:207.65,A3:220,Bb3:233.08,B3:246.94,C4:261.63,Cs4:277.18,D4:293.66,Eb4:311.13,E4:329.63,F4:349.23,Fs4:369.99,G4:392,Ab4:415.3,A4:440,Bb4:466.16,B4:493.88,C5:523.25,Cs5:554.37,D5:587.33,Eb5:622.25,E5:659.25,F5:698.46,Fs5:739.99,G5:783.99,Ab5:830.61,A5:880,Bb5:932.33,B5:987.77,C6:1046.5,D6:1174.66,E6:1318.51,R:0};
-
-  const SONGS=[
-    {title:'Korobeiniki',artist:'Tetris Type A',color:'#2DA8FF',bpm:165,
-      melody:[[F.E5,1],[F.B4,.5],[F.C5,.5],[F.D5,1],[F.C5,.5],[F.B4,.5],[F.A4,1],[F.A4,.5],[F.C5,.5],[F.E5,1],[F.D5,.5],[F.C5,.5],[F.B4,1.5],[F.C5,.5],[F.D5,1],[F.E5,1],[F.C5,1],[F.A4,1],[F.A4,2],[F.R,.5],[F.D5,1],[F.F5,.5],[F.A5,1],[F.G5,.5],[F.F5,.5],[F.E5,1.5],[F.C5,.5],[F.E5,1],[F.D5,.5],[F.C5,.5],[F.B4,1],[F.B4,.5],[F.C5,.5],[F.D5,1],[F.E5,1],[F.C5,1],[F.A4,1],[F.A4,2],[F.E5,1],[F.B4,.5],[F.C5,.5],[F.D5,1],[F.C5,.5],[F.B4,.5],[F.A4,1],[F.A4,.5],[F.C5,.5],[F.E5,1],[F.D5,.5],[F.C5,.5],[F.B4,1.5],[F.C5,.5],[F.D5,1],[F.E5,1],[F.C5,1],[F.A4,1],[F.A4,2]],
-      bass:[[F.A3,2],[F.E3,2],[F.A3,2],[F.E3,2],[F.A3,2],[F.E3,2],[F.A3,2],[F.E3,2],[F.G3,2],[F.D4,2],[F.G3,2],[F.D4,2],[F.A3,2],[F.E3,2],[F.A3,2],[F.E3,2],[F.F3,2],[F.C4,2],[F.F3,2],[F.C4,2],[F.E3,2],[F.B3,2],[F.E3,2],[F.B3,2],[F.A3,2],[F.E3,2],[F.A3,2],[F.E3,2],[F.A3,2],[F.E3,2],[F.A3,2],[F.E3,2]],
-    },
-    {title:'Megalovania',artist:'Toby Fox / Undertale',color:'#FF4444',bpm:120,
-      melody:[[F.D5,.5],[F.D5,.5],[F.D6,1],[F.A5,.75],[F.Ab5,.5],[F.G5,.5],[F.F5,.5],[F.D5,.5],[F.F5,.5],[F.G5,.5],[F.C5,.5],[F.C5,.5],[F.D6,1],[F.A5,.75],[F.Ab5,.5],[F.G5,.5],[F.F5,.5],[F.D5,.5],[F.F5,.5],[F.G5,.5],[F.B4,.5],[F.B4,.5],[F.D6,1],[F.A5,.75],[F.Ab5,.5],[F.G5,.5],[F.F5,.5],[F.D5,.5],[F.F5,.5],[F.G5,.5],[F.Bb4,.5],[F.Bb4,.5],[F.R,.5],[F.Bb4,.5],[F.B4,.25],[F.C5,1.5],[F.R,.5],[F.D5,.5],[F.D5,.5],[F.D6,1],[F.A5,.75],[F.Ab5,.5],[F.G5,.5],[F.F5,.5],[F.D5,.5],[F.F5,.5],[F.G5,.5],[F.C5,.5],[F.C5,.5],[F.D6,1],[F.A5,.75],[F.Ab5,.5],[F.G5,.5],[F.F5,.5],[F.D5,.5],[F.F5,.5],[F.G5,.5],[F.B4,.5],[F.B4,.5],[F.D6,1],[F.A5,.75],[F.Ab5,.5],[F.G5,.5],[F.F5,.5],[F.D5,.5],[F.F5,.5],[F.G5,.5],[F.Bb4,.5],[F.Bb4,.5],[F.R,.5],[F.Bb4,.5],[F.B4,.25],[F.C5,2]],
-      bass:[[F.D3,.5],[F.D3,.5],[F.D4,1],[F.A3,.75],[F.Ab3,.5],[F.G3,.5],[F.F3,.5],[F.D3,.5],[F.F3,.5],[F.G3,.5],[F.C3,.5],[F.C3,.5],[F.C4,1],[F.G3,.75],[F.Ab3,.5],[F.G3,.5],[F.F3,.5],[F.C3,.5],[F.F3,.5],[F.G3,.5],[F.B3,.5],[F.B3,.5],[F.B3,1],[F.A3,.75],[F.Ab3,.5],[F.G3,.5],[F.F3,.5],[F.D3,.5],[F.F3,.5],[F.G3,.5],[F.Bb3,.5],[F.Bb3,.5],[F.R,.5],[F.Bb3,.5],[F.B3,.25],[F.C4,1.5],[F.R,4]],
-    },
-    {title:'Neon Drive',artist:'FlipKit Original',color:'#FF00FF',bpm:128,
-      melody:[[F.A4,1],[F.A4,.5],[F.B4,.5],[F.C5,1],[F.A4,1],[F.G4,2],[F.E4,2],[F.A4,1],[F.A4,.5],[F.B4,.5],[F.C5,.5],[F.D5,.5],[F.E5,1],[F.A5,2],[F.R,2],[F.E5,1],[F.D5,.5],[F.C5,.5],[F.B4,1],[F.A4,1],[F.G4,2],[F.F4,2],[F.A4,.5],[F.G4,.5],[F.A4,.5],[F.B4,.5],[F.C5,1],[F.D5,1],[F.A4,4],[F.A4,1],[F.A4,.5],[F.B4,.5],[F.C5,1],[F.A4,1],[F.G4,2],[F.E4,2],[F.C5,1],[F.D5,.5],[F.E5,.5],[F.C5,.5],[F.D5,.5],[F.E5,1],[F.A5,2],[F.R,2],[F.G5,1],[F.F5,.5],[F.E5,.5],[F.D5,1],[F.C5,1],[F.B4,2],[F.A4,4]],
-      bass:[[F.A3,1],[F.R,1],[F.A3,1],[F.R,1],[F.G3,1],[F.R,1],[F.E3,1],[F.R,1],[F.A3,1],[F.R,1],[F.A3,1],[F.R,1],[F.A3,1],[F.R,1],[F.A3,1],[F.R,1],[F.E3,1],[F.R,1],[F.D3,1],[F.R,1],[F.C3,1],[F.R,1],[F.F3,1],[F.R,1],[F.A3,1],[F.R,1],[F.A3,3],[F.A3,1],[F.R,1],[F.A3,1],[F.R,1],[F.G3,1],[F.R,1],[F.E3,1],[F.R,1],[F.C3,1],[F.R,1],[F.F3,1],[F.R,1],[F.C4,1],[F.R,1],[F.G3,1],[F.R,1],[F.G3,1],[F.R,1],[F.A3,1],[F.R,1],[F.A3,1],[F.R,1],[F.A3,4]],
-    },
+  const TRACKS=[
+    {title:'Never Gonna Give You Up',artist:'Rick Astley',ytId:'dQw4w9WgXcQ',color:'#FF2D55'},
+    {title:'Bohemian Rhapsody',artist:'Queen',ytId:'fJ9rUzIMcZQ',color:'#FFD700'},
+    {title:'Shape of You',artist:'Ed Sheeran',ytId:'JGwWNGJdvx8',color:'#2DA8FF'},
+    {title:'Bad Guy',artist:'Billie Eilish',ytId:'DyDfgMOUjCI',color:'#34C759'},
+    {title:'Stressed Out',artist:'Twenty One Pilots',ytId:'pXRviuL6vMY',color:'#FF9500'},
+    {title:'Happy',artist:'Pharrell Williams',ytId:'ktvTqknDobU',color:'#FFD700'},
+    {title:'Gangnam Style',artist:'PSY',ytId:'9bZkp7q19f0',color:'#AF52DE'},
+    {title:'Blinding Lights',artist:'The Weeknd',ytId:'4NRXx6U8ABQ',color:'#FF6B81'},
+    {title:'Levitating',artist:'Dua Lipa',ytId:'IXLDv-fUzeI',color:'#5E5CE6'},
+    {title:'Stay',artist:'The Kid LAROI & Justin Bieber',ytId:'kTJczUoc26U',color:'#2DA8FF'},
+    {title:'As It Was',artist:'Harry Styles',ytId:'H5v3kku4y6Q',color:'#FF9500'},
+    {title:'Anti-Hero',artist:'Taylor Swift',ytId:'b1kbLwvqugk',color:'#FF2D55'},
   ];
 
-  let cur=0,playing=false,actx=null,analyser=null,vizId=null,loopTid=null,startedAt=0,songDur=0;
+  let curIdx=0;
+  let filtered=TRACKS.slice();
 
-  /* ── Album art canvas ── */
-  const artCv=document.createElement('canvas');artCv.width=180;artCv.height=130;artCv.style.cssText='display:block;margin:14px auto 0;border-radius:14px;';
-  function drawArt(song,t){
-    const ctx=artCv.getContext('2d');const W=artCv.width,H=artCv.height;
-    ctx.clearRect(0,0,W,H);
-    const grd=ctx.createLinearGradient(0,0,W,H);
-    grd.addColorStop(0,'#0a0a1a');grd.addColorStop(1,'#1a0a2a');
-    ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
-    // animated rings
-    for(let i=0;i<5;i++){
-      const r=20+i*20+Math.sin(t*.04+i)*8;
-      ctx.beginPath();ctx.arc(W/2,H/2,r,0,Math.PI*2);
-      ctx.strokeStyle=song.color+(Math.floor((0.3-i*.05)*255).toString(16).padStart(2,'0'));
-      ctx.lineWidth=2;ctx.stroke();
-    }
-    // waveform if playing
-    if(analyser&&playing){
-      const data=new Uint8Array(analyser.frequencyBinCount);analyser.getByteFrequencyData(data);
-      const bars=16;const bw=W/bars;
-      for(let i=0;i<bars;i++){
-        const h=data[i]/255*H*.6;
-        const alpha=Math.floor((0.5+h/H)*255).toString(16).padStart(2,'0');
-        ctx.fillStyle=song.color+alpha;
-        ctx.fillRect(i*bw+1,H-h,bw-2,h);
-      }
-    } else {
-      // static icon
-      ctx.font='40px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('🎵',W/2,H/2);
-    }
-    // song name overlay
-    ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(0,H-32,W,32);
-    ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(song.title,W/2,H-16);
+  /* ── Search bar ── */
+  const searchRow=document.createElement('div');searchRow.style.cssText='padding:10px 12px 6px;flex-shrink:0;display:flex;gap:8px;align-items:center;';
+  const inp=document.createElement('input');inp.placeholder='Search songs, artists…';inp.style.cssText='flex:1;background:#1c1c2e;border:none;border-radius:20px;padding:9px 14px;color:#fff;font-size:13px;outline:none;';
+  const ytBtn=document.createElement('button');ytBtn.textContent='YT ↗';ytBtn.style.cssText='background:#FF0000;color:#fff;border:none;border-radius:20px;padding:9px 12px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;';
+  ytBtn.title='Open search in YouTube Music';
+  ytBtn.onclick=()=>{const q=inp.value.trim()||TRACKS[curIdx].title+' '+TRACKS[curIdx].artist;window.open('https://music.youtube.com/search?q='+encodeURIComponent(q),'_blank');};
+  searchRow.appendChild(inp);searchRow.appendChild(ytBtn);
+
+  /* ── Paste URL row ── */
+  const urlRow=document.createElement('div');urlRow.style.cssText='padding:0 12px 8px;flex-shrink:0;display:flex;gap:8px;';
+  const urlInp=document.createElement('input');urlInp.placeholder='Paste YouTube URL to play…';urlInp.style.cssText='flex:1;background:#1c1c2e;border:none;border-radius:20px;padding:7px 14px;color:#fff;font-size:11px;outline:none;';
+  const playUrlBtn=document.createElement('button');playUrlBtn.textContent='▶';playUrlBtn.style.cssText='background:#FF2D55;color:#fff;border:none;border-radius:50%;width:30px;height:30px;font-size:13px;cursor:pointer;flex-shrink:0;';
+  playUrlBtn.onclick=()=>{
+    const url=urlInp.value.trim();
+    const m=url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
+    if(m)loadById(m[1],'Custom','From URL');
+  };
+  urlRow.appendChild(urlInp);urlRow.appendChild(playUrlBtn);
+
+  /* ── YouTube embed player ── */
+  const playerWrap=document.createElement('div');playerWrap.style.cssText='padding:0 12px 8px;flex-shrink:0;';
+  const frame=document.createElement('iframe');
+  frame.width='100%';frame.height='155';frame.style.cssText='border-radius:12px;border:none;display:block;background:#111;';
+  frame.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';
+  frame.allowFullscreen=true;
+  playerWrap.appendChild(frame);
+
+  /* ── Now playing ── */
+  const nowPlaying=document.createElement('div');nowPlaying.style.cssText='padding:4px 12px 8px;flex-shrink:0;display:flex;align-items:center;gap:8px;';
+  nowPlaying.innerHTML='<div id="mu-dot" style="width:8px;height:8px;border-radius:50%;background:#FF2D55;flex-shrink:0;"></div><div style="flex:1;"><div id="mu-title" style="font-size:12px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div><div id="mu-artist" style="font-size:10px;color:#666;"></div></div><button id="mu-yt2" style="background:none;border:none;color:#666;font-size:11px;cursor:pointer;padding:4px;">YT ↗</button>';
+  document.addEventListener('click',e=>{if(e.target&&e.target.id==='mu-yt2'){const t=TRACKS[curIdx];window.open('https://music.youtube.com/search?q='+encodeURIComponent(t.title+' '+t.artist),'_blank');}},{once:false});
+
+  function setNowPlaying(title,artist,color){
+    const el=document.getElementById('mu-title');if(el)el.textContent=title;
+    const al=document.getElementById('mu-artist');if(al)al.textContent=artist;
+    const dot=document.getElementById('mu-dot');if(dot)dot.style.background=color||'#FF2D55';
   }
 
-  /* ── Info row ── */
-  const infoRow=document.createElement('div');infoRow.style.cssText='text-align:center;padding:8px 12px 0;';
-  function updateInfo(){const s=SONGS[cur];infoRow.innerHTML='<div style="font-size:14px;font-weight:700;color:#fff;">'+s.title+'</div><div style="font-size:11px;color:#888;margin-top:2px;">'+s.artist+'</div>';}
-  updateInfo();
-
-  /* ── Progress bar ── */
-  const progWrap=document.createElement('div');progWrap.style.cssText='padding:10px 16px 4px;';
-  progWrap.innerHTML='<div style="height:3px;background:#222;border-radius:2px;overflow:hidden;"><div id="mu-prog" style="height:100%;background:var(--acc);width:0%;transition:width .5s linear;border-radius:2px;"></div></div><div style="display:flex;justify-content:space-between;font-size:10px;color:#555;margin-top:4px;"><span id="mu-cur">0:00</span><span id="mu-dur">0:00</span></div>';
+  function loadById(ytId,title,artist,color){
+    frame.src='https://www.youtube.com/embed/'+ytId+'?autoplay=1&rel=0&modestbranding=1';
+    setNowPlaying(title,artist,color);
+  }
+  function loadTrack(i){
+    curIdx=i;
+    const t=TRACKS[i];
+    loadById(t.ytId,t.title,t.artist,t.color);
+    renderList();
+  }
 
   /* ── Track list ── */
-  const trackList=document.createElement('div');trackList.style.cssText='padding:0 12px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;';
-  function renderTracks(){
-    trackList.innerHTML='';
-    SONGS.forEach((s,i)=>{
-      const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;background:'+(i===cur?'rgba(255,255,255,.08)':'transparent')+';';
-      row.innerHTML='<div style="width:8px;height:8px;border-radius:50%;background:'+s.color+';flex-shrink:0;"></div><div style="flex:1;"><div style="font-size:12px;font-weight:'+(i===cur?'700':'400')+';color:'+(i===cur?'#fff':'#aaa')+';">'+s.title+'</div><div style="font-size:10px;color:#555;">'+s.artist+'</div></div>'+(i===cur&&playing?'<div style="font-size:14px;color:'+s.color+';">▶</div>':'');
-      row.onclick=()=>{cur=i;stopAudio();startAudio();};
-      trackList.appendChild(row);
+  const listWrap=document.createElement('div');listWrap.style.cssText='flex:1;overflow-y:auto;padding:0 12px 8px;display:flex;flex-direction:column;gap:5px;';
+
+  function renderList(){
+    listWrap.innerHTML='';
+    const q=inp.value.trim().toLowerCase();
+    filtered=q?TRACKS.filter(t=>t.title.toLowerCase().includes(q)||t.artist.toLowerCase().includes(q)):TRACKS.slice();
+    if(!filtered.length){const e=document.createElement('div');e.style.cssText='text-align:center;color:#444;font-size:12px;padding:30px 0;';e.textContent='No results — try YouTube ↗';listWrap.appendChild(e);return;}
+    filtered.forEach((t,i)=>{
+      const isActive=t===TRACKS[curIdx];
+      const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;background:'+(isActive?'rgba(255,45,85,.15)':'rgba(255,255,255,.03)')+';border:1px solid '+(isActive?t.color+'55':'transparent')+';transition:background .15s;';
+      row.innerHTML='<div style="width:32px;height:32px;border-radius:8px;background:'+t.color+'22;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🎵</div><div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:'+(isActive?'700':'400')+';color:'+(isActive?t.color:'#ddd')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+t.title+'</div><div style="font-size:10px;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+t.artist+'</div></div>'+(isActive?'<div style="font-size:18px;color:'+t.color+';">▶</div>':'<div style="font-size:10px;color:#333;">'+(TRACKS.indexOf(t)+1)+'</div>');
+      row.onclick=()=>loadTrack(TRACKS.indexOf(t));
+      listWrap.appendChild(row);
     });
-  }
-
-  /* ── Controls ── */
-  const ctrl=document.createElement('div');ctrl.style.cssText='display:flex;justify-content:center;align-items:center;gap:20px;padding:10px 12px;flex-shrink:0;';
-  const mkBtn=(t,sz)=>{const b=document.createElement('button');b.textContent=t;b.style.cssText='background:none;border:none;color:#fff;font-size:'+(sz||20)+'px;cursor:pointer;padding:6px;line-height:1;';return b;};
-  const prevBtn=mkBtn('⏮',18),playBtn=mkBtn('▶',28),nextBtn=mkBtn('⏭',18);
-  const volWrap=document.createElement('div');volWrap.style.cssText='display:flex;align-items:center;gap:6px;padding:0 16px 10px;flex-shrink:0;';
-  volWrap.innerHTML='<span style="font-size:12px;">🔈</span><input id="mu-vol" type="range" min="0" max="100" value="70" style="flex:1;accent-color:var(--acc);"/><span style="font-size:12px;">🔊</span>';
-  ctrl.appendChild(prevBtn);ctrl.appendChild(playBtn);ctrl.appendChild(nextBtn);
-
-  v.appendChild(artCv);v.appendChild(infoRow);v.appendChild(progWrap);v.appendChild(ctrl);v.appendChild(volWrap);v.appendChild(trackList);
-  renderTracks();
-
-  /* ── Audio engine ── */
-  function getCtx(){
-    if(!actx){
-      actx=new(window.AudioContext||window.webkitAudioContext)();
-      analyser=actx.createAnalyser();analyser.fftSize=64;
-      analyser.connect(actx.destination);
-      mg={actx,stop:stopAudio};
-    }
-    return actx;
-  }
-  function pNote(freq,t0,dur,type,vol){
-    if(!freq)return;
-    const ctx=actx;const osc=ctx.createOscillator();const g=ctx.createGain();
-    osc.connect(g);g.connect(analyser);
-    osc.type=type;osc.frequency.value=freq;
-    g.gain.setValueAtTime(vol,t0);g.gain.setValueAtTime(vol*.7,t0+dur*.6);g.gain.linearRampToValueAtTime(0.001,t0+dur*.95);
-    osc.start(t0);osc.stop(t0+dur);
-  }
-  function pDrum(type,t0){
-    const ctx=actx;
-    if(type==='kick'){
-      const osc=ctx.createOscillator();const g=ctx.createGain();osc.connect(g);g.connect(analyser);
-      osc.frequency.setValueAtTime(180,t0);osc.frequency.exponentialRampToValueAtTime(0.001,t0+.15);
-      g.gain.setValueAtTime(.4,t0);g.gain.exponentialRampToValueAtTime(0.001,t0+.15);
-      osc.start(t0);osc.stop(t0+.15);
-    } else {
-      const buf=ctx.createBuffer(1,Math.floor(ctx.sampleRate*.08),ctx.sampleRate);
-      const data=buf.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*(1-i/data.length);
-      const src=ctx.createBufferSource();const g=ctx.createGain();src.buffer=buf;src.connect(g);g.connect(analyser);
-      g.gain.setValueAtTime(.12,t0);g.gain.exponentialRampToValueAtTime(.001,t0+.07);
-      src.start(t0);
+    // "Search on YouTube Music" row
+    if(q){
+      const ytRow=document.createElement('div');ytRow.style.cssText='display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;cursor:pointer;border:1px dashed #333;margin-top:4px;';
+      ytRow.innerHTML='<div style="font-size:18px;">🔴</div><div style="flex:1;"><div style="font-size:12px;color:#aaa;">Search "<b style="color:#fff;">'+q+'</b>" on YouTube Music</div></div><div style="font-size:12px;color:#FF2D55;">↗</div>';
+      ytRow.onclick=()=>window.open('https://music.youtube.com/search?q='+encodeURIComponent(q),'_blank');
+      listWrap.appendChild(ytRow);
     }
   }
-  function scheduleSong(){
-    if(!playing)return;
-    const ctx=getCtx();if(ctx.state==='suspended')ctx.resume();
-    const song=SONGS[cur];const beat=60/song.bpm;const t0=ctx.currentTime+.05;
-    // melody
-    let t=t0;for(const[f,b]of song.melody){pNote(f,t,b*beat*.85,'square',.12);t+=b*beat;}
-    const dur=t-t0;
-    // bass
-    t=t0;for(const[f,b]of song.bass){pNote(f,t,b*beat*.9,'sawtooth',.07);t+=b*beat;}
-    // drums: 8th-note grid aligned to song length
-    const eighths=Math.floor(dur/(beat*.5));
-    for(let i=0;i<eighths;i++){
-      const pos=i%16;const bt=t0+i*beat*.5;
-      if([0,4,8,12].includes(pos))pDrum('kick',bt);
-      if([4,12].includes(pos))pDrum('snare',bt);
-    }
-    songDur=dur;startedAt=ctx.currentTime;
-    loopTid=setTimeout(scheduleSong,dur*1000-150);
-    // volume
-    const volEl=document.getElementById('mu-vol');if(volEl&&analyser){try{const gain=ctx.createGain();gain.gain.value=parseFloat(volEl.value)/100;}catch(e){}}
-  }
-  function startAudio(){
-    playing=true;playBtn.textContent='⏸';
-    scheduleSong();
-    // viz loop
-    let t=0;
-    function frame(){if(!playing)return;t++;
-      drawArt(SONGS[cur],t);
-      const prog=document.getElementById('mu-prog');
-      if(prog&&actx&&songDur){const elapsed=(actx.currentTime-startedAt)%songDur;const pct=elapsed/songDur*100;prog.style.width=pct+'%';const cur2=document.getElementById('mu-cur');if(cur2){const s=Math.floor(elapsed);cur2.textContent=Math.floor(s/60)+':'+(s%60+'').padStart(2,'0');}const durEl=document.getElementById('mu-dur');if(durEl){const s=Math.floor(songDur);durEl.textContent=Math.floor(s/60)+':'+(s%60+'').padStart(2,'0');}}
-      vizId=requestAnimationFrame(frame);
-    }frame();
-    renderTracks();
-  }
-  function stopAudio(){
-    playing=false;playBtn.textContent='▶';clearTimeout(loopTid);loopTid=null;
-    cancelAnimationFrame(vizId);
-    if(actx){try{actx.close();}catch(e){}actx=null;analyser=null;mg=null;}
-    const prog=document.getElementById('mu-prog');if(prog)prog.style.width='0%';
-    updateInfo();drawArt(SONGS[cur],0);renderTracks();
-  }
-  playBtn.onclick=()=>{if(playing)stopAudio();else startAudio();};
-  prevBtn.onclick=()=>{cur=(cur-1+SONGS.length)%SONGS.length;stopAudio();startAudio();};
-  nextBtn.onclick=()=>{cur=(cur+1)%SONGS.length;stopAudio();startAudio();};
-  // initial static art
-  drawArt(SONGS[cur],0);
+
+  inp.oninput=()=>renderList();
+  inp.onkeydown=e=>{if(e.key==='Enter'){const q=inp.value.trim();if(filtered.length)loadTrack(TRACKS.indexOf(filtered[0]));else if(q)window.open('https://music.youtube.com/search?q='+encodeURIComponent(q),'_blank');}};
+
+  v.appendChild(searchRow);v.appendChild(playerWrap);v.appendChild(nowPlaying);v.appendChild(urlRow);v.appendChild(listWrap);
+
+  renderList();
+  loadTrack(0);
 }
 
 /* ═══════════════════════════════════════════════════════════
