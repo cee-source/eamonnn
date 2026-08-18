@@ -578,6 +578,7 @@ const MAIN={title:'FlipKit',items:[
   {icon:'🗺️',color:'#34C759',label:'Maps',desc:'Live map · GPS · navigate',type:'maps'},
   {icon:'🖼️',color:'#FF9500',label:'Photos',desc:'Camera roll · gallery',type:'photos'},
   {icon:'🔑',color:'#5E5CE6',label:'Passwords',desc:'Saved credentials vault',type:'passwords'},
+  {icon:'🎵',color:'#FF2D55',label:'Music',   desc:'3 tracks · synth player', type:'music'},
   {icon:'⌨️',color:'#9B59B6',label:'Bad USB',desc:'HID injection scripts',menu:{title:'Bad USB',items:[
     {icon:'▶️', label:'Run Script',desc:'Execute DuckyScript', type:'badusb-run'},
     {icon:'📄',label:'Scripts',   desc:'0 saved',             type:'badusb-scripts'},
@@ -740,7 +741,7 @@ const MAIN={title:'FlipKit',items:[
    STATE
 ═══════════════════════════════════════════════════════════ */
 let stack=[MAIN],menuSel=0,hotspotOn=false;
-let sg=null,tg=null,pg=null,fg=null,cg=null,xg=null,dg=null;
+let sg=null,tg=null,pg=null,fg=null,cg=null,xg=null,dg=null,mg=null;
 // Simulated device state for widgets
 const dev={bat:72,wifi:3,btOn:false,sig:2};
 
@@ -762,6 +763,7 @@ function killAll(){
   if(cg){if(cg.kdown)document.removeEventListener('keydown',cg.kdown);cg=null;}
   if(xg){if(xg.raf)cancelAnimationFrame(xg.raf);if(xg.iid)clearInterval(xg.iid);if(xg._tid)clearInterval(xg._tid);if(xg.kdown)document.removeEventListener('keydown',xg.kdown);if(xg.kup)document.removeEventListener('keyup',xg.kup);xg=null;}
   if(dg){document.removeEventListener('keydown',dg);dg=null;}
+  if(mg){try{mg.actx.close();}catch(e){}mg=null;}
 }
 /* Shared canvas setup for new games */
 function mkCv(v,title){
@@ -889,6 +891,7 @@ function render(){
     brickbreakplus:buildBrickBreakPlus,
     reactionmatch:buildReactionMatch,
     snakemaze:buildSnakeMaze,
+    music:buildMusic,
     'subghz-scan':buildSubGhzScan,
     'subghz-replay':buildSubGhzReplay,
     'subghz-transmit':buildSubGhzTransmit,
@@ -911,6 +914,180 @@ function render(){
   if(dispatch[cur.type]) dispatch[cur.type](v,cur);
   else buildMenu(v,cur);
   el.appendChild(v);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MUSIC PLAYER
+═══════════════════════════════════════════════════════════ */
+function buildMusic(v,d){
+  v.appendChild(mkTbar('Music',true));
+  v.style.cssText+='display:flex;flex-direction:column;background:#0a0a0f;';
+
+  // Note frequency table
+  const F={C3:130.81,D3:146.83,E3:164.81,F3:174.61,G3:196,Ab3:207.65,A3:220,Bb3:233.08,B3:246.94,C4:261.63,Cs4:277.18,D4:293.66,Eb4:311.13,E4:329.63,F4:349.23,Fs4:369.99,G4:392,Ab4:415.3,A4:440,Bb4:466.16,B4:493.88,C5:523.25,Cs5:554.37,D5:587.33,Eb5:622.25,E5:659.25,F5:698.46,Fs5:739.99,G5:783.99,Ab5:830.61,A5:880,Bb5:932.33,B5:987.77,C6:1046.5,D6:1174.66,E6:1318.51,R:0};
+
+  const SONGS=[
+    {title:'Korobeiniki',artist:'Tetris Type A',color:'#2DA8FF',bpm:165,
+      melody:[[F.E5,1],[F.B4,.5],[F.C5,.5],[F.D5,1],[F.C5,.5],[F.B4,.5],[F.A4,1],[F.A4,.5],[F.C5,.5],[F.E5,1],[F.D5,.5],[F.C5,.5],[F.B4,1.5],[F.C5,.5],[F.D5,1],[F.E5,1],[F.C5,1],[F.A4,1],[F.A4,2],[F.R,.5],[F.D5,1],[F.F5,.5],[F.A5,1],[F.G5,.5],[F.F5,.5],[F.E5,1.5],[F.C5,.5],[F.E5,1],[F.D5,.5],[F.C5,.5],[F.B4,1],[F.B4,.5],[F.C5,.5],[F.D5,1],[F.E5,1],[F.C5,1],[F.A4,1],[F.A4,2],[F.E5,1],[F.B4,.5],[F.C5,.5],[F.D5,1],[F.C5,.5],[F.B4,.5],[F.A4,1],[F.A4,.5],[F.C5,.5],[F.E5,1],[F.D5,.5],[F.C5,.5],[F.B4,1.5],[F.C5,.5],[F.D5,1],[F.E5,1],[F.C5,1],[F.A4,1],[F.A4,2]],
+      bass:[[F.A3,2],[F.E3,2],[F.A3,2],[F.E3,2],[F.A3,2],[F.E3,2],[F.A3,2],[F.E3,2],[F.G3,2],[F.D4,2],[F.G3,2],[F.D4,2],[F.A3,2],[F.E3,2],[F.A3,2],[F.E3,2],[F.F3,2],[F.C4,2],[F.F3,2],[F.C4,2],[F.E3,2],[F.B3,2],[F.E3,2],[F.B3,2],[F.A3,2],[F.E3,2],[F.A3,2],[F.E3,2],[F.A3,2],[F.E3,2],[F.A3,2],[F.E3,2]],
+    },
+    {title:'Megalovania',artist:'Toby Fox / Undertale',color:'#FF4444',bpm:120,
+      melody:[[F.D5,.5],[F.D5,.5],[F.D6,1],[F.A5,.75],[F.Ab5,.5],[F.G5,.5],[F.F5,.5],[F.D5,.5],[F.F5,.5],[F.G5,.5],[F.C5,.5],[F.C5,.5],[F.D6,1],[F.A5,.75],[F.Ab5,.5],[F.G5,.5],[F.F5,.5],[F.D5,.5],[F.F5,.5],[F.G5,.5],[F.B4,.5],[F.B4,.5],[F.D6,1],[F.A5,.75],[F.Ab5,.5],[F.G5,.5],[F.F5,.5],[F.D5,.5],[F.F5,.5],[F.G5,.5],[F.Bb4,.5],[F.Bb4,.5],[F.R,.5],[F.Bb4,.5],[F.B4,.25],[F.C5,1.5],[F.R,.5],[F.D5,.5],[F.D5,.5],[F.D6,1],[F.A5,.75],[F.Ab5,.5],[F.G5,.5],[F.F5,.5],[F.D5,.5],[F.F5,.5],[F.G5,.5],[F.C5,.5],[F.C5,.5],[F.D6,1],[F.A5,.75],[F.Ab5,.5],[F.G5,.5],[F.F5,.5],[F.D5,.5],[F.F5,.5],[F.G5,.5],[F.B4,.5],[F.B4,.5],[F.D6,1],[F.A5,.75],[F.Ab5,.5],[F.G5,.5],[F.F5,.5],[F.D5,.5],[F.F5,.5],[F.G5,.5],[F.Bb4,.5],[F.Bb4,.5],[F.R,.5],[F.Bb4,.5],[F.B4,.25],[F.C5,2]],
+      bass:[[F.D3,.5],[F.D3,.5],[F.D4,1],[F.A3,.75],[F.Ab3,.5],[F.G3,.5],[F.F3,.5],[F.D3,.5],[F.F3,.5],[F.G3,.5],[F.C3,.5],[F.C3,.5],[F.C4,1],[F.G3,.75],[F.Ab3,.5],[F.G3,.5],[F.F3,.5],[F.C3,.5],[F.F3,.5],[F.G3,.5],[F.B3,.5],[F.B3,.5],[F.B3,1],[F.A3,.75],[F.Ab3,.5],[F.G3,.5],[F.F3,.5],[F.D3,.5],[F.F3,.5],[F.G3,.5],[F.Bb3,.5],[F.Bb3,.5],[F.R,.5],[F.Bb3,.5],[F.B3,.25],[F.C4,1.5],[F.R,4]],
+    },
+    {title:'Neon Drive',artist:'FlipKit Original',color:'#FF00FF',bpm:128,
+      melody:[[F.A4,1],[F.A4,.5],[F.B4,.5],[F.C5,1],[F.A4,1],[F.G4,2],[F.E4,2],[F.A4,1],[F.A4,.5],[F.B4,.5],[F.C5,.5],[F.D5,.5],[F.E5,1],[F.A5,2],[F.R,2],[F.E5,1],[F.D5,.5],[F.C5,.5],[F.B4,1],[F.A4,1],[F.G4,2],[F.F4,2],[F.A4,.5],[F.G4,.5],[F.A4,.5],[F.B4,.5],[F.C5,1],[F.D5,1],[F.A4,4],[F.A4,1],[F.A4,.5],[F.B4,.5],[F.C5,1],[F.A4,1],[F.G4,2],[F.E4,2],[F.C5,1],[F.D5,.5],[F.E5,.5],[F.C5,.5],[F.D5,.5],[F.E5,1],[F.A5,2],[F.R,2],[F.G5,1],[F.F5,.5],[F.E5,.5],[F.D5,1],[F.C5,1],[F.B4,2],[F.A4,4]],
+      bass:[[F.A3,1],[F.R,1],[F.A3,1],[F.R,1],[F.G3,1],[F.R,1],[F.E3,1],[F.R,1],[F.A3,1],[F.R,1],[F.A3,1],[F.R,1],[F.A3,1],[F.R,1],[F.A3,1],[F.R,1],[F.E3,1],[F.R,1],[F.D3,1],[F.R,1],[F.C3,1],[F.R,1],[F.F3,1],[F.R,1],[F.A3,1],[F.R,1],[F.A3,3],[F.A3,1],[F.R,1],[F.A3,1],[F.R,1],[F.G3,1],[F.R,1],[F.E3,1],[F.R,1],[F.C3,1],[F.R,1],[F.F3,1],[F.R,1],[F.C4,1],[F.R,1],[F.G3,1],[F.R,1],[F.G3,1],[F.R,1],[F.A3,1],[F.R,1],[F.A3,1],[F.R,1],[F.A3,4]],
+    },
+  ];
+
+  let cur=0,playing=false,actx=null,analyser=null,vizId=null,loopTid=null,startedAt=0,songDur=0;
+
+  /* ── Album art canvas ── */
+  const artCv=document.createElement('canvas');artCv.width=180;artCv.height=130;artCv.style.cssText='display:block;margin:14px auto 0;border-radius:14px;';
+  function drawArt(song,t){
+    const ctx=artCv.getContext('2d');const W=artCv.width,H=artCv.height;
+    ctx.clearRect(0,0,W,H);
+    const grd=ctx.createLinearGradient(0,0,W,H);
+    grd.addColorStop(0,'#0a0a1a');grd.addColorStop(1,'#1a0a2a');
+    ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
+    // animated rings
+    for(let i=0;i<5;i++){
+      const r=20+i*20+Math.sin(t*.04+i)*8;
+      ctx.beginPath();ctx.arc(W/2,H/2,r,0,Math.PI*2);
+      ctx.strokeStyle=song.color+(Math.floor((0.3-i*.05)*255).toString(16).padStart(2,'0'));
+      ctx.lineWidth=2;ctx.stroke();
+    }
+    // waveform if playing
+    if(analyser&&playing){
+      const data=new Uint8Array(analyser.frequencyBinCount);analyser.getByteFrequencyData(data);
+      const bars=16;const bw=W/bars;
+      for(let i=0;i<bars;i++){
+        const h=data[i]/255*H*.6;
+        const alpha=Math.floor((0.5+h/H)*255).toString(16).padStart(2,'0');
+        ctx.fillStyle=song.color+alpha;
+        ctx.fillRect(i*bw+1,H-h,bw-2,h);
+      }
+    } else {
+      // static icon
+      ctx.font='40px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('🎵',W/2,H/2);
+    }
+    // song name overlay
+    ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(0,H-32,W,32);
+    ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(song.title,W/2,H-16);
+  }
+
+  /* ── Info row ── */
+  const infoRow=document.createElement('div');infoRow.style.cssText='text-align:center;padding:8px 12px 0;';
+  function updateInfo(){const s=SONGS[cur];infoRow.innerHTML='<div style="font-size:14px;font-weight:700;color:#fff;">'+s.title+'</div><div style="font-size:11px;color:#888;margin-top:2px;">'+s.artist+'</div>';}
+  updateInfo();
+
+  /* ── Progress bar ── */
+  const progWrap=document.createElement('div');progWrap.style.cssText='padding:10px 16px 4px;';
+  progWrap.innerHTML='<div style="height:3px;background:#222;border-radius:2px;overflow:hidden;"><div id="mu-prog" style="height:100%;background:var(--acc);width:0%;transition:width .5s linear;border-radius:2px;"></div></div><div style="display:flex;justify-content:space-between;font-size:10px;color:#555;margin-top:4px;"><span id="mu-cur">0:00</span><span id="mu-dur">0:00</span></div>';
+
+  /* ── Track list ── */
+  const trackList=document.createElement('div');trackList.style.cssText='padding:0 12px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;';
+  function renderTracks(){
+    trackList.innerHTML='';
+    SONGS.forEach((s,i)=>{
+      const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;background:'+(i===cur?'rgba(255,255,255,.08)':'transparent')+';';
+      row.innerHTML='<div style="width:8px;height:8px;border-radius:50%;background:'+s.color+';flex-shrink:0;"></div><div style="flex:1;"><div style="font-size:12px;font-weight:'+(i===cur?'700':'400')+';color:'+(i===cur?'#fff':'#aaa')+';">'+s.title+'</div><div style="font-size:10px;color:#555;">'+s.artist+'</div></div>'+(i===cur&&playing?'<div style="font-size:14px;color:'+s.color+';">▶</div>':'');
+      row.onclick=()=>{cur=i;stopAudio();startAudio();};
+      trackList.appendChild(row);
+    });
+  }
+
+  /* ── Controls ── */
+  const ctrl=document.createElement('div');ctrl.style.cssText='display:flex;justify-content:center;align-items:center;gap:20px;padding:10px 12px;flex-shrink:0;';
+  const mkBtn=(t,sz)=>{const b=document.createElement('button');b.textContent=t;b.style.cssText='background:none;border:none;color:#fff;font-size:'+(sz||20)+'px;cursor:pointer;padding:6px;line-height:1;';return b;};
+  const prevBtn=mkBtn('⏮',18),playBtn=mkBtn('▶',28),nextBtn=mkBtn('⏭',18);
+  const volWrap=document.createElement('div');volWrap.style.cssText='display:flex;align-items:center;gap:6px;padding:0 16px 10px;flex-shrink:0;';
+  volWrap.innerHTML='<span style="font-size:12px;">🔈</span><input id="mu-vol" type="range" min="0" max="100" value="70" style="flex:1;accent-color:var(--acc);"/><span style="font-size:12px;">🔊</span>';
+  ctrl.appendChild(prevBtn);ctrl.appendChild(playBtn);ctrl.appendChild(nextBtn);
+
+  v.appendChild(artCv);v.appendChild(infoRow);v.appendChild(progWrap);v.appendChild(ctrl);v.appendChild(volWrap);v.appendChild(trackList);
+  renderTracks();
+
+  /* ── Audio engine ── */
+  function getCtx(){
+    if(!actx){
+      actx=new(window.AudioContext||window.webkitAudioContext)();
+      analyser=actx.createAnalyser();analyser.fftSize=64;
+      analyser.connect(actx.destination);
+      mg={actx,stop:stopAudio};
+    }
+    return actx;
+  }
+  function pNote(freq,t0,dur,type,vol){
+    if(!freq)return;
+    const ctx=actx;const osc=ctx.createOscillator();const g=ctx.createGain();
+    osc.connect(g);g.connect(analyser);
+    osc.type=type;osc.frequency.value=freq;
+    g.gain.setValueAtTime(vol,t0);g.gain.setValueAtTime(vol*.7,t0+dur*.6);g.gain.linearRampToValueAtTime(0.001,t0+dur*.95);
+    osc.start(t0);osc.stop(t0+dur);
+  }
+  function pDrum(type,t0){
+    const ctx=actx;
+    if(type==='kick'){
+      const osc=ctx.createOscillator();const g=ctx.createGain();osc.connect(g);g.connect(analyser);
+      osc.frequency.setValueAtTime(180,t0);osc.frequency.exponentialRampToValueAtTime(0.001,t0+.15);
+      g.gain.setValueAtTime(.4,t0);g.gain.exponentialRampToValueAtTime(0.001,t0+.15);
+      osc.start(t0);osc.stop(t0+.15);
+    } else {
+      const buf=ctx.createBuffer(1,Math.floor(ctx.sampleRate*.08),ctx.sampleRate);
+      const data=buf.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*(1-i/data.length);
+      const src=ctx.createBufferSource();const g=ctx.createGain();src.buffer=buf;src.connect(g);g.connect(analyser);
+      g.gain.setValueAtTime(.12,t0);g.gain.exponentialRampToValueAtTime(.001,t0+.07);
+      src.start(t0);
+    }
+  }
+  function scheduleSong(){
+    if(!playing)return;
+    const ctx=getCtx();if(ctx.state==='suspended')ctx.resume();
+    const song=SONGS[cur];const beat=60/song.bpm;const t0=ctx.currentTime+.05;
+    // melody
+    let t=t0;for(const[f,b]of song.melody){pNote(f,t,b*beat*.85,'square',.12);t+=b*beat;}
+    const dur=t-t0;
+    // bass
+    t=t0;for(const[f,b]of song.bass){pNote(f,t,b*beat*.9,'sawtooth',.07);t+=b*beat;}
+    // drums: 8th-note grid aligned to song length
+    const eighths=Math.floor(dur/(beat*.5));
+    for(let i=0;i<eighths;i++){
+      const pos=i%16;const bt=t0+i*beat*.5;
+      if([0,4,8,12].includes(pos))pDrum('kick',bt);
+      if([4,12].includes(pos))pDrum('snare',bt);
+    }
+    songDur=dur;startedAt=ctx.currentTime;
+    loopTid=setTimeout(scheduleSong,dur*1000-150);
+    // volume
+    const volEl=document.getElementById('mu-vol');if(volEl&&analyser){try{const gain=ctx.createGain();gain.gain.value=parseFloat(volEl.value)/100;}catch(e){}}
+  }
+  function startAudio(){
+    playing=true;playBtn.textContent='⏸';
+    scheduleSong();
+    // viz loop
+    let t=0;
+    function frame(){if(!playing)return;t++;
+      drawArt(SONGS[cur],t);
+      const prog=document.getElementById('mu-prog');
+      if(prog&&actx&&songDur){const elapsed=(actx.currentTime-startedAt)%songDur;const pct=elapsed/songDur*100;prog.style.width=pct+'%';const cur2=document.getElementById('mu-cur');if(cur2){const s=Math.floor(elapsed);cur2.textContent=Math.floor(s/60)+':'+(s%60+'').padStart(2,'0');}const durEl=document.getElementById('mu-dur');if(durEl){const s=Math.floor(songDur);durEl.textContent=Math.floor(s/60)+':'+(s%60+'').padStart(2,'0');}}
+      vizId=requestAnimationFrame(frame);
+    }frame();
+    renderTracks();
+  }
+  function stopAudio(){
+    playing=false;playBtn.textContent='▶';clearTimeout(loopTid);loopTid=null;
+    cancelAnimationFrame(vizId);
+    if(actx){try{actx.close();}catch(e){}actx=null;analyser=null;mg=null;}
+    const prog=document.getElementById('mu-prog');if(prog)prog.style.width='0%';
+    updateInfo();drawArt(SONGS[cur],0);renderTracks();
+  }
+  playBtn.onclick=()=>{if(playing)stopAudio();else startAudio();};
+  prevBtn.onclick=()=>{cur=(cur-1+SONGS.length)%SONGS.length;stopAudio();startAudio();};
+  nextBtn.onclick=()=>{cur=(cur+1)%SONGS.length;stopAudio();startAudio();};
+  // initial static art
+  drawArt(SONGS[cur],0);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1363,130 +1540,168 @@ function buildInfo(v,d){
 
 function buildHotspot(v){
   v.appendChild(mkTbar('Hotspot',true));
+  v.style.cssText+='display:flex;flex-direction:column;';
 
   function hsRandMac(){return Array.from({length:6},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0').toUpperCase()).join(':');}
-
-  let hsActive=false,localSubnet=null,hsClients=[],hsIid=null;
+  let hsActive=false,localSubnet=null,hsClients=[],hsIid=null,bwIid=null;
   const apMAC=hsRandMac();
+  const SSID='FlipKit-AP',PASS='flipkit123';
   const CLIENT_POOL=[
     {name:'iPhone 15 Pro',icon:'📱'},{name:'MacBook Air',icon:'💻'},
     {name:'Galaxy S24',icon:'📱'},{name:'LAPTOP-X7K9',icon:'💻'},
     {name:'Pixel 8 Pro',icon:'📱'},{name:'iPad Pro',icon:'📱'},
-    {name:'Surface Pro 9',icon:'💻'},{name:'Galaxy Tab S9',icon:'📱'},
-    {name:'Nintendo Switch',icon:'🎮'},{name:'Echo Dot',icon:'🔊'},
+    {name:'Surface Pro 9',icon:'💻'},{name:'Nintendo Switch',icon:'🎮'},
   ];
 
-  const wrap=document.createElement('div');wrap.style.cssText='display:flex;flex-direction:column;gap:0;flex:1;overflow:hidden;';
+  /* ── TABS ── */
+  const TABS=['Network','Clients','QR Code','Log'];
+  let selTab=0;
+  const tabBar=document.createElement('div');tabBar.style.cssText='display:flex;background:var(--surf);border-bottom:1px solid var(--brd);flex-shrink:0;';
+  const tabPanels=[];
+  TABS.forEach((t,i)=>{
+    const tb=document.createElement('div');tb.textContent=t;tb.style.cssText='flex:1;padding:9px 4px;text-align:center;font-size:10px;font-weight:600;cursor:pointer;color:var(--mut);border-bottom:2px solid transparent;';
+    tb.onclick=()=>{selTab=i;renderTabs();};tabBar.appendChild(tb);
+    const p=document.createElement('div');p.style.cssText='flex:1;overflow-y:auto;display:none;padding:0;';tabPanels.push(p);
+  });
+  function renderTabs(){TABS.forEach((_,i)=>{const tb=tabBar.children[i];tb.style.color=i===selTab?'var(--acc)':'var(--mut)';tb.style.borderBottom=i===selTab?'2px solid var(--acc)':'2px solid transparent';tabPanels.forEach((p,j)=>p.style.display=j===selTab?'flex':'none');tabPanels[selTab].style.flexDirection='column';});}
 
+  /* ── PANEL 0: Network ── */
+  const netPanel=tabPanels[0];
   const card=document.createElement('div');card.className='hs-card';
+  const statsRow=document.createElement('div');statsRow.style.cssText='display:flex;gap:0;border-top:1px solid var(--brd);flex-shrink:0;';
+  ['▲ TX','▼ RX','⏱ Uptime'].forEach((label,i)=>{
+    const el=document.createElement('div');el.style.cssText='flex:1;padding:10px 8px;text-align:center;'+(i<2?'border-right:1px solid var(--brd);':'');
+    el.innerHTML='<div style="font-size:9px;color:var(--mut);margin-bottom:3px;">'+label+'</div><div id="hs-stat-'+i+'" style="font-size:13px;font-weight:700;color:var(--acc);font-family:monospace;">—</div>';
+    statsRow.appendChild(el);
+  });
   function updateCard(){
     const ip=localSubnet?localSubnet+'.1':'10.42.0.1';
-    const dhcp=localSubnet?`${localSubnet}.10–100`:'10.42.0.10–100';
-    card.innerHTML=`
-      <div class="hs-row"><span class="hs-k">Status</span><span class="hs-v ${hsActive?'on':''}">${hsActive?'● ACTIVE':'○ OFF'}</span></div>
-      <div class="hs-row"><span class="hs-k">SSID</span><span class="hs-v">FlipKit-AP</span></div>
-      <div class="hs-row"><span class="hs-k">Password</span><span class="hs-v">flipkit123</span></div>
-      <div class="hs-row"><span class="hs-k">AP IP</span><span class="hs-v">${hsActive?ip:'—'}</span></div>
-      <div class="hs-row"><span class="hs-k">BSSID</span><span class="hs-v">${hsActive?apMAC:'—'}</span></div>
-      <div class="hs-row"><span class="hs-k">Channel</span><span class="hs-v">6  (2.4 GHz)</span></div>
-      <div class="hs-row"><span class="hs-k">DHCP</span><span class="hs-v">${hsActive?dhcp:'—'}</span></div>
-      <div class="hs-row"><span class="hs-k">Clients</span><span class="hs-v warn">${hsClients.length}</span></div>`;
+    const dhcp=localSubnet?localSubnet+'.10–100':'10.42.0.10–100';
+    card.innerHTML='<div class="hs-row"><span class="hs-k">Status</span><span class="hs-v '+(hsActive?'on':'')+'">'+( hsActive?'● ACTIVE':'○ OFF')+'</span></div><div class="hs-row"><span class="hs-k">SSID</span><span class="hs-v">'+SSID+'</span></div><div class="hs-row"><span class="hs-k">Password</span><span class="hs-v">'+PASS+'</span></div><div class="hs-row"><span class="hs-k">AP IP</span><span class="hs-v">'+(hsActive?ip:'—')+'</span></div><div class="hs-row"><span class="hs-k">BSSID</span><span class="hs-v">'+(hsActive?apMAC:'—')+'</span></div><div class="hs-row"><span class="hs-k">Channel</span><span class="hs-v">6  (2.4 GHz)</span></div><div class="hs-row"><span class="hs-k">DHCP</span><span class="hs-v">'+(hsActive?dhcp:'—')+'</span></div><div class="hs-row"><span class="hs-k">Clients</span><span class="hs-v warn">'+hsClients.length+'</span></div>';
   }
   updateCard();
+  const btn=document.createElement('div');btn.className='hs-toggle off';btn.style.cssText='margin:8px 10px;flex-shrink:0;';btn.textContent='▶  START HOTSPOT';
+  netPanel.appendChild(btn);netPanel.appendChild(card);netPanel.appendChild(statsRow);
 
-  const log=document.createElement('div');
-  log.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;background:#050b14;border-top:1px solid var(--brd);padding:6px 8px;max-height:110px;overflow-y:auto;scrollbar-width:none;display:none;flex-shrink:0;';
-  function addLine(t,c){
-    const ln=document.createElement('div');ln.style.cssText=`color:${c||'#6af'};line-height:1.6;`;ln.textContent=t;
-    log.appendChild(ln);if(log.children.length>60)log.removeChild(log.firstChild);log.scrollTop=log.scrollHeight;
-  }
-
-  const clientSec=document.createElement('div');
-  clientSec.style.cssText='border-top:1px solid var(--brd);flex-shrink:0;display:none;';
-  const clientHdr=document.createElement('div');
-  clientHdr.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;color:var(--mut);padding:4px 10px;letter-spacing:.5px;';
-  clientHdr.textContent='CONNECTED CLIENTS';
-  const clientList=document.createElement('div');clientList.style.cssText='max-height:80px;overflow-y:auto;scrollbar-width:none;';
-  clientSec.appendChild(clientHdr);clientSec.appendChild(clientList);
+  /* ── PANEL 1: Clients ── */
+  const clientPanel=tabPanels[1];
+  const clientList=document.createElement('div');clientList.style.cssText='padding:10px 12px;display:flex;flex-direction:column;gap:8px;';
+  const noClients=document.createElement('div');noClients.style.cssText='text-align:center;color:var(--mut);font-size:12px;padding:40px 20px;';noClients.textContent='No clients connected yet.\nStart the hotspot first.';
+  clientPanel.appendChild(clientList);
   function renderClients(){
     clientList.innerHTML='';
-    hsClients.forEach(c=>{
-      const el=document.createElement('div');
-      el.style.cssText='display:flex;align-items:center;gap:7px;padding:4px 10px;border-bottom:1px solid var(--brd);font-family:\'Courier New\',monospace;font-size:10px;';
-      el.innerHTML=`<span style="font-size:14px;">${c.icon}</span><span style="flex:1;color:var(--txt);">${c.name}</span><span style="color:var(--acc);">${c.ip}</span><span style="color:var(--mut);margin-left:6px;">${c.mac}</span>`;
-      clientList.appendChild(el);
+    if(!hsClients.length){clientList.appendChild(noClients);return;}
+    hsClients.forEach((c,idx)=>{
+      const row=document.createElement('div');row.style.cssText='background:var(--elev);border-radius:10px;padding:10px 12px;';
+      row.innerHTML='<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:20px;">'+c.icon+'</span><div style="flex:1;"><div style="font-size:12px;font-weight:600;color:var(--txt);">'+c.name+'</div><div style="font-size:10px;color:var(--mut);font-family:monospace;">'+c.ip+' · '+c.mac+'</div></div><button style="background:var(--dan);color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:10px;cursor:pointer;">Kick</button></div><div style="margin-top:6px;display:flex;gap:12px;"><div style="font-size:10px;color:var(--mut);">▲ <span id="tx-'+idx+'" style="color:var(--acc);">0</span> KB/s</div><div style="font-size:10px;color:var(--mut);">▼ <span id="rx-'+idx+'" style="color:var(--blu);">0</span> KB/s</div><div style="font-size:10px;color:var(--mut);">Ping: <span id="ping-'+idx+'" style="color:#34c759;">—</span> ms</div></div>';
+      row.querySelector('button').onclick=()=>{
+        addLine('[DISASSOC] '+c.mac+'  '+c.name+' (kicked)','#ff4444');
+        hsClients.splice(idx,1);updateCard();renderClients();
+      };
+      clientList.appendChild(row);
     });
-    clientSec.style.display=hsClients.length?'block':'none';
   }
+  renderClients();
 
-  const btn=document.createElement('div');btn.className='hs-toggle off';btn.textContent='▶  START HOTSPOT';
-  btn.style.cssText+='margin:8px 10px;';
+  /* ── PANEL 2: QR Code ── */
+  const qrPanel=tabPanels[2];qrPanel.style.cssText='align-items:center;padding:16px 12px;gap:12px;';
+  const qrTitle=document.createElement('div');qrTitle.style.cssText='font-size:11px;color:var(--mut);text-align:center;';qrTitle.textContent='Scan to join WiFi';
+  const qrCv=document.createElement('canvas');qrCv.width=180;qrCv.height=180;qrCv.style.cssText='border-radius:12px;background:#fff;padding:8px;';
+  function drawQR(cv,ssid,pw){
+    const ctx=cv.getContext('2d');const W=cv.width;const MODS=25;const M=W/MODS;
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,W,W);
+    function dot(c,r,fg){ctx.fillStyle=fg||'#111';ctx.fillRect(c*M+.5,r*M+.5,M-.5,M-.5);}
+    function finder(oc,or){for(let i=0;i<7;i++){dot(oc+i,or);dot(oc+i,or+6);dot(oc,or+i);dot(oc+6,or+i);}ctx.fillStyle='#fff';ctx.fillRect((oc+1)*M,(or+1)*M,M*5,M*5);for(let r=2;r<=4;r++)for(let c=2;c<=4;c++)dot(oc+c,or+r);}
+    finder(0,0);finder(MODS-7,0);finder(0,MODS-7);
+    // timing
+    for(let i=8;i<MODS-8;i++){if(i%2===0){dot(i,6);dot(6,i);}}
+    // format dark module
+    dot(8,MODS-8);
+    // data fill (seeded by credentials)
+    let h=0;for(const ch of ssid+pw)h=Math.imul(h,31)+ch.charCodeAt(0)|0;
+    function rng(){h=Math.imul(h,1664525)+1013904223|0;return(h>>>0)/4294967295;}
+    function excl(c,r){if(c<=7&&r<=7)return true;if(c>=MODS-7&&r<=7)return true;if(c<=7&&r>=MODS-7)return true;if(c===6||r===6)return true;if(c===8&&r>=MODS-8)return true;return false;}
+    for(let r=0;r<MODS;r++)for(let c=0;c<MODS;c++){if(!excl(c,r)&&rng()>0.45)dot(c,r);}
+  }
+  const qrInfo=document.createElement('div');qrInfo.style.cssText='background:var(--elev);border-radius:10px;padding:12px 16px;width:100%;';
+  qrInfo.innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:11px;color:var(--mut);">Network</span><span style="font-size:12px;font-weight:700;color:var(--txt);">'+SSID+'</span></div><div style="display:flex;justify-content:space-between;"><span style="font-size:11px;color:var(--mut);">Password</span><span style="font-size:12px;font-weight:700;color:var(--txt);font-family:monospace;">'+PASS+'</span></div>';
+  const qrHint=document.createElement('div');qrHint.style.cssText='font-size:10px;color:var(--mut);text-align:center;';qrHint.textContent='Point your camera at the code · WPA2';
+  qrPanel.appendChild(qrTitle);qrPanel.appendChild(qrCv);qrPanel.appendChild(qrInfo);qrPanel.appendChild(qrHint);
+  drawQR(qrCv,SSID,PASS);
 
+  /* ── PANEL 3: Log ── */
+  const logPanel=tabPanels[3];logPanel.style.cssText='padding:0;';
+  const log=document.createElement('div');log.style.cssText='flex:1;font-family:monospace;font-size:9.5px;background:#050b14;padding:8px 10px;overflow-y:auto;color:#6af;min-height:200px;';
+  logPanel.appendChild(log);
+  function addLine(t,c){const ln=document.createElement('div');ln.style.cssText='color:'+(c||'#6af')+';line-height:1.7;';ln.textContent=t;log.appendChild(ln);if(log.children.length>80)log.removeChild(log.firstChild);log.scrollTop=log.scrollHeight;}
+
+  /* ── START/STOP ── */
   btn.onclick=async()=>{
-    hsActive=!hsActive;
-    hotspotOn=hsActive;
+    hsActive=!hsActive;hotspotOn=hsActive;
     if(hsActive){
       btn.className='hs-toggle act';btn.textContent='⏳  STARTING…';
-      log.style.display='block';
+      selTab=3;renderTabs();
       addLine('[INIT] Bringing up wlan0 as AP…');
-
-      // WebRTC ICE — real local subnet detection, works in sandboxed iframes
       try{
-        const pc=new RTCPeerConnection({iceServers:[]});
-        pc.createDataChannel('x');
-        const offer=await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await new Promise(resolve=>{
-          pc.onicecandidate=e=>{
-            if(!e||!e.candidate){resolve();return;}
-            const m=e.candidate.candidate.match(/(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d+/);
-            if(m&&!localSubnet&&!e.candidate.candidate.includes('::'))localSubnet=m[1];
-          };
-          setTimeout(resolve,1600);
-        });
+        const pc=new RTCPeerConnection({iceServers:[]});pc.createDataChannel('x');
+        const offer=await pc.createOffer();await pc.setLocalDescription(offer);
+        await new Promise(res=>{pc.onicecandidate=e=>{if(!e||!e.candidate){res();return;}const m=e.candidate.candidate.match(/(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d+/);if(m&&!localSubnet&&!e.candidate.candidate.includes('::'))localSubnet=m[1];};setTimeout(res,1500);});
         pc.close();
       }catch(e){}
-
-      if(localSubnet){
-        addLine(`[NET] Upstream iface: eth0  Gateway: ${localSubnet}.1`,'#6af');
-        addLine(`[NET] Detected local subnet: ${localSubnet}.0/24`,'#6af');
-      }
       const apIP=localSubnet?localSubnet+'.1':'10.42.0.1';
       const dhcpBase=localSubnet||'10.42.0';
-      addLine(`[HOSTAPD] wlan0  ssid=FlipKit-AP  ch=6  bssid=${apMAC}`);
-      addLine(`[HOSTAPD] AP mode: 802.11n  2.4GHz  20MHz`);
+      if(localSubnet)addLine('[NET] Detected subnet: '+localSubnet+'.0/24','#6af');
+      addLine('[HOSTAPD] wlan0  ssid='+SSID+'  ch=6  bssid='+apMAC);
+      addLine('[HOSTAPD] 802.11n  2.4GHz  20MHz  WPA2-PSK');
       addLine('[HOSTAPD] AP ready ✓','#1FCC7C');
-      addLine(`[DNSMASQ] AP IP: ${apIP}  DHCP: ${dhcpBase}.10–100  lease=1h`);
+      addLine('[DNSMASQ] AP IP: '+apIP+'  DHCP: '+dhcpBase+'.10–100  lease=1h');
       updateCard();btn.className='hs-toggle act';btn.textContent='■  STOP HOTSPOT';
-
-      // Simulate clients connecting over time
-      const pool=[...CLIENT_POOL].sort(()=>Math.random()-0.5);
-      let ci=0;
+      // simulate clients
+      const pool=[...CLIENT_POOL].sort(()=>Math.random()-0.5);let ci=0;
       hsIid=setInterval(()=>{
-        if(!hsActive||ci>=3)return;
-        if(Math.random()<0.45){
-          const c={...pool[ci],mac:hsRandMac(),ip:`${dhcpBase}.${10+ci}`};
+        if(!hsActive||ci>=4)return;
+        if(Math.random()<0.4){
+          const c={...pool[ci],mac:hsRandMac(),ip:dhcpBase+'.'+(10+ci),txKBs:0,rxKBs:0};
           hsClients.push(c);ci++;
-          addLine(`[ASSOC] Station ${c.mac} associated  "${c.name}"`,'#FFD700');
-          addLine(`[DHCP] ACK ${c.mac} → ${c.ip}  (${c.name})`);
+          addLine('[ASSOC] Station '+c.mac+' associated  "'+c.name+'"','#FFD700');
+          addLine('[DHCP] ACK '+c.mac+' → '+c.ip+'  ('+c.name+')');
           updateCard();renderClients();
         }
-      },2800);
+      },3000);
+      // bandwidth simulation
+      let upTotal=0,downTotal=0,uptime=0;
+      bwIid=setInterval(()=>{
+        if(!hsActive)return;
+        uptime++;const m=Math.floor(uptime/60),s=uptime%60;
+        const ts=document.getElementById('hs-stat-2');if(ts)ts.textContent=(m?m+'m ':'')+s+'s';
+        if(hsClients.length){
+          const txKBs=(2+Math.random()*30).toFixed(1);const rxKBs=(5+Math.random()*80).toFixed(1);
+          upTotal+=parseFloat(txKBs)/1024;downTotal+=parseFloat(rxKBs)/1024;
+          const tx=document.getElementById('hs-stat-0');if(tx)tx.textContent=txKBs+' KB/s';
+          const rx=document.getElementById('hs-stat-1');if(rx)rx.textContent=rxKBs+' KB/s';
+          hsClients.forEach((_,i)=>{
+            const te=document.getElementById('tx-'+i);const re=document.getElementById('rx-'+i);const pe=document.getElementById('ping-'+i);
+            if(te)te.textContent=(1+Math.random()*12).toFixed(1);
+            if(re)re.textContent=(3+Math.random()*40).toFixed(1);
+            if(pe)pe.textContent=Math.floor(4+Math.random()*18);
+          });
+          addLine('[TRAFFIC] ▲'+txKBs+'KB/s ▼'+rxKBs+'KB/s  total: ▲'+(upTotal).toFixed(2)+'MB ▼'+(downTotal).toFixed(2)+'MB','#334');
+        }
+      },1000);
     }else{
-      clearInterval(hsIid);hsIid=null;
+      clearInterval(hsIid);clearInterval(bwIid);hsIid=null;bwIid=null;
       btn.className='hs-toggle off';btn.textContent='▶  START HOTSPOT';
-      addLine('[HOSTAPD] Shutting down AP…');
-      addLine('[DNSMASQ] Releasing leases');
-      hsClients.forEach(c=>addLine(`[DISASSOC] ${c.mac}  ${c.name}`));
-      hsClients=[];
-      addLine('[HOSTAPD] wlan0 → managed mode');
+      addLine('[HOSTAPD] Shutting down…');
+      hsClients.forEach(c=>addLine('[DISASSOC] '+c.mac+'  '+c.name));
+      hsClients=[];['hs-stat-0','hs-stat-1','hs-stat-2'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});
       updateCard();renderClients();
     }
   };
 
-  wrap.appendChild(btn);wrap.appendChild(card);wrap.appendChild(log);wrap.appendChild(clientSec);
-  v.appendChild(wrap);
-  v.remove=((orig)=>()=>{clearInterval(hsIid);orig();})(v.remove.bind(v));
+  const outer=document.createElement('div');outer.style.cssText='display:flex;flex-direction:column;flex:1;overflow:hidden;';
+  outer.appendChild(tabBar);tabPanels.forEach(p=>outer.appendChild(p));
+  v.appendChild(outer);renderTabs();
+  v.remove=((orig)=>()=>{clearInterval(hsIid);clearInterval(bwIid);orig();})(v.remove.bind(v));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -11552,7 +11767,7 @@ function pushItem(it){
   }
   if(it.gameKey&&!it.hasDiff){stack.push({type:it.gameKey,diff:1});render();return;}
   const gameTypes=['snake','tetris','pong-ai','pong-2p','chess-ai','chess-2p','flappy','hotspot','info','breakout','g2048','ttt','simon','mines','hangman','invaders','c4','mole','memory','asteroids','frogger','galaga','centipede','lunar','sokoban','lightsout','reversi','battleship','numguess','reaction','blackjack','slide','tron','wordle','mathflash','platform','life','rps','colormatch','darts','checkers','typing','mastermind','hanoi','nim','bubble','slot','bowling','mancala','sudoku','pacman','cardodge','fruitcatch','match3','missile','pinball','gravflip','poker','pipe','maze','numchain','runner','spaceshoot','yahtzee','war','hexgrid','craps','pixelart','gravball','wordsearch','colorflood','fusion','brickx','jumpjack','dodge','trivia','snakex','pong3','gridrush','blockstack','flappyx','virus','beattap','anagram','chainreact','astminer','tankbattle','spelling','magicsq','orbit','laser','sprintdigits','floodesc','zombierun','iceslide','crystalcave','numtap','gravpong','emojimem','taprace','codebreak','gemswap','spinwheel','numpyramid','neonsnake','tileshift','starfield','wordladder','dropzone','brickbreakplus','reactionmatch','snakemaze'];
-  const uiTypes=['hotspot','blespam','custompopup','blelure','rfid','ir','subghz-scan','subghz-replay','subghz-transmit','subghz-captures','badusb-run','badusb-scripts','bt-keyboard','bt-usb','bt-audio','bn-peers','bn-chat','bn-inbox','bn-info','bn-ping','bn-share','settings','cats','firewall'];
+  const uiTypes=['hotspot','blespam','custompopup','blelure','rfid','ir','subghz-scan','subghz-replay','subghz-transmit','subghz-captures','badusb-run','badusb-scripts','bt-keyboard','bt-usb','bt-audio','bn-peers','bn-chat','bn-inbox','bn-info','bn-ping','bn-share','settings','cats','firewall','music'];
   if(it.type&&(gameTypes.includes(it.type)||uiTypes.includes(it.type)))stack.push({...it});
   else if(it.menu)stack.push({...it.menu,_sel:0});
   else stack.push({type:'info',ico:it.icon||'⚙️',title:it.label,body:'Requires physical hardware on the Pi.',badge:'Hardware only'});
