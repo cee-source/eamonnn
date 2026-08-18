@@ -763,7 +763,7 @@ function killAll(){
   if(cg){if(cg.kdown)document.removeEventListener('keydown',cg.kdown);cg=null;}
   if(xg){if(xg.raf)cancelAnimationFrame(xg.raf);if(xg.iid)clearInterval(xg.iid);if(xg._tid)clearInterval(xg._tid);if(xg.kdown)document.removeEventListener('keydown',xg.kdown);if(xg.kup)document.removeEventListener('keyup',xg.kup);xg=null;}
   if(dg){document.removeEventListener('keydown',dg);dg=null;}
-  if(mg){try{mg.actx.close();}catch(e){}mg=null;}
+  if(mg){try{mg.actx&&mg.actx.close();}catch(e){}if(mg.kdown)document.removeEventListener('keydown',mg.kdown);mg=null;}
 }
 /* Shared canvas setup for new games */
 function mkCv(v,title){
@@ -938,57 +938,83 @@ function buildMusic(v,d){
     {title:'Anti-Hero',artist:'Taylor Swift',ytId:'b1kbLwvqugk',color:'#FF2D55'},
   ];
 
-  let curIdx=0;
-  let filtered=TRACKS.slice();
+  let curIdx=0,paused=false,isSearch=false;
 
-  /* ── Search bar ── */
-  const searchRow=document.createElement('div');searchRow.style.cssText='padding:10px 12px 6px;flex-shrink:0;display:flex;gap:8px;align-items:center;';
-  const inp=document.createElement('input');inp.placeholder='Search songs, artists…';inp.style.cssText='flex:1;background:#1c1c2e;border:none;border-radius:20px;padding:9px 14px;color:#fff;font-size:13px;outline:none;';
-  const ytBtn=document.createElement('button');ytBtn.textContent='YT ↗';ytBtn.style.cssText='background:#FF0000;color:#fff;border:none;border-radius:20px;padding:9px 12px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;';
-  ytBtn.title='Open search in YouTube Music';
-  ytBtn.onclick=()=>{const q=inp.value.trim()||TRACKS[curIdx].title+' '+TRACKS[curIdx].artist;window.open('https://music.youtube.com/search?q='+encodeURIComponent(q),'_blank');};
-  searchRow.appendChild(inp);searchRow.appendChild(ytBtn);
-
-  /* ── Paste URL row ── */
-  const urlRow=document.createElement('div');urlRow.style.cssText='padding:0 12px 8px;flex-shrink:0;display:flex;gap:8px;';
-  const urlInp=document.createElement('input');urlInp.placeholder='Paste YouTube URL to play…';urlInp.style.cssText='flex:1;background:#1c1c2e;border:none;border-radius:20px;padding:7px 14px;color:#fff;font-size:11px;outline:none;';
-  const playUrlBtn=document.createElement('button');playUrlBtn.textContent='▶';playUrlBtn.style.cssText='background:#FF2D55;color:#fff;border:none;border-radius:50%;width:30px;height:30px;font-size:13px;cursor:pointer;flex-shrink:0;';
-  playUrlBtn.onclick=()=>{
-    const url=urlInp.value.trim();
-    const m=url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
-    if(m)loadById(m[1],'Custom','From URL');
-  };
-  urlRow.appendChild(urlInp);urlRow.appendChild(playUrlBtn);
-
-  /* ── YouTube embed player ── */
-  const playerWrap=document.createElement('div');playerWrap.style.cssText='padding:0 12px 8px;flex-shrink:0;';
+  /* ── YouTube iframe ── */
+  const playerWrap=document.createElement('div');playerWrap.style.cssText='padding:10px 12px 4px;flex-shrink:0;';
   const frame=document.createElement('iframe');
-  frame.width='100%';frame.height='155';frame.style.cssText='border-radius:12px;border:none;display:block;background:#111;';
+  frame.width='100%';frame.height='158';
+  frame.style.cssText='border-radius:12px;border:none;display:block;background:#111;';
   frame.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';
-  frame.allowFullscreen=true;
+  frame.setAttribute('allowfullscreen','');
   playerWrap.appendChild(frame);
 
-  /* ── Now playing ── */
-  const nowPlaying=document.createElement('div');nowPlaying.style.cssText='padding:4px 12px 8px;flex-shrink:0;display:flex;align-items:center;gap:8px;';
-  nowPlaying.innerHTML='<div id="mu-dot" style="width:8px;height:8px;border-radius:50%;background:#FF2D55;flex-shrink:0;"></div><div style="flex:1;"><div id="mu-title" style="font-size:12px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div><div id="mu-artist" style="font-size:10px;color:#666;"></div></div><button id="mu-yt2" style="background:none;border:none;color:#666;font-size:11px;cursor:pointer;padding:4px;">YT ↗</button>';
-  document.addEventListener('click',e=>{if(e.target&&e.target.id==='mu-yt2'){const t=TRACKS[curIdx];window.open('https://music.youtube.com/search?q='+encodeURIComponent(t.title+' '+t.artist),'_blank');}},{once:false});
+  function ytCmd(fn){try{frame.contentWindow.postMessage(JSON.stringify({event:'command',func:fn,args:[]}),'*');}catch(e){}}
 
-  function setNowPlaying(title,artist,color){
-    const el=document.getElementById('mu-title');if(el)el.textContent=title;
-    const al=document.getElementById('mu-artist');if(al)al.textContent=artist;
-    const dot=document.getElementById('mu-dot');if(dot)dot.style.background=color||'#FF2D55';
-  }
+  /* ── Controls bar ── */
+  const ctrlRow=document.createElement('div');ctrlRow.style.cssText='display:flex;align-items:center;gap:10px;padding:4px 12px 6px;flex-shrink:0;';
+  const mkB=(t,s,w)=>{const b=document.createElement('button');b.textContent=t;b.style.cssText='background:'+(s||'none')+';border:none;color:#fff;font-size:'+(w||16)+'px;cursor:pointer;padding:4px;line-height:1;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex-shrink:0;';return b;};
+  const prevB=mkB('⏮','#1c1c2e',14),ppB=mkB('⏸','#FF2D55',16),nextB=mkB('⏭','#1c1c2e',14);
+  const nowTitle=document.createElement('div');nowTitle.style.cssText='flex:1;font-size:11px;font-weight:600;color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';nowTitle.textContent='Now playing…';
+  ctrlRow.appendChild(prevB);ctrlRow.appendChild(ppB);ctrlRow.appendChild(nextB);ctrlRow.appendChild(nowTitle);
 
-  function loadById(ytId,title,artist,color){
-    frame.src='https://www.youtube.com/embed/'+ytId+'?autoplay=1&rel=0&modestbranding=1';
-    setNowPlaying(title,artist,color);
-  }
-  function loadTrack(i){
-    curIdx=i;
-    const t=TRACKS[i];
-    loadById(t.ytId,t.title,t.artist,t.color);
+  function setPlaying(title,color){nowTitle.textContent=title||'';ppB.style.background=color||'#FF2D55';paused=false;ppB.textContent='⏸';}
+
+  ppB.onclick=()=>{
+    paused=!paused;
+    ytCmd(paused?'pauseVideo':'playVideo');
+    ppB.textContent=paused?'▶':'⏸';
+  };
+  prevB.onclick=()=>{curIdx=(curIdx-1+TRACKS.length)%TRACKS.length;loadTrack(curIdx);};
+  nextB.onclick=()=>{curIdx=(curIdx+1)%TRACKS.length;loadTrack(curIdx);};
+
+  /* ── Space bar play/pause ── */
+  const kdown=e=>{
+    if(document.activeElement&&(document.activeElement.tagName==='INPUT'||document.activeElement.tagName==='TEXTAREA'))return;
+    if(e.key===' '||e.code==='Space'){e.preventDefault();ppB.click();}
+  };
+  document.addEventListener('keydown',kdown);
+  mg={actx:null,kdown};
+
+  /* ── Search bar ── */
+  const searchRow=document.createElement('div');searchRow.style.cssText='padding:4px 12px 6px;flex-shrink:0;display:flex;gap:7px;align-items:center;';
+  const inp=document.createElement('input');inp.placeholder='Search any song or artist…';inp.style.cssText='flex:1;background:#1c1c2e;border:none;border-radius:20px;padding:8px 14px;color:#fff;font-size:12px;outline:none;';
+  const srchB=document.createElement('button');srchB.textContent='Search';srchB.style.cssText='background:#FF2D55;color:#fff;border:none;border-radius:20px;padding:8px 12px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;';
+  searchRow.appendChild(inp);searchRow.appendChild(srchB);
+
+  function doSearch(q){
+    if(!q.trim())return;
+    // Use YouTube search embed — plays results inside the iframe
+    frame.src='https://www.youtube.com/embed?listType=search&list='+encodeURIComponent(q)+'&autoplay=1&rel=0&enablejsapi=1';
+    isSearch=true;
+    setPlaying('Search: '+q,'#FF0000');
     renderList();
   }
+
+  srchB.onclick=()=>doSearch(inp.value.trim());
+  inp.onkeydown=e=>{
+    if(e.key===' ')e.stopPropagation();  // don't let space bubble to play/pause while typing
+    if(e.key==='Enter'){
+      const q=inp.value.trim();
+      if(q)doSearch(q);
+    }
+  };
+  inp.oninput=()=>{
+    isSearch=false;
+    renderList();
+  };
+
+  /* ── Paste URL row ── */
+  const urlRow=document.createElement('div');urlRow.style.cssText='padding:0 12px 6px;flex-shrink:0;display:flex;gap:7px;';
+  const urlInp=document.createElement('input');urlInp.placeholder='Paste any YouTube URL…';urlInp.style.cssText='flex:1;background:#1c1c2e;border:none;border-radius:20px;padding:7px 14px;color:#fff;font-size:11px;outline:none;';
+  const urlPlayB=document.createElement('button');urlPlayB.textContent='▶ Play';urlPlayB.style.cssText='background:#1c1c2e;color:#FF2D55;border:1px solid #FF2D55;border-radius:20px;padding:7px 12px;font-size:11px;cursor:pointer;flex-shrink:0;';
+  urlPlayB.onclick=()=>{
+    const url=urlInp.value.trim();
+    const m=url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
+    if(m){frame.src='https://www.youtube.com/embed/'+m[1]+'?autoplay=1&rel=0&enablejsapi=1';setPlaying('Custom URL','#2DA8FF');isSearch=false;}
+  };
+  urlInp.onkeydown=e=>{if(e.key===' ')e.stopPropagation();if(e.key==='Enter')urlPlayB.click();};
+  urlRow.appendChild(urlInp);urlRow.appendChild(urlPlayB);
 
   /* ── Track list ── */
   const listWrap=document.createElement('div');listWrap.style.cssText='flex:1;overflow-y:auto;padding:0 12px 8px;display:flex;flex-direction:column;gap:5px;';
@@ -996,29 +1022,31 @@ function buildMusic(v,d){
   function renderList(){
     listWrap.innerHTML='';
     const q=inp.value.trim().toLowerCase();
-    filtered=q?TRACKS.filter(t=>t.title.toLowerCase().includes(q)||t.artist.toLowerCase().includes(q)):TRACKS.slice();
-    if(!filtered.length){const e=document.createElement('div');e.style.cssText='text-align:center;color:#444;font-size:12px;padding:30px 0;';e.textContent='No results — try YouTube ↗';listWrap.appendChild(e);return;}
-    filtered.forEach((t,i)=>{
-      const isActive=t===TRACKS[curIdx];
-      const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;background:'+(isActive?'rgba(255,45,85,.15)':'rgba(255,255,255,.03)')+';border:1px solid '+(isActive?t.color+'55':'transparent')+';transition:background .15s;';
-      row.innerHTML='<div style="width:32px;height:32px;border-radius:8px;background:'+t.color+'22;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🎵</div><div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:'+(isActive?'700':'400')+';color:'+(isActive?t.color:'#ddd')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+t.title+'</div><div style="font-size:10px;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+t.artist+'</div></div>'+(isActive?'<div style="font-size:18px;color:'+t.color+';">▶</div>':'<div style="font-size:10px;color:#333;">'+(TRACKS.indexOf(t)+1)+'</div>');
+    const show=q?TRACKS.filter(t=>t.title.toLowerCase().includes(q)||t.artist.toLowerCase().includes(q)):TRACKS;
+    show.forEach(t=>{
+      const isActive=!isSearch&&t===TRACKS[curIdx];
+      const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;background:'+(isActive?'rgba(255,45,85,.15)':'rgba(255,255,255,.03)')+';border:1px solid '+(isActive?t.color+'55':'transparent')+';';
+      row.innerHTML='<div style="width:30px;height:30px;border-radius:8px;background:'+t.color+'22;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">🎵</div><div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:'+(isActive?'700':'400')+';color:'+(isActive?t.color:'#ddd')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+t.title+'</div><div style="font-size:10px;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+t.artist+'</div></div>'+(isActive?'<div style="font-size:16px;color:'+t.color+';">▶</div>':'');
       row.onclick=()=>loadTrack(TRACKS.indexOf(t));
       listWrap.appendChild(row);
     });
-    // "Search on YouTube Music" row
-    if(q){
-      const ytRow=document.createElement('div');ytRow.style.cssText='display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;cursor:pointer;border:1px dashed #333;margin-top:4px;';
-      ytRow.innerHTML='<div style="font-size:18px;">🔴</div><div style="flex:1;"><div style="font-size:12px;color:#aaa;">Search "<b style="color:#fff;">'+q+'</b>" on YouTube Music</div></div><div style="font-size:12px;color:#FF2D55;">↗</div>';
-      ytRow.onclick=()=>window.open('https://music.youtube.com/search?q='+encodeURIComponent(q),'_blank');
-      listWrap.appendChild(ytRow);
+    if(q&&!isSearch){
+      const srRow=document.createElement('div');srRow.style.cssText='display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;cursor:pointer;border:1px dashed #333;margin-top:2px;';
+      srRow.innerHTML='<div style="font-size:16px;">🔍</div><div style="flex:1;font-size:12px;color:#aaa;">Play all "<b style="color:#fff;">'+q.replace(/</g,'&lt;')+'</b>" from YouTube</div><div style="font-size:12px;color:#FF2D55;">↗</div>';
+      srRow.onclick=()=>{inp.value=q;doSearch(q);};
+      listWrap.appendChild(srRow);
     }
   }
 
-  inp.oninput=()=>renderList();
-  inp.onkeydown=e=>{if(e.key==='Enter'){const q=inp.value.trim();if(filtered.length)loadTrack(TRACKS.indexOf(filtered[0]));else if(q)window.open('https://music.youtube.com/search?q='+encodeURIComponent(q),'_blank');}};
+  function loadTrack(i){
+    curIdx=i;isSearch=false;
+    const t=TRACKS[i];
+    frame.src='https://www.youtube.com/embed/'+t.ytId+'?autoplay=1&rel=0&enablejsapi=1';
+    setPlaying(t.title,t.color);
+    renderList();
+  }
 
-  v.appendChild(searchRow);v.appendChild(playerWrap);v.appendChild(nowPlaying);v.appendChild(urlRow);v.appendChild(listWrap);
-
+  v.appendChild(playerWrap);v.appendChild(ctrlRow);v.appendChild(searchRow);v.appendChild(urlRow);v.appendChild(listWrap);
   renderList();
   loadTrack(0);
 }
