@@ -918,302 +918,118 @@ function render(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   MUSIC PLAYER — Web Audio API synthesizer (30 songs)
+   MUSIC PLAYER — YouTube IFrame API (31 songs)
+   Works on GitHub Pages: https://cee-source.github.io/eamonnn/demo.html
 ═══════════════════════════════════════════════════════════ */
 function buildMusic(v,d){
   v.appendChild(mkTbar('Music',true));
   v.style.cssText+='display:flex;flex-direction:column;background:#0a0a0f;';
 
-  const N={R:0,
-    B2:123,C3:131,Cs3:139,D3:147,Ds3:156,E3:165,F3:175,Fs3:185,G3:196,Gs3:208,A3:220,As3:233,B3:247,
-    C4:262,Cs4:277,D4:294,Ds4:311,E4:330,F4:349,Fs4:370,G4:392,Gs4:415,A4:440,As4:466,B4:494,
-    C5:523,Cs5:554,D5:587,Ds5:622,E5:659,F5:698,Fs5:740,G5:784,Gs5:831,A5:880,As5:932,B5:988,
-  };
-
   const TRACKS=[
-    {title:'Never Gonna Give You Up',artist:'Rick Astley',color:'#FF2D55',bpm:113,notes:[
-      [N.A4,.5],[N.B4,.5],[N.D5,.5],[N.B4,.5],[N.Fs5,1.5],[N.R,.25],[N.Fs5,1.5],[N.E5,2],
-      [N.A4,.5],[N.B4,.5],[N.D5,.5],[N.B4,.5],[N.E5,1.5],[N.R,.25],[N.E5,1.5],[N.Cs5,1],[N.B4,1],
-      [N.A4,.5],[N.B4,.5],[N.D5,.5],[N.B4,.5],[N.D5,1],[N.E5,.5],[N.Cs5,.5],[N.B4,.5],[N.A4,1.5],
-      [N.A4,1],[N.E5,1],[N.D5,2],[N.R,1],
-    ]},
-    {title:'Super Mario Bros Theme',artist:'Nintendo',color:'#E04000',bpm:200,notes:[
-      [N.E5,.5],[N.E5,.5],[N.R,.5],[N.E5,.5],[N.R,.5],[N.C5,.5],[N.E5,1],
-      [N.G5,1],[N.R,1],[N.G4,1],[N.R,1],
-      [N.C5,1.5],[N.G4,.5],[N.R,1],[N.E4,1.5],
-      [N.A4,1],[N.B4,1],[N.As4,.5],[N.A4,.5],
-      [N.G4,.67],[N.E5,.67],[N.G5,.67],[N.A5,1],[N.F5,.5],[N.G5,.5],
-      [N.R,.5],[N.E5,1],[N.C5,.5],[N.D5,.5],[N.B4,1.5],
-    ]},
-    {title:'Tetris Theme (Korobeiniki)',artist:'Traditional',color:'#FFD700',bpm:160,notes:[
-      [N.E5,1],[N.B4,.5],[N.C5,.5],[N.D5,1],[N.C5,.5],[N.B4,.5],
-      [N.A4,1],[N.A4,.5],[N.C5,.5],[N.E5,1],[N.D5,.5],[N.C5,.5],
-      [N.B4,1.5],[N.C5,.5],[N.D5,1],[N.E5,1],
-      [N.C5,1],[N.A4,1],[N.A4,2],
-      [N.R,.5],[N.D5,1],[N.F5,.5],[N.A5,1],[N.G5,.5],[N.F5,.5],
-      [N.E5,1.5],[N.C5,.5],[N.E5,1],[N.D5,.5],[N.C5,.5],
-      [N.B4,1.5],[N.C5,.5],[N.D5,1],[N.E5,1],
-      [N.C5,1],[N.A4,1],[N.A4,2],
-    ]},
-    {title:'Megalovania',artist:'Undertale (Toby Fox)',color:'#34C759',bpm:200,notes:[
-      [N.D4,.5],[N.D4,.5],[N.D5,1],[N.A4,.75],[N.R,.25],[N.As4,.5],[N.A4,.5],[N.R,.5],[N.F4,.5],[N.D4,.5],[N.F4,.25],[N.A4,.25],
-      [N.C4,.5],[N.C4,.5],[N.D5,1],[N.A4,.75],[N.R,.25],[N.As4,.5],[N.A4,.5],[N.R,.5],[N.F4,.5],[N.D4,.5],[N.F4,.25],[N.A4,.25],
-      [N.B3,.5],[N.B3,.5],[N.D5,1],[N.A4,.75],[N.R,.25],[N.As4,.5],[N.A4,.5],[N.R,.5],[N.F4,.5],[N.D4,.5],[N.F4,.25],[N.A4,.25],
-      [N.As3,.5],[N.As3,.5],[N.D5,1],[N.A4,.75],[N.R,.25],[N.As4,.5],[N.A4,.5],[N.R,.5],[N.F4,.5],[N.D4,.5],[N.F4,.25],[N.A4,.25],
-    ]},
-    {title:'Seven Nation Army',artist:'The White Stripes',color:'#FF6B81',bpm:124,notes:[
-      [N.E4,1.5],[N.E4,.5],[N.G4,1],[N.E4,1],[N.R,.5],[N.D4,1],[N.C4,2],[N.B3,3],[N.R,1],
-      [N.E4,1.5],[N.E4,.5],[N.G4,1],[N.E4,1],[N.R,.5],[N.D4,.5],[N.C4,.5],[N.D4,1],[N.E4,3],[N.R,1],
-    ]},
-    {title:'Smoke on the Water',artist:'Deep Purple',color:'#5E5CE6',bpm:112,notes:[
-      [N.G3,1],[N.As3,1],[N.C4,1.5],[N.R,.5],[N.G3,1],[N.As3,1],[N.Cs4,.5],[N.C4,2],
-      [N.G3,1],[N.As3,1],[N.C4,1.5],[N.As3,.5],[N.G3,2],[N.R,2],
-    ]},
-    {title:'Take On Me',artist:'A-ha',color:'#2DA8FF',bpm:169,notes:[
-      [N.Fs5,.5],[N.Fs5,.5],[N.D5,.5],[N.B4,1],[N.R,.5],[N.B4,.5],[N.E5,.5],
-      [N.R,.5],[N.E5,.5],[N.E5,.5],[N.Gs5,.5],[N.Gs5,.5],[N.A5,.5],[N.B5,1],
-      [N.A5,.5],[N.A5,.5],[N.A5,.5],[N.E5,.5],[N.R,.5],[N.D5,.5],[N.D5,.5],
-      [N.D5,.5],[N.Fs5,.5],[N.R,.5],[N.Fs5,.5],[N.Fs5,.5],[N.E5,.5],[N.E5,1.5],
-    ]},
-    {title:'Eye of the Tiger',artist:'Survivor',color:'#FF9500',bpm:108,notes:[
-      [N.R,.5],[N.C5,.25],[N.C5,.25],[N.C5,.25],[N.As4,.25],[N.C5,.5],[N.R,.25],[N.As4,.25],[N.G4,1],[N.R,.5],
-      [N.R,.5],[N.C5,.25],[N.C5,.25],[N.C5,.25],[N.As4,.25],[N.C5,.5],[N.R,.25],[N.As4,.25],[N.G4,2],
-      [N.G4,.5],[N.G4,.5],[N.As4,.5],[N.G4,.5],[N.F4,1],[N.G4,1],
-      [N.G4,.5],[N.G4,.5],[N.As4,.5],[N.G4,.5],[N.Ds4,1],[N.G4,1],
-    ]},
-    {title:'Africa',artist:'Toto',color:'#9966CC',bpm:93,notes:[
-      [N.Cs5,1],[N.B4,.5],[N.Cs5,.5],[N.R,.5],[N.Fs5,.5],[N.E5,1],[N.Cs5,.5],[N.Fs5,.5],
-      [N.Cs5,.5],[N.B4,.5],[N.Cs5,.5],[N.A4,1.5],[N.R,1],
-      [N.Cs5,1],[N.B4,.5],[N.Cs5,.5],[N.R,.5],[N.Fs5,.5],[N.E5,1],[N.Cs5,.5],[N.Fs5,.5],
-      [N.E5,.5],[N.D5,.5],[N.Cs5,1],[N.R,2],
-    ]},
-    {title:'Bohemian Rhapsody',artist:'Queen',color:'#FFD93D',bpm:72,notes:[
-      [N.B4,.5],[N.B4,.5],[N.B4,.5],[N.B4,.25],[N.As4,.25],[N.B4,.5],[N.R,.5],
-      [N.Gs4,.5],[N.Gs4,.5],[N.As4,.5],[N.As4,.5],[N.Gs4,.5],[N.R,.5],[N.F4,.5],
-      [N.D4,1],[N.E4,.5],[N.F4,.5],[N.E4,.5],[N.F4,.5],[N.Gs4,.5],[N.F4,.5],[N.As4,1],[N.R,.5],
-      [N.Ds4,.5],[N.F4,.5],[N.Gs4,.5],[N.As4,.5],[N.Gs4,.5],[N.F4,.5],[N.Gs4,1.5],[N.R,.5],
-    ]},
-    {title:'Billie Jean',artist:'Michael Jackson',color:'#00CC77',bpm:117,notes:[
-      [N.Fs4,.5],[N.R,.5],[N.Fs4,.5],[N.Fs4,.5],[N.R,.5],[N.Fs4,.5],[N.Fs4,.5],[N.R,.5],
-      [N.E4,.5],[N.R,.5],[N.E4,.5],[N.E4,.5],[N.R,.5],[N.E4,.5],[N.E4,.5],[N.R,.5],
-      [N.Fs4,.5],[N.R,.5],[N.Fs4,.5],[N.Gs4,.5],[N.Fs4,.5],[N.E4,1],[N.R,1],
-      [N.Cs4,1],[N.D4,1],[N.R,2],
-    ]},
-    {title:'Under Pressure',artist:'Queen & David Bowie',color:'#FF6B35',bpm:116,notes:[
-      [N.D5,.5],[N.D5,.5],[N.D5,.5],[N.As4,.5],[N.C5,.5],[N.D5,.5],[N.C5,.5],[N.As4,.5],
-      [N.D5,.5],[N.D5,.5],[N.D5,.5],[N.As4,.5],[N.C5,.5],[N.D5,.5],[N.C5,.5],[N.As4,.5],
-      [N.C5,1],[N.As4,1],[N.G4,1],[N.R,1],
-      [N.F4,.5],[N.G4,.5],[N.As4,1],[N.C5,.5],[N.As4,.5],[N.G4,1],[N.R,1],
-    ]},
-    {title:'Thunderstruck',artist:'AC/DC',color:'#FFD700',bpm:133,notes:[
-      [N.E5,.25],[N.Fs5,.25],[N.E5,.25],[N.Fs5,.25],[N.E5,.25],[N.Fs5,.25],[N.E5,.25],[N.Fs5,.25],
-      [N.B4,.25],[N.Cs5,.25],[N.B4,.25],[N.Cs5,.25],[N.B4,.25],[N.Cs5,.25],[N.B4,.25],[N.Cs5,.25],
-      [N.A4,.5],[N.B4,.5],[N.Cs5,.5],[N.B4,.5],[N.A4,.5],[N.B4,.5],[N.A4,.5],[N.R,.5],
-      [N.A4,.5],[N.A4,.5],[N.A4,.5],[N.A4,.5],[N.B4,.5],[N.A4,.5],[N.G4,.5],[N.A4,.5],
-    ]},
-    {title:'We Will Rock You',artist:'Queen',color:'#CC3300',bpm:82,notes:[
-      [N.R,.5],[N.R,.5],[N.E4,1],[N.R,.5],[N.R,.5],[N.E4,1],
-      [N.E4,.5],[N.G4,.5],[N.E4,1],[N.A4,.5],[N.E4,.5],[N.R,1],
-      [N.R,.5],[N.R,.5],[N.E4,1],[N.R,.5],[N.R,.5],[N.E4,1],
-      [N.E4,.5],[N.G4,.5],[N.E4,1],[N.A4,.5],[N.E4,.5],[N.R,1],
-    ]},
-    {title:'Fur Elise',artist:'Beethoven',color:'#C5A028',bpm:120,notes:[
-      [N.E5,.5],[N.Ds5,.5],[N.E5,.5],[N.Ds5,.5],[N.E5,.5],[N.B4,.5],[N.D5,.5],[N.C5,.5],
-      [N.A4,1.5],[N.R,.5],[N.C4,.5],[N.E4,.5],[N.A4,.5],
-      [N.B4,1.5],[N.R,.5],[N.E4,.5],[N.Gs4,.5],[N.B4,.5],
-      [N.C5,1.5],[N.R,.5],[N.E4,.5],[N.E5,.5],[N.Ds5,.5],
-      [N.E5,.5],[N.Ds5,.5],[N.E5,.5],[N.B4,.5],[N.D5,.5],[N.C5,.5],
-      [N.A4,1.5],[N.R,.5],[N.C4,.5],[N.E4,.5],[N.A4,.5],
-      [N.B4,1.5],[N.R,.5],[N.E4,.5],[N.C5,.5],[N.B4,.5],
-      [N.A4,3],[N.R,1],
-    ]},
-    {title:'Ode to Joy',artist:'Beethoven',color:'#1C6EA4',bpm:108,notes:[
-      [N.E4,1],[N.E4,1],[N.F4,1],[N.G4,1],[N.G4,1],[N.F4,1],[N.E4,1],[N.D4,1],
-      [N.C4,1],[N.C4,1],[N.D4,1],[N.E4,1],[N.E4,1.5],[N.D4,.5],[N.D4,2],
-      [N.E4,1],[N.E4,1],[N.F4,1],[N.G4,1],[N.G4,1],[N.F4,1],[N.E4,1],[N.D4,1],
-      [N.C4,1],[N.C4,1],[N.D4,1],[N.E4,1],[N.D4,1.5],[N.C4,.5],[N.C4,2],
-    ]},
-    {title:'Smells Like Teen Spirit',artist:'Nirvana',color:'#7B7B9A',bpm:117,notes:[
-      [N.F4,.5],[N.F4,.5],[N.F4,.5],[N.F4,.5],[N.F4,.5],[N.F4,.5],[N.F4,1],
-      [N.As4,.5],[N.As4,.5],[N.As4,.5],[N.As4,.5],[N.As4,.5],[N.As4,.5],[N.As4,1],
-      [N.Gs4,.5],[N.Gs4,.5],[N.Gs4,.5],[N.Gs4,.5],[N.Gs4,.5],[N.Gs4,.5],[N.Gs4,1],
-      [N.Ds4,.5],[N.Ds4,.5],[N.Ds4,.5],[N.Ds4,.5],[N.Ds4,.5],[N.Ds4,.5],[N.Ds4,1],
-    ]},
-    {title:'Wonderwall',artist:'Oasis',color:'#FF6B00',bpm:87,notes:[
-      [N.B4,.5],[N.D5,.5],[N.A4,.5],[N.D5,.5],[N.E5,.5],[N.D5,.5],[N.Cs5,.5],[N.B4,.5],
-      [N.B4,.5],[N.D5,.5],[N.A4,.5],[N.D5,.5],[N.E5,1],[N.Cs5,.5],[N.B4,.5],
-      [N.B4,.5],[N.D5,.5],[N.A4,.5],[N.D5,.5],[N.E5,.5],[N.D5,.5],[N.Cs5,.5],[N.B4,.5],
-      [N.G4,.5],[N.A4,.5],[N.B4,2],[N.R,1],
-    ]},
-    {title:"Don't Stop Believin'",artist:'Journey',color:'#FF6600',bpm:96,notes:[
-      [N.G4,.5],[N.A4,.5],[N.B4,.5],[N.A4,.5],[N.G4,.5],[N.E4,.5],[N.D4,.5],[N.E4,.5],
-      [N.G4,.5],[N.A4,.5],[N.B4,.5],[N.A4,.5],[N.G4,.5],[N.E4,.5],[N.D4,1.5],
-      [N.G4,.5],[N.A4,.5],[N.B4,.5],[N.A4,.5],[N.G4,.5],[N.E4,.5],[N.D4,.5],[N.E4,.5],
-      [N.G4,.5],[N.A4,.5],[N.B4,.5],[N.A4,.5],[N.G4,.5],[N.B4,.5],[N.E5,1.5],
-    ]},
-    {title:'Mr. Brightside',artist:'The Killers',color:'#E8A000',bpm:148,notes:[
-      [N.B4,.5],[N.B4,.5],[N.A4,.5],[N.B4,.5],[N.Fs4,1],[N.R,.5],[N.Fs4,.5],
-      [N.B4,.5],[N.B4,.5],[N.A4,.5],[N.B4,.5],[N.E4,1.5],[N.R,.5],
-      [N.B4,.5],[N.B4,.5],[N.A4,.5],[N.B4,.5],[N.Fs4,1],[N.R,.5],[N.Fs4,.5],
-      [N.B4,.5],[N.D5,.5],[N.Cs5,.5],[N.B4,.5],[N.A4,2],
-    ]},
-    {title:'Zelda — Main Theme',artist:'Nintendo',color:'#00CC44',bpm:120,notes:[
-      [N.A4,.5],[N.R,.25],[N.A4,.25],[N.A4,.5],[N.R,.5],[N.A4,.5],[N.R,.25],[N.A4,.25],[N.A4,.5],[N.R,.5],
-      [N.A4,.5],[N.C5,.5],[N.F4,.5],[N.A4,.5],[N.G4,1],[N.F4,.5],[N.E4,.5],
-      [N.G4,.5],[N.A4,.5],[N.Ds5,.5],[N.D5,1],[N.R,.5],[N.C5,.5],
-      [N.A4,.5],[N.C5,.5],[N.F4,.5],[N.A4,.5],[N.B4,2],[N.R,1],
-    ]},
-    {title:'Final Fantasy Prelude',artist:'Nobuo Uematsu',color:'#9966CC',bpm:150,notes:[
-      [N.C4,.5],[N.E4,.5],[N.G4,.5],[N.C5,.5],[N.E5,.5],[N.G4,.5],[N.E5,.5],[N.C5,.5],
-      [N.D4,.5],[N.F4,.5],[N.A4,.5],[N.D5,.5],[N.F5,.5],[N.A4,.5],[N.F5,.5],[N.D5,.5],
-      [N.B3,.5],[N.D4,.5],[N.G4,.5],[N.B4,.5],[N.D5,.5],[N.G4,.5],[N.D5,.5],[N.B4,.5],
-      [N.C4,.5],[N.E4,.5],[N.G4,.5],[N.C5,.5],[N.E5,.5],[N.G4,.5],[N.E5,.5],[N.C5,.5],
-    ]},
-    {title:'Turkish March',artist:'Mozart',color:'#C0392B',bpm:160,notes:[
-      [N.A4,.5],[N.Gs4,.25],[N.A4,.25],[N.R,.25],[N.A4,.25],[N.C5,.25],[N.R,.25],[N.A4,.25],[N.C5,.5],
-      [N.E5,.5],[N.D5,.25],[N.E5,.25],[N.R,.25],[N.E5,.25],[N.F5,.5],[N.E5,.5],[N.D5,.5],
-      [N.C5,.5],[N.B4,.25],[N.C5,.25],[N.R,.25],[N.C5,.25],[N.E5,.25],[N.R,.25],[N.C5,.25],[N.E5,.5],
-      [N.A5,1.5],[N.R,.5],[N.A4,.5],[N.R,.5],[N.Gs4,.5],[N.R,.5],
-    ]},
-    {title:'Sadness and Sorrow',artist:'Naruto OST',color:'#FF9966',bpm:70,notes:[
-      [N.A4,1],[N.G4,.5],[N.A4,.5],[N.E5,2],[N.R,1],
-      [N.D5,1],[N.C5,.5],[N.D5,.5],[N.A4,2],[N.R,1],
-      [N.A4,.5],[N.B4,.5],[N.C5,.5],[N.B4,.5],[N.A4,.5],[N.G4,.5],[N.A4,1],[N.R,1],
-      [N.E4,1],[N.Fs4,1],[N.G4,2],[N.R,1],
-    ]},
-    {title:'Gurenge',artist:'LiSA (Demon Slayer)',color:'#FF3344',bpm:150,notes:[
-      [N.A5,.5],[N.G5,.5],[N.E5,.5],[N.D5,.5],[N.E5,.5],[N.G5,.5],[N.A5,1],[N.R,.5],
-      [N.A5,.5],[N.G5,.5],[N.E5,.5],[N.D5,.5],[N.E5,.5],[N.G5,.5],[N.A5,1],[N.R,.5],
-      [N.G5,.5],[N.A5,.5],[N.B5,.5],[N.A5,.5],[N.G5,.5],[N.E5,.5],[N.G5,1],[N.R,.5],
-      [N.A5,.5],[N.G5,.5],[N.E5,.5],[N.D5,.5],[N.C5,2],[N.R,1],
-    ]},
-    {title:'All Star',artist:'Smash Mouth',color:'#FFCC00',bpm:104,notes:[
-      [N.G4,.5],[N.A4,.5],[N.B4,.5],[N.C5,.5],[N.D5,1],[N.D5,.5],[N.D5,.5],
-      [N.E5,.5],[N.D5,.5],[N.D5,.5],[N.C5,.5],[N.D5,1],[N.D5,.5],[N.D5,.5],
-      [N.E5,.5],[N.D5,.5],[N.D5,.5],[N.C5,.5],[N.D5,.5],[N.C5,.5],[N.B4,.5],[N.R,.5],
-      [N.G4,1],[N.A4,1],[N.G4,2],
-    ]},
-    {title:'Uptown Funk',artist:'Bruno Mars',color:'#FF4400',bpm:115,notes:[
-      [N.G4,.5],[N.As4,.5],[N.C5,.5],[N.As4,.5],[N.G4,.5],[N.R,.5],[N.G4,.5],[N.R,.5],
-      [N.G4,.5],[N.As4,.5],[N.C5,.5],[N.As4,.5],[N.G4,.5],[N.R,.5],[N.As4,.5],[N.R,.5],
-      [N.G4,.5],[N.As4,.5],[N.C5,.5],[N.As4,.5],[N.G4,.5],[N.As4,.5],[N.C5,.5],[N.Ds5,.5],
-      [N.D5,1],[N.R,3],
-    ]},
-    {title:'Anti-Hero',artist:'Taylor Swift',color:'#FF6699',bpm:97,notes:[
-      [N.G4,.5],[N.A4,.5],[N.B4,.5],[N.A4,.5],[N.G4,1],[N.R,.5],[N.G4,.5],
-      [N.G4,.5],[N.A4,.5],[N.B4,.5],[N.A4,.5],[N.B4,1],[N.R,.5],[N.B4,.5],
-      [N.C5,.5],[N.B4,.5],[N.A4,.5],[N.G4,.5],[N.A4,1],[N.R,.5],[N.G4,.5],
-      [N.G4,.5],[N.A4,.5],[N.G4,.5],[N.E4,.5],[N.D4,2],[N.R,1],
-    ]},
-    {title:'Levitating',artist:'Dua Lipa',color:'#CC99FF',bpm:103,notes:[
-      [N.B4,.5],[N.Cs5,.5],[N.Ds5,.5],[N.Fs5,.5],[N.Ds5,.5],[N.Cs5,.5],[N.B4,1],[N.R,.5],
-      [N.B4,.5],[N.Cs5,.5],[N.Ds5,.5],[N.Fs5,.5],[N.Ds5,.5],[N.Cs5,.5],[N.B4,1],[N.R,.5],
-      [N.Gs4,.5],[N.As4,.5],[N.B4,.5],[N.Ds5,.5],[N.Cs5,.5],[N.B4,.5],[N.Gs4,1],[N.R,.5],
-      [N.B4,.5],[N.As4,.5],[N.Gs4,.5],[N.Fs4,.5],[N.Gs4,2],[N.R,1],
-    ]},
-    {title:"Livin' on a Prayer",artist:'Bon Jovi',color:'#CC4400',bpm:122,notes:[
-      [N.E4,.5],[N.R,.5],[N.E4,.25],[N.E4,.25],[N.E4,.5],[N.G4,.5],[N.A4,.5],[N.R,.5],
-      [N.A4,.5],[N.R,.5],[N.A4,.25],[N.A4,.25],[N.A4,.5],[N.C5,.5],[N.D5,.5],[N.R,.5],
-      [N.E4,.5],[N.R,.5],[N.E4,.25],[N.E4,.25],[N.E4,.5],[N.G4,.5],[N.A4,.5],[N.G4,.5],
-      [N.A4,1],[N.C5,.5],[N.D5,.5],[N.E5,2],[N.R,1],
-    ]},
-    {title:'Piano Man',artist:'Billy Joel',color:'#336699',bpm:90,notes:[
-      [N.C5,1],[N.B4,.5],[N.C5,.5],[N.G4,1],[N.E4,1],
-      [N.E4,.5],[N.R,.5],[N.F4,.5],[N.E4,.5],[N.D4,.5],[N.R,.5],
-      [N.G4,.5],[N.F4,.5],[N.E4,.5],[N.F4,.5],[N.G4,.5],[N.R,.5],[N.G4,.5],[N.R,.5],
-      [N.C4,.5],[N.C4,.5],[N.D4,.5],[N.E4,.5],[N.C4,2],
-    ]},
+    {title:'Never Gonna Give You Up',artist:'Rick Astley',color:'#FF2D55',vid:'dQw4w9WgXcQ'},
+    {title:'Super Mario Bros Theme',artist:'Nintendo',color:'#E04000',vid:'NmCgdhccovU'},
+    {title:'Tetris Theme',artist:'Traditional',color:'#FFD700',vid:'xbOgD6-d_PQ'},
+    {title:'Megalovania',artist:'Undertale (Toby Fox)',color:'#34C759',vid:'psuRGfAaju4'},
+    {title:'Seven Nation Army',artist:'The White Stripes',color:'#FF6B81',vid:'0J2QdDbelmY'},
+    {title:'Smoke on the Water',artist:'Deep Purple',color:'#5E5CE6',vid:'zUwEIt9ez7M'},
+    {title:'Take On Me',artist:'A-ha',color:'#2DA8FF',vid:'djV11Xbc914'},
+    {title:'Eye of the Tiger',artist:'Survivor',color:'#FF9500',vid:'btPJPFnesV4'},
+    {title:'Africa',artist:'Toto',color:'#9966CC',vid:'FTQbiNvZqaY'},
+    {title:'Bohemian Rhapsody',artist:'Queen',color:'#FFD93D',vid:'fJ9rUzIMcZQ'},
+    {title:'Billie Jean',artist:'Michael Jackson',color:'#00CC77',vid:'Zi_XLOBDo_Y'},
+    {title:'Under Pressure',artist:'Queen & David Bowie',color:'#FF6B35',vid:'a01QQZyl-_I'},
+    {title:'Thunderstruck',artist:'AC/DC',color:'#FFD700',vid:'v2AC41dglnM'},
+    {title:'We Will Rock You',artist:'Queen',color:'#CC3300',vid:'gj0Rz-uP4Mk'},
+    {title:'Für Elise',artist:'Beethoven',color:'#C5A028',vid:'_mVW8tgGY_w'},
+    {title:'Ode to Joy',artist:'Beethoven',color:'#1C6EA4',vid:'t3217H8NnI8'},
+    {title:'Smells Like Teen Spirit',artist:'Nirvana',color:'#7B7B9A',vid:'hTWKbfoikeg'},
+    {title:'Wonderwall',artist:'Oasis',color:'#FF6B00',vid:'bx1Bh8ZvH84'},
+    {title:"Don't Stop Believin'",artist:'Journey',color:'#FF6600',vid:'VcjzHMhBtf0'},
+    {title:'Mr. Brightside',artist:'The Killers',color:'#E8A000',vid:'gGdGFtwCNBE'},
+    {title:'Zelda — Main Theme',artist:'Nintendo',color:'#00CC44',vid:'DmDwLf2Bk4Y'},
+    {title:'Final Fantasy Prelude',artist:'Nobuo Uematsu',color:'#9966CC',vid:'HYFOiLJmKwg'},
+    {title:'Turkish March',artist:'Mozart',color:'#C0392B',vid:'9_7oeVZ_yts'},
+    {title:'Sadness and Sorrow',artist:'Naruto OST',color:'#FF9966',vid:'THMD58Lp0aw'},
+    {title:'Gurenge',artist:'LiSA (Demon Slayer)',color:'#FF3344',vid:'6qKsA1oB4ps'},
+    {title:'All Star',artist:'Smash Mouth',color:'#FFCC00',vid:'L_jWHffIx5E'},
+    {title:'Uptown Funk',artist:'Bruno Mars',color:'#FF4400',vid:'OPf0YbXqDm0'},
+    {title:'Anti-Hero',artist:'Taylor Swift',color:'#FF6699',vid:'b1kbLwvqugk'},
+    {title:'Levitating',artist:'Dua Lipa',color:'#CC99FF',vid:'IXWAqoprJpA'},
+    {title:"Livin' on a Prayer",artist:'Bon Jovi',color:'#CC4400',vid:'lDK9QqIzhwk'},
+    {title:'Piano Man',artist:'Billy Joel',color:'#336699',vid:'gxEPV4kolz0'},
   ];
 
-  let curIdx=0,playing=false,actx=null,analyser=null,iid=null,notePtr=0,nxt=0,vizRAF=null,loopN=0;
-  mg={actx:null,kdown:null,stop:null};
+  let curIdx=0,player=null,playerReady=false;
+  const ytId='yt-'+Math.random().toString(36).slice(2);
+  mg={actx:null,kdown:null,stop:()=>{try{if(player)player.stopVideo();}catch(e){}}};
 
-  function ctx(){
-    if(!actx||actx.state==='closed'){
-      actx=new(window.AudioContext||window.webkitAudioContext)();
-      analyser=actx.createAnalyser();analyser.fftSize=128;analyser.connect(actx.destination);
-      mg.actx=actx;
-    }
-    if(actx.state==='suspended')actx.resume();
-  }
+  const ytDiv=document.createElement('div');
+  ytDiv.id=ytId;
+  ytDiv.style.cssText='width:0;height:0;overflow:hidden;flex-shrink:0;';
+  v.appendChild(ytDiv);
 
-  function note(freq,t0,dur){
-    if(!freq||!actx||actx.state==='closed')return;
-    const o=actx.createOscillator(),g=actx.createGain();
-    o.type='square';o.frequency.value=freq;
-    o.connect(g);g.connect(analyser);
-    g.gain.setValueAtTime(0,t0);
-    g.gain.linearRampToValueAtTime(0.13,t0+0.01);
-    g.gain.exponentialRampToValueAtTime(0.001,t0+Math.max(dur*0.85,0.05));
-    o.start(t0);o.stop(t0+dur+0.05);
-  }
-
-  function sched(){
-    if(!playing||!actx||actx.state==='closed')return;
-    const t=TRACKS[curIdx],spb=60/t.bpm;
-    while(nxt<actx.currentTime+0.15){
-      const[f,b]=t.notes[notePtr];
-      note(f,nxt,b*spb*0.88);
-      nxt+=b*spb;
-      notePtr++;
-      if(notePtr>=t.notes.length){
-        notePtr=0;loopN++;
-        if(loopN>=2){loopN=0;playing=false;setTimeout(()=>{if(!playing)loadTrack((curIdx+1)%TRACKS.length);},300);return;}
+  function createPlayer(vid){
+    player=new YT.Player(ytId,{
+      width:1,height:1,videoId:vid,
+      playerVars:{autoplay:1,controls:0,playsinline:1},
+      events:{
+        onReady:(e)=>{e.target.playVideo();},
+        onStateChange:(e)=>{
+          if(e.data===YT.PlayerState.ENDED){
+            setTimeout(()=>loadTrack((curIdx+1)%TRACKS.length),300);
+          }
+          try{ppB.textContent=(e.data===YT.PlayerState.PLAYING)?'⏸':'▶';}catch(_){}
+          renderList();
+        }
       }
-    }
-  }
-
-  /* ── Visualizer ── */
-  const cv=document.createElement('canvas');cv.style.cssText='width:100%;height:48px;display:block;flex-shrink:0;';cv.width=280;cv.height=48;
-  const cx2=cv.getContext('2d');
-
-  function viz(){
-    if(!playing){cx2.clearRect(0,0,cv.width,cv.height);return;}
-    vizRAF=requestAnimationFrame(viz);
-    const buf=new Uint8Array(analyser?analyser.frequencyBinCount:64);
-    if(analyser)analyser.getByteFrequencyData(buf);
-    cx2.clearRect(0,0,cv.width,cv.height);
-    const bw=cv.width/buf.length,col=TRACKS[curIdx].color;
-    buf.forEach((val,i)=>{
-      const h=(val/255)*cv.height;
-      cx2.fillStyle=i%2?col+'88':col+'cc';
-      cx2.fillRect(i*bw,cv.height-h,Math.max(bw-1,1),h);
     });
   }
 
-  function stopPlay(){
-    playing=false;
-    if(iid){clearInterval(iid);iid=null;}
-    cancelAnimationFrame(vizRAF);vizRAF=null;
-    cx2.clearRect(0,0,cv.width,cv.height);
-    ppB.textContent='▶';renderList();
+  function doLoad(vid){
+    if(!playerReady)return;
+    try{if(!player)createPlayer(vid);else player.loadVideoById(vid);}catch(e){}
   }
 
-  function startPlay(){
-    ctx();notePtr=0;nxt=actx.currentTime+0.05;loopN=0;
-    playing=true;ppB.textContent='⏸';
-    if(iid)clearInterval(iid);
-    iid=setInterval(sched,50);sched();
-    cancelAnimationFrame(vizRAF);viz();renderList();
+  function loadYTAPI(){
+    if(window.YT&&window.YT.Player){playerReady=true;return;}
+    const prev=window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady=()=>{
+      if(prev)prev();
+      playerReady=true;
+      doLoad(TRACKS[curIdx].vid);
+    };
+    if(!document.querySelector('script[src*="iframe_api"]')){
+      const s=document.createElement('script');
+      s.src='https://www.youtube.com/iframe_api';
+      document.head.appendChild(s);
+    }
   }
 
   function loadTrack(i){
-    stopPlay();curIdx=i;
+    curIdx=i;
     const t=TRACKS[i];
     nowTxt.textContent=t.title+' · '+t.artist;
     ppB.style.background=t.color;
-    startPlay();renderList();
+    doLoad(t.vid);
+    renderList();
   }
 
   /* ── Controls ── */
-  const ctrl=document.createElement('div');ctrl.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 12px 4px;flex-shrink:0;';
+  const ctrl=document.createElement('div');ctrl.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 12px 6px;flex-shrink:0;';
   const mkB=(t,bg)=>{const b=document.createElement('button');b.textContent=t;b.style.cssText='background:'+(bg||'#1c1c2e')+';border:none;color:#fff;font-size:14px;cursor:pointer;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex-shrink:0;';return b;};
   const prevB=mkB('⏮'),ppB=mkB('▶','#FF2D55'),nextB=mkB('⏭');
   const nowTxt=document.createElement('div');nowTxt.style.cssText='flex:1;font-size:11px;font-weight:600;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;';
-  nowTxt.textContent='Select a track';
+  nowTxt.textContent='Loading player…';
   ctrl.append(prevB,ppB,nextB,nowTxt);
 
-  ppB.onclick=()=>{playing?stopPlay():startPlay();};
+  ppB.onclick=()=>{
+    try{
+      if(!player)return;
+      const st=player.getPlayerState();
+      if(st===YT.PlayerState.PLAYING)player.pauseVideo();
+      else player.playVideo();
+    }catch(e){}
+  };
   prevB.onclick=()=>loadTrack((curIdx-1+TRACKS.length)%TRACKS.length);
   nextB.onclick=()=>loadTrack((curIdx+1)%TRACKS.length);
 
@@ -1225,11 +1041,10 @@ function buildMusic(v,d){
   };
   document.addEventListener('keydown',kdown);
   mg.kdown=kdown;
-  mg.stop=stopPlay;
 
   /* ── Search ── */
-  const sr=document.createElement('div');sr.style.cssText='padding:4px 12px 4px;flex-shrink:0;';
-  const inp=document.createElement('input');inp.placeholder='Search 30 songs…';
+  const sr=document.createElement('div');sr.style.cssText='padding:4px 12px;flex-shrink:0;';
+  const inp=document.createElement('input');inp.placeholder='Search 31 songs…';
   inp.style.cssText='width:100%;box-sizing:border-box;background:#1c1c2e;border:none;border-radius:20px;padding:7px 14px;color:#fff;font-size:12px;outline:none;';
   inp.oninput=renderList;inp.onkeydown=e=>{if(e.key===' ')e.stopPropagation();};
   sr.appendChild(inp);
@@ -1242,7 +1057,9 @@ function buildMusic(v,d){
     const q=inp.value.trim().toLowerCase();
     const show=q?TRACKS.filter(t=>t.title.toLowerCase().includes(q)||t.artist.toLowerCase().includes(q)):TRACKS;
     show.forEach(t=>{
-      const i=TRACKS.indexOf(t),act=i===curIdx&&playing;
+      const i=TRACKS.indexOf(t);
+      let act=false;
+      try{act=(i===curIdx)&&player&&player.getPlayerState()===YT.PlayerState.PLAYING;}catch(e){}
       const row=document.createElement('div');
       row.style.cssText='display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:9px;cursor:pointer;background:'+(act?t.color+'11':'rgba(255,255,255,.015)')+';border:1px solid '+(act?t.color+'55':'transparent')+';';
       row.innerHTML='<div style="width:28px;height:28px;border-radius:6px;background:'+t.color+'22;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">'+(act?'<div style="width:9px;height:9px;border-radius:50%;background:'+t.color+';animation:spin .9s linear infinite;"></div>':'🎵')+'</div>'
@@ -1254,9 +1071,15 @@ function buildMusic(v,d){
     });
   }
 
-  v.append(cv,ctrl,sr,lw);
+  v.append(ctrl,sr,lw);
   renderList();
-  loadTrack(0);
+  loadYTAPI();
+  if(window.YT&&window.YT.Player){playerReady=true;loadTrack(0);}
+  else{
+    const t=TRACKS[0];
+    nowTxt.textContent=t.title+' · '+t.artist;
+    ppB.style.background=t.color;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
