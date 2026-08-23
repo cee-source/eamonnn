@@ -2041,7 +2041,18 @@ function buildRfid(v){
       const el=document.createElement('div');
       const isSel=selCard===i;
       el.style.cssText=`display:flex;align-items:center;gap:7px;padding:5px 10px;border-bottom:1px solid var(--brd);cursor:pointer;background:${isSel?'rgba(155,89,182,.12)':'transparent'};`;
-      el.innerHTML=`<span style="font-size:14px">${c.icon}</span><span style="font-family:'Courier New',monospace;font-size:10px;flex:1;color:var(--txt)">${c.customLabel||c.label}</span><span style="font-family:'Courier New',monospace;font-size:9px;color:var(--mut)">${c.uid}</span>${c.photo?'<span style="font-size:10px">📷</span>':''}`;
+      el.innerHTML=`<span style="font-size:14px">${c.icon}</span><span style="font-family:'Courier New',monospace;font-size:10px;flex:1;color:var(--txt)">${c.customLabel||c.label}</span><span style="font-family:'Courier New',monospace;font-size:9px;color:var(--mut);margin-right:4px">${c.uid}</span>${c.photo?'<span style="font-size:10px;margin-right:4px">📷</span>':''}`;
+      const delBtn=document.createElement('div');
+      delBtn.style.cssText='width:20px;height:20px;border-radius:50%;background:rgba(255,71,87,.15);border:1px solid rgba(255,71,87,.35);color:#FF4757;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;line-height:1;';
+      delBtn.textContent='✕';
+      delBtn.onclick=(e)=>{
+        e.stopPropagation();
+        savedCards.splice(i,1);
+        if(selCard===i){selCard=null;cardArea.innerHTML='';cardArea.appendChild(placeholder);}
+        else if(selCard>i)selCard--;
+        renderSaved();
+      };
+      el.appendChild(delBtn);
       el.onclick=()=>{selCard=i;renderSaved();showCard(c);};
       savedList.appendChild(el);
     });
