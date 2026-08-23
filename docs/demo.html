@@ -1982,10 +1982,32 @@ function buildRfid(v){
   const scanBtn=document.createElement('div');
   scanBtn.style.cssText='flex:1;padding:9px;text-align:center;border-radius:7px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:11px;font-weight:700;background:rgba(45,168,255,.12);border:1px solid rgba(45,168,255,.5);color:#2DA8FF;';
   scanBtn.textContent='📖  READ CARD';
+  const photoBtn=document.createElement('div');
+  photoBtn.style.cssText='flex:1;padding:9px;text-align:center;border-radius:7px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:11px;font-weight:700;background:rgba(31,204,124,.12);border:1px solid rgba(31,204,124,.5);color:#1FCC7C;';
+  photoBtn.textContent='📷  PHOTO';
+  const photoInput=document.createElement('input');
+  photoInput.type='file';photoInput.accept='image/*';photoInput.capture='environment';
+  photoInput.style.display='none';v.appendChild(photoInput);
+  photoBtn.onclick=()=>photoInput.click();
+  photoInput.onchange=(e)=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=(ev)=>{
+      if(selCard!==null&&savedCards[selCard]){
+        savedCards[selCard].photo=ev.target.result;
+        showCard(savedCards[selCard]);
+        addLine('[CAM] Photo saved to card','#1FCC7C');log.style.display='block';
+      }else{
+        addLine('[CAM] Scan a card first, then add a photo','var(--warn)');log.style.display='block';
+      }
+    };
+    reader.readAsDataURL(file);
+    photoInput.value='';
+  };
   const emuBtn=document.createElement('div');
   emuBtn.style.cssText='flex:1;padding:9px;text-align:center;border-radius:7px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:11px;font-weight:700;background:rgba(155,89,182,.12);border:1px solid rgba(155,89,182,.5);color:#9B59B6;';
   emuBtn.textContent='🎭  EMULATE';
-  topBar.appendChild(scanBtn);topBar.appendChild(emuBtn);
+  topBar.appendChild(scanBtn);topBar.appendChild(photoBtn);topBar.appendChild(emuBtn);
 
   // ── Card display area ──
   const cardArea=document.createElement('div');
@@ -2019,7 +2041,18 @@ function buildRfid(v){
       const el=document.createElement('div');
       const isSel=selCard===i;
       el.style.cssText=`display:flex;align-items:center;gap:7px;padding:5px 10px;border-bottom:1px solid var(--brd);cursor:pointer;background:${isSel?'rgba(155,89,182,.12)':'transparent'};`;
-      el.innerHTML=`<span style="font-size:14px">${c.icon}</span><span style="font-family:'Courier New',monospace;font-size:10px;flex:1;color:var(--txt)">${c.label}</span><span style="font-family:'Courier New',monospace;font-size:9px;color:var(--mut)">${c.uid}</span>`;
+      el.innerHTML=`<span style="font-size:14px">${c.icon}</span><span style="font-family:'Courier New',monospace;font-size:10px;flex:1;color:var(--txt)">${c.customLabel||c.label}</span><span style="font-family:'Courier New',monospace;font-size:9px;color:var(--mut);margin-right:4px">${c.uid}</span>${c.photo?'<span style="font-size:10px;margin-right:4px">📷</span>':''}`;
+      const delBtn=document.createElement('div');
+      delBtn.style.cssText='width:20px;height:20px;border-radius:50%;background:rgba(255,71,87,.15);border:1px solid rgba(255,71,87,.35);color:#FF4757;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;line-height:1;';
+      delBtn.textContent='✕';
+      delBtn.onclick=(e)=>{
+        e.stopPropagation();
+        savedCards.splice(i,1);
+        if(selCard===i){selCard=null;cardArea.innerHTML='';cardArea.appendChild(placeholder);}
+        else if(selCard>i)selCard--;
+        renderSaved();
+      };
+      el.appendChild(delBtn);
       el.onclick=()=>{selCard=i;renderSaved();showCard(c);};
       savedList.appendChild(el);
     });
@@ -2062,7 +2095,41 @@ function buildRfid(v){
         table.appendChild(more);
       }
     }
-    box.appendChild(header);box.appendChild(table);cardArea.appendChild(box);
+    // photo thumbnail
+    if(c.photo){
+      const imgWrap=document.createElement('div');
+      imgWrap.style.cssText='padding:8px 10px;border-bottom:1px solid var(--brd);';
+      const imgLbl=document.createElement('div');
+      imgLbl.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;color:var(--mut);letter-spacing:.5px;margin-bottom:5px;';
+      imgLbl.textContent='CARD PHOTO';
+      const img=document.createElement('img');
+      img.src=c.photo;img.style.cssText='width:100%;border-radius:6px;display:block;max-height:120px;object-fit:cover;';
+      const delPhoto=document.createElement('div');
+      delPhoto.style.cssText='font-family:\'Courier New\',monospace;font-size:9px;color:var(--dan);cursor:pointer;margin-top:4px;text-align:right;';
+      delPhoto.textContent='✕ remove photo';
+      delPhoto.onclick=()=>{delete c.photo;showCard(c);};
+      imgWrap.appendChild(imgLbl);imgWrap.appendChild(img);imgWrap.appendChild(delPhoto);
+      table.appendChild(imgWrap);
+    }
+    // save / rename row
+    const saveRow=document.createElement('div');
+    saveRow.style.cssText='display:flex;align-items:center;gap:6px;padding:7px 10px;background:rgba(31,204,124,.04);border-top:1px solid var(--brd);';
+    const nameInp=document.createElement('input');
+    nameInp.type='text';nameInp.value=c.customLabel||c.label;
+    nameInp.style.cssText='flex:1;background:transparent;border:none;outline:none;font-family:\'Courier New\',monospace;font-size:10px;color:var(--txt);min-width:0;';
+    nameInp.placeholder='Name this card…';
+    const saveCardBtn=document.createElement('div');
+    saveCardBtn.style.cssText='padding:4px 10px;border-radius:5px;background:rgba(31,204,124,.15);border:1px solid rgba(31,204,124,.4);color:#1FCC7C;font-family:\'Courier New\',monospace;font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap;';
+    saveCardBtn.textContent='💾 SAVE';
+    saveCardBtn.onclick=()=>{
+      const name=nameInp.value.trim()||c.label;
+      c.customLabel=name;
+      saveCardBtn.textContent='✓ SAVED';saveCardBtn.style.color='#1FCC7C';
+      setTimeout(()=>{saveCardBtn.textContent='💾 SAVE';},1500);
+      renderSaved();
+    };
+    saveRow.appendChild(nameInp);saveRow.appendChild(saveCardBtn);
+    box.appendChild(header);box.appendChild(table);box.appendChild(saveRow);cardArea.appendChild(box);
   }
 
   scanBtn.onclick=()=>{
