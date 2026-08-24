@@ -577,6 +577,7 @@ const MAIN={title:'FlipKit',items:[
   {icon:'💳',color:'#2DA8FF',label:'RFID',desc:'Read & emulate cards',type:'rfid'},
   {icon:'🔴',color:'#FF4757',label:'IR Remote',desc:'Infrared blaster & sniffer',type:'ir'},
   {icon:'🗺️',color:'#34C759',label:'Maps',desc:'Live map · GPS · navigate',type:'maps'},
+  {icon:'📷',color:'#1C1C1E',label:'Camera',desc:'Capture photos & video',type:'camera'},
   {icon:'🖼️',color:'#FF9500',label:'Photos',desc:'Camera roll · gallery',type:'photos'},
   {icon:'🔑',color:'#5E5CE6',label:'Passwords',desc:'Saved credentials vault',type:'passwords'},
   {icon:'🎵',color:'#FF2D55',label:'Music',   desc:'3 tracks · synth player', type:'music'},
@@ -788,7 +789,7 @@ function render(){
     snake:buildSnake,tetris:buildTetris,
     'pong-ai':(v,c)=>buildPong(v,true,c),'pong-2p':(v,c)=>buildPong(v,false,c),
     'chess-ai':(v,c)=>buildChess(v,true,c),'chess-2p':(v,c)=>buildChess(v,false,c),
-    flappy:buildFlappy,info:buildInfo,hotspot:buildHotspot,blespam:buildBleSpam,custompopup:buildCustomPopup,blelure:buildBleLure,rfid:buildRfid,ir:buildIr,maps:buildMaps,photos:buildPhotos,passwords:buildPasswords,
+    flappy:buildFlappy,info:buildInfo,hotspot:buildHotspot,blespam:buildBleSpam,custompopup:buildCustomPopup,blelure:buildBleLure,rfid:buildRfid,ir:buildIr,maps:buildMaps,camera:buildCamera,photos:buildPhotos,passwords:buildPasswords,
     breakout:buildBreakout,
     g2048:build2048,
     ttt:buildTTT,
@@ -1982,32 +1983,10 @@ function buildRfid(v){
   const scanBtn=document.createElement('div');
   scanBtn.style.cssText='flex:1;padding:9px;text-align:center;border-radius:7px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:11px;font-weight:700;background:rgba(45,168,255,.12);border:1px solid rgba(45,168,255,.5);color:#2DA8FF;';
   scanBtn.textContent='📖  READ CARD';
-  const photoBtn=document.createElement('div');
-  photoBtn.style.cssText='flex:1;padding:9px;text-align:center;border-radius:7px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:11px;font-weight:700;background:rgba(31,204,124,.12);border:1px solid rgba(31,204,124,.5);color:#1FCC7C;';
-  photoBtn.textContent='📷  PHOTO';
-  const photoInput=document.createElement('input');
-  photoInput.type='file';photoInput.accept='image/*';photoInput.capture='environment';
-  photoInput.style.display='none';v.appendChild(photoInput);
-  photoBtn.onclick=()=>photoInput.click();
-  photoInput.onchange=(e)=>{
-    const file=e.target.files[0];if(!file)return;
-    const reader=new FileReader();
-    reader.onload=(ev)=>{
-      if(selCard!==null&&savedCards[selCard]){
-        savedCards[selCard].photo=ev.target.result;
-        showCard(savedCards[selCard]);
-        addLine('[CAM] Photo saved to card','#1FCC7C');log.style.display='block';
-      }else{
-        addLine('[CAM] Scan a card first, then add a photo','var(--warn)');log.style.display='block';
-      }
-    };
-    reader.readAsDataURL(file);
-    photoInput.value='';
-  };
   const emuBtn=document.createElement('div');
   emuBtn.style.cssText='flex:1;padding:9px;text-align:center;border-radius:7px;cursor:pointer;font-family:\'Courier New\',monospace;font-size:11px;font-weight:700;background:rgba(155,89,182,.12);border:1px solid rgba(155,89,182,.5);color:#9B59B6;';
   emuBtn.textContent='🎭  EMULATE';
-  topBar.appendChild(scanBtn);topBar.appendChild(photoBtn);topBar.appendChild(emuBtn);
+  topBar.appendChild(scanBtn);topBar.appendChild(emuBtn);
 
   // ── Card display area ──
   const cardArea=document.createElement('div');
@@ -2494,6 +2473,152 @@ function buildMaps(v){
   wrap.appendChild(bottom);
   v.appendChild(wrap);
   v.remove=((orig)=>()=>{cancelAnimationFrame(rafId);orig();})(v.remove.bind(v));
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CAMERA
+═══════════════════════════════════════════════════════════ */
+function buildCamera(v){
+  v.appendChild(mkTbar('Camera',true));
+
+  let stream=null,photos=[],mode='photo';
+  const canvas=document.createElement('canvas');
+  const ctx=canvas.getContext('2d');
+
+  const wrap=document.createElement('div');
+  wrap.style.cssText='display:flex;flex-direction:column;flex:1;overflow:hidden;background:#000;';
+
+  // ── Viewfinder ──
+  const vfWrap=document.createElement('div');
+  vfWrap.style.cssText='position:relative;flex:1;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center;min-height:0;';
+
+  const video=document.createElement('video');
+  video.autoplay=true;video.playsInline=true;video.muted=true;
+  video.style.cssText='width:100%;height:100%;object-fit:cover;display:block;';
+
+  const noPermMsg=document.createElement('div');
+  noPermMsg.style.cssText='position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:20px;text-align:center;';
+  noPermMsg.innerHTML='<div style="font-size:36px">📷</div><div style="font-family:\'Courier New\',monospace;font-size:11px;color:rgba(255,255,255,.5);line-height:1.7;">Tap capture to use<br>the device camera</div>';
+
+  // corner guides
+  ['top:8px;left:8px;border-top:2px solid rgba(255,255,255,.6);border-left:2px solid rgba(255,255,255,.6)',
+   'top:8px;right:8px;border-top:2px solid rgba(255,255,255,.6);border-right:2px solid rgba(255,255,255,.6)',
+   'bottom:8px;left:8px;border-bottom:2px solid rgba(255,255,255,.6);border-left:2px solid rgba(255,255,255,.6)',
+   'bottom:8px;right:8px;border-bottom:2px solid rgba(255,255,255,.6);border-right:2px solid rgba(255,255,255,.6)',
+  ].forEach(s=>{const c=document.createElement('div');c.style.cssText=`position:absolute;${s};width:16px;height:16px;pointer-events:none;`;vfWrap.appendChild(c);});
+
+  vfWrap.appendChild(video);vfWrap.appendChild(noPermMsg);
+
+  // ── Controls bar ──
+  const ctrlBar=document.createElement('div');
+  ctrlBar.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:10px 20px 14px;background:#0a0a0a;flex-shrink:0;gap:12px;';
+
+  // gallery thumb (last photo)
+  const thumbBtn=document.createElement('div');
+  thumbBtn.style.cssText='width:40px;height:40px;border-radius:8px;background:#1a1a1a;border:1px solid #333;overflow:hidden;cursor:pointer;flex-shrink:0;';
+  const thumbImg=document.createElement('img');
+  thumbImg.style.cssText='width:100%;height:100%;object-fit:cover;display:none;';
+  thumbBtn.appendChild(thumbImg);
+
+  // shutter
+  const shutterBtn=document.createElement('div');
+  shutterBtn.style.cssText='width:60px;height:60px;border-radius:50%;background:#fff;border:3px solid #333;cursor:pointer;position:relative;flex-shrink:0;box-shadow:0 0 0 2px #fff,0 0 0 4px #555;';
+  shutterBtn.onclick=capturePhoto;
+
+  // file input fallback
+  const fileInput=document.createElement('input');
+  fileInput.type='file';fileInput.accept='image/*';fileInput.capture='environment';
+  fileInput.style.display='none';v.appendChild(fileInput);
+
+  // flip / switch cam placeholder
+  const flipBtn=document.createElement('div');
+  flipBtn.style.cssText='width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;flex-shrink:0;';
+  flipBtn.textContent='🔄';
+  flipBtn.title='Switch camera';
+
+  ctrlBar.appendChild(thumbBtn);ctrlBar.appendChild(shutterBtn);ctrlBar.appendChild(flipBtn);
+
+  // ── Gallery strip ──
+  const strip=document.createElement('div');
+  strip.style.cssText='display:flex;gap:4px;padding:4px 8px;background:#0a0a0a;overflow-x:auto;scrollbar-width:none;flex-shrink:0;min-height:0;';
+  strip.style.display='none';
+
+  function updateStrip(){
+    strip.innerHTML='';
+    if(!photos.length){strip.style.display='none';return;}
+    strip.style.display='flex';
+    photos.slice().reverse().forEach((src,ri)=>{
+      const i=photos.length-1-ri;
+      const t=document.createElement('div');
+      t.style.cssText='width:52px;height:52px;border-radius:6px;overflow:hidden;flex-shrink:0;position:relative;cursor:pointer;border:1px solid #222;';
+      const im=document.createElement('img');
+      im.src=src;im.style.cssText='width:100%;height:100%;object-fit:cover;';
+      const dl=document.createElement('div');
+      dl.style.cssText='position:absolute;bottom:1px;right:1px;width:16px;height:16px;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+      dl.textContent='↓';
+      dl.title='Save';
+      dl.onclick=async(e)=>{
+        e.stopPropagation();
+        const fname='flipkit_'+Date.now()+'.jpg';
+        try{
+          const dl2=window.claude?await window.claude.use('downloads'):null;
+          if(dl2){const res=await fetch(src);const blob=await res.blob();await dl2.save({filename:fname,data:blob});}
+          else{const a=document.createElement('a');a.href=src;a.download=fname;document.body.appendChild(a);a.click();a.remove();}
+        }catch(e2){}
+      };
+      t.appendChild(im);t.appendChild(dl);
+      strip.appendChild(t);
+    });
+    strip.scrollLeft=0;
+    thumbImg.src=photos[photos.length-1];thumbImg.style.display='block';
+  }
+
+  function capturePhoto(){
+    if(stream&&video.readyState>=2){
+      canvas.width=video.videoWidth||320;canvas.height=video.videoHeight||240;
+      ctx.drawImage(video,0,0);
+      const src=canvas.toDataURL('image/jpeg',0.85);
+      photos.push(src);updateStrip();
+      // flash
+      const flash=document.createElement('div');
+      flash.style.cssText='position:absolute;inset:0;background:#fff;opacity:.7;pointer-events:none;transition:opacity .25s;';
+      vfWrap.appendChild(flash);
+      setTimeout(()=>{flash.style.opacity='0';setTimeout(()=>flash.remove(),260);},30);
+    }else{
+      fileInput.click();
+    }
+  }
+
+  fileInput.onchange=(e)=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=(ev)=>{photos.push(ev.target.result);updateStrip();};
+    reader.readAsDataURL(file);
+    fileInput.value='';
+  };
+
+  thumbBtn.onclick=()=>{if(photos.length)fileInput.click();};
+
+  // start camera
+  async function startCamera(){
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}},audio:false});
+      video.srcObject=stream;
+      noPermMsg.style.display='none';
+    }catch(e){
+      video.style.display='none';
+      noPermMsg.style.display='flex';
+    }
+  }
+  startCamera();
+
+  wrap.appendChild(vfWrap);wrap.appendChild(ctrlBar);wrap.appendChild(strip);
+  v.appendChild(wrap);
+
+  v.remove=((orig)=>()=>{
+    if(stream)stream.getTracks().forEach(t=>t.stop());
+    orig();
+  })(v.remove.bind(v));
 }
 
 /* ═══════════════════════════════════════════════════════════
