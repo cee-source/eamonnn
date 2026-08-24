@@ -2121,19 +2121,33 @@ function buildRfid(v){
     const saveCardBtn=document.createElement('div');
     saveCardBtn.style.cssText='padding:4px 10px;border-radius:5px;background:rgba(31,204,124,.15);border:1px solid rgba(31,204,124,.4);color:#1FCC7C;font-family:\'Courier New\',monospace;font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap;';
     saveCardBtn.textContent='💾 SAVE';
-    saveCardBtn.onclick=()=>{
+    saveCardBtn.onclick=async()=>{
       const name=nameInp.value.trim()||c.label;
       c.customLabel=name;
       renderSaved();
-      const data={name,label:c.label,uid:c.uid,freq:c.freq,proto:c.proto,sectors:c.sectors||0,desc:c.desc,sectorData:c.sectorData||null,savedAt:new Date().toISOString()};
-      const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');
-      a.href=url;a.download=(name.replace(/[^a-z0-9]/gi,'_')||'card')+'.json';
-      document.body.appendChild(a);a.click();
-      setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
-      saveCardBtn.textContent='✓ SAVED';
-      setTimeout(()=>{saveCardBtn.textContent='💾 SAVE';},1500);
+      const payload={name,label:c.label,uid:c.uid,freq:c.freq,proto:c.proto,sectors:c.sectors||0,desc:c.desc,sectorData:c.sectorData||null,savedAt:new Date().toISOString()};
+      const json=JSON.stringify(payload,null,2);
+      const filename=(name.replace(/[^a-z0-9]/gi,'_')||'card')+'.json';
+      try{
+        const downloads=window.claude?await window.claude.use('downloads'):null;
+        if(downloads){
+          await downloads.save({filename,data:json});
+        }else{
+          const blob=new Blob([json],{type:'application/json'});
+          const url=URL.createObjectURL(blob);
+          const a=document.createElement('a');
+          a.href=url;a.download=filename;
+          document.body.appendChild(a);a.click();
+          setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
+        }
+        saveCardBtn.textContent='✓ SAVED';
+        setTimeout(()=>{saveCardBtn.textContent='💾 SAVE';},1500);
+      }catch(e){
+        if(e&&e.code!=='declined'){
+          saveCardBtn.textContent='✗ ERROR';
+          setTimeout(()=>{saveCardBtn.textContent='💾 SAVE';},1500);
+        }
+      }
     };
     saveRow.appendChild(nameInp);saveRow.appendChild(saveCardBtn);
     box.appendChild(header);box.appendChild(table);box.appendChild(saveRow);cardArea.appendChild(box);
