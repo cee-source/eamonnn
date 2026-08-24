@@ -2124,9 +2124,16 @@ function buildRfid(v){
     saveCardBtn.onclick=()=>{
       const name=nameInp.value.trim()||c.label;
       c.customLabel=name;
-      saveCardBtn.textContent='✓ SAVED';saveCardBtn.style.color='#1FCC7C';
-      setTimeout(()=>{saveCardBtn.textContent='💾 SAVE';},1500);
       renderSaved();
+      const data={name,label:c.label,uid:c.uid,freq:c.freq,proto:c.proto,sectors:c.sectors||0,desc:c.desc,sectorData:c.sectorData||null,savedAt:new Date().toISOString()};
+      const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;a.download=(name.replace(/[^a-z0-9]/gi,'_')||'card')+'.json';
+      document.body.appendChild(a);a.click();
+      setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
+      saveCardBtn.textContent='✓ SAVED';
+      setTimeout(()=>{saveCardBtn.textContent='💾 SAVE';},1500);
     };
     saveRow.appendChild(nameInp);saveRow.appendChild(saveCardBtn);
     box.appendChild(header);box.appendChild(table);box.appendChild(saveRow);cardArea.appendChild(box);
