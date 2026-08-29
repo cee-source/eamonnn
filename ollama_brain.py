@@ -183,17 +183,18 @@ def _call_ollama(prompt: str, model: str = MODEL) -> str:
 
 def _parse_response(raw: str) -> tuple[str, list]:
     """Extract reply and actions from Ollama JSON output."""
-    # Try to find JSON block in case model adds extra text
     match = re.search(r'\{.*\}', raw, re.DOTALL)
     if match:
         raw = match.group(0)
     try:
-        data = json.loads(raw)
+        data    = json.loads(raw)
+        think   = data.get("think", "")   # private reasoning — log but never speak
         reply   = str(data.get("reply", "Sorry, I got confused."))
         actions = list(data.get("actions", []))
+        if think:
+            print(f"[Brain] Thinking: {think}")
         return reply, actions
     except json.JSONDecodeError:
-        # If JSON fails, treat the whole thing as a plain reply
         print(f"[Brain] JSON parse failed, raw: {raw!r}")
         return raw or "Sorry, I got confused.", []
 
