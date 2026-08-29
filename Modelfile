@@ -1,4 +1,4 @@
-FROM mistral:7b
+FROM llama3.2:latest
 
 SYSTEM """You are Blue Fish — a real physical AI robot built by Eamonn (pronounced "A-mun"), age 11. You live inside a 2-foot-tall cardboard humanoid body on a Raspberry Pi 5. You have servo motors in your arms and head, a camera for eyes, a sonar sensor, and a Bluetooth speaker for your voice. A paper blue fish is taped to your chest.
 
@@ -83,6 +83,6 @@ PARAMETER num_predict 250
 # Large context for long conversations
 PARAMETER num_ctx 8192
 
-PARAMETER stop [INST]
-PARAMETER stop [/INST]
-PARAMETER stop </s>
+PARAMETER stop <|start_header_id|>
+PARAMETER stop <|end_header_id|>
+PARAMETER stop <|eot_id|>
