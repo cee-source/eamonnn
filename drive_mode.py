@@ -22,6 +22,62 @@ stream_lock  = threading.Lock()
 sonar_dist   = None
 sonar_lock   = threading.Lock()
 
+# ── Camera servo ──────────────────────────────────────────────────────────────
+# Pan servo  → GPIO 12  (arrow left/right)
+# Tilt servo → GPIO 13  (arrow up/down)
+PAN_PIN   = 12
+TILT_PIN  = 13
+cam_pan   = 0    # degrees, -90 to +90
+cam_tilt  = 0    # degrees, -45 to +45
+servo_lock = threading.Lock()
+pan_servo  = None
+tilt_servo = None
+
+def init_servos():
+    global pan_servo, tilt_servo
+    try:
+        from gpiozero import AngularServo
+        from gpiozero.pins.pigpio import PiGPIOFactory
+        try:
+            factory = PiGPIOFactory()
+        except Exception:
+            factory = None  # fall back to software PWM
+        kwargs = dict(min_pulse_width=0.0006, max_pulse_width=0.0023,
+                      min_angle=-90, max_angle=90)
+        if factory:
+            kwargs["pin_factory"] = factory
+        pan_servo  = AngularServo(PAN_PIN,  **kwargs)
+        tilt_servo = AngularServo(TILT_PIN, **kwargs)
+        pan_servo.angle  = 0
+        tilt_servo.angle = 0
+        print(f"[Servo] Camera pan/tilt ready (GPIO {PAN_PIN}/{TILT_PIN})")
+    except Exception as e:
+        print(f"[Servo] Not available: {e}")
+
+def move_camera(dpan=0, dtilt=0):
+    global cam_pan, cam_tilt
+    with servo_lock:
+        cam_pan  = max(-90, min(90,  cam_pan  + dpan))
+        cam_tilt = max(-45, min(45,  cam_tilt + dtilt))
+        if pan_servo:
+            try: pan_servo.angle  = cam_pan
+            except Exception: pass
+        if tilt_servo:
+            try: tilt_servo.angle = cam_tilt
+            except Exception: pass
+        return cam_pan, cam_tilt
+
+def centre_camera():
+    global cam_pan, cam_tilt
+    with servo_lock:
+        cam_pan = cam_tilt = 0
+        if pan_servo:
+            try: pan_servo.angle  = 0
+            except Exception: pass
+        if tilt_servo:
+            try: tilt_servo.angle = 0
+            except Exception: pass
+
 # ── Serial / motor ────────────────────────────────────────────────────────────
 
 def init_serial():
@@ -156,6 +212,9 @@ PAGE = """<!DOCTYPE html>
   <img src="/stream" id="feed">
   <div id="sonar">Sonar: --</div>
   <div id="status">STOPPED</div>
+  <div id="cam-pos" style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.6);
+    border:1px solid #fa0;padding:6px 12px;border-radius:8px;font-size:13px;color:#fa0;">
+    Cam pan:0° tilt:0°</div>
 </div>
 
 <div id="controls">
@@ -177,41 +236,55 @@ PAGE = """<!DOCTYPE html>
     <button class="btn" id="btn-U" data-cmd="U" style="width:80px">&#8679; Fork</button>
     <button class="btn" id="btn-D" data-cmd="D" style="width:80px">&#8681; Fork</button>
   </div>
+
+  <!-- Camera pan/tilt -->
+  <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+    <div style="font-size:11px;color:#fa0;margin-bottom:2px;">&#128247; Camera</div>
+    <div class="dpad">
+      <div class="btn empty"></div>
+      <button class="btn cam-btn" data-action="up" style="border-color:#fa0">&#8593;</button>
+      <div class="btn empty"></div>
+      <button class="btn cam-btn" data-action="left" style="border-color:#fa0">&#8592;</button>
+      <button class="btn cam-btn" data-action="centre" style="border-color:#fa0;font-size:11px">CTR</button>
+      <button class="btn cam-btn" data-action="right" style="border-color:#fa0">&#8594;</button>
+      <div class="btn empty"></div>
+      <button class="btn cam-btn" data-action="down" style="border-color:#fa0">&#8595;</button>
+      <div class="btn empty"></div>
+    </div>
+  </div>
 </div>
 
 <div id="labels">
-  W/&uarr; Forward &nbsp;|&nbsp; S/&darr; Back &nbsp;|&nbsp; A/&larr; Left &nbsp;|&nbsp; D/&rarr; Right
-  &nbsp;|&nbsp; Space Stop &nbsp;|&nbsp; Q Fork Up &nbsp;|&nbsp; E Fork Down
+  WASD = drive &nbsp;|&nbsp; Space = stop &nbsp;|&nbsp; Q/E = forklift &nbsp;|&nbsp; Arrow keys = camera
 </div>
 
 <script>
-var keyMap = {
-  'w':'F','arrowup':'F',
-  'a':'L','arrowleft':'L',
-  's':'B','arrowdown':'B',
-  'd':'R','arrowright':'R',
-  ' ':'S',
-  'q':'U','e':'D'
-};
+var motorMap = {'w':'F','a':'L','s':'B','d':'R',' ':'S','q':'U','e':'D'};
+var camMap   = {'arrowleft':'left','arrowright':'right','arrowup':'up','arrowdown':'down'};
 
 var statusEl = document.getElementById('status');
 var sonarEl  = document.getElementById('sonar');
+var camEl    = document.getElementById('cam-pos');
 var current  = null;
 
-function sendCmd(cmd) {
+function sendMotor(cmd) {
   fetch('/motor', {method:'POST', body:'cmd='+cmd,
     headers:{'Content-Type':'application/x-www-form-urlencoded'}});
   statusEl.textContent = {F:'FORWARD',B:'BACK',L:'LEFT',R:'RIGHT',
                            S:'STOPPED',U:'FORK UP',D:'FORK DOWN'}[cmd] || cmd;
   current = cmd;
-  // Highlight button
   document.querySelectorAll('.btn').forEach(function(b){b.classList.remove('active')});
   var b = document.getElementById('btn-'+cmd);
   if(b) b.classList.add('active');
 }
 
-function stop() {
-  if(current && current !== 'S') sendCmd('S');
+function stopMotor() {
+  if(current && current !== 'S') sendMotor('S');
+}
+
+function sendCam(action) {
+  fetch('/cam', {method:'POST', body:'action='+action,
+    headers:{'Content-Type':'application/x-www-form-urlencoded'}});
 }
 
 // Keyboard
@@ -220,33 +293,39 @@ document.addEventListener('keydown', function(e) {
   var k = e.key.toLowerCase();
   if(held[k]) return;
   held[k] = true;
-  if(keyMap[k]) { e.preventDefault(); sendCmd(keyMap[k]); }
+  if(motorMap[k]) { e.preventDefault(); sendMotor(motorMap[k]); }
+  else if(camMap[k]) { e.preventDefault(); sendCam(camMap[k]); }
 });
 document.addEventListener('keyup', function(e) {
   var k = e.key.toLowerCase();
   held[k] = false;
-  if(keyMap[k] && keyMap[k] !== 'U' && keyMap[k] !== 'D') stop();
+  if(motorMap[k] && motorMap[k] !== 'U' && motorMap[k] !== 'D') stopMotor();
 });
 
-// Touch buttons
+// Touch buttons — motors
 document.querySelectorAll('.btn[data-cmd]').forEach(function(btn) {
   var cmd = btn.dataset.cmd;
-  btn.addEventListener('pointerdown', function(e) {
-    e.preventDefault(); sendCmd(cmd);
-  });
+  btn.addEventListener('pointerdown', function(e) { e.preventDefault(); sendMotor(cmd); });
   if(cmd !== 'S' && cmd !== 'U' && cmd !== 'D') {
-    btn.addEventListener('pointerup',    function(e){ e.preventDefault(); stop(); });
-    btn.addEventListener('pointerleave', function(e){ e.preventDefault(); stop(); });
+    btn.addEventListener('pointerup',    function(e){ e.preventDefault(); stopMotor(); });
+    btn.addEventListener('pointerleave', function(e){ e.preventDefault(); stopMotor(); });
   }
 });
 
-// Sonar polling
+// Touch buttons — camera
+document.querySelectorAll('.cam-btn[data-action]').forEach(function(btn) {
+  var action = btn.dataset.action;
+  btn.addEventListener('pointerdown', function(e){ e.preventDefault(); sendCam(action); });
+});
+
+// Sonar + cam position polling
 setInterval(function() {
   fetch('/sonar').then(function(r){return r.json();}).then(function(d){
-    sonarEl.textContent = d.distance !== null
-      ? 'Sonar: ' + d.distance + ' cm'
-      : 'Sonar: --';
+    sonarEl.textContent = d.distance !== null ? 'Sonar: '+d.distance+' cm' : 'Sonar: --';
     sonarEl.style.color = d.distance !== null && d.distance < 30 ? '#f80' : '#0f0';
+  }).catch(function(){});
+  fetch('/cam_pos').then(function(r){return r.json();}).then(function(d){
+    camEl.textContent = 'Cam pan:'+d.pan+'° tilt:'+d.tilt+'°';
   }).catch(function(){});
 }, 300);
 </script>
@@ -302,6 +381,15 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
 
+        elif path == "/cam_pos":
+            with servo_lock:
+                body = f'{{"pan":{cam_pan},"tilt":{cam_tilt}}}'.encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
         else:
             self.send_response(404)
             self.end_headers()
@@ -318,6 +406,22 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Length", "0")
             self.end_headers()
+
+        elif path == "/cam":
+            length = int(self.headers.get("Content-Length", 0))
+            body   = self.rfile.read(length).decode()
+            params = parse_qs(body)
+            action = params.get("action", [""])[0]
+            STEP = 10  # degrees per keypress
+            if   action == "left":   move_camera(dpan=-STEP)
+            elif action == "right":  move_camera(dpan=+STEP)
+            elif action == "up":     move_camera(dtilt=+STEP)
+            elif action == "down":   move_camera(dtilt=-STEP)
+            elif action == "centre": centre_camera()
+            self.send_response(200)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
         else:
             self.send_response(404)
             self.end_headers()
@@ -331,6 +435,7 @@ class ThreadedServer(ThreadingMixIn, HTTPServer):
 
 if __name__ == "__main__":
     init_serial()
+    init_servos()
     threading.Thread(target=camera_loop, daemon=True).start()
     threading.Thread(target=sonar_loop,  daemon=True).start()
 
