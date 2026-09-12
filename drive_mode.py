@@ -364,11 +364,11 @@ PAGE = """<!DOCTYPE html>
   <img src="/stream" id="feed">
   <div id="sonar">Sonar: --</div>
   <div id="status">STOPPED</div>
-  <div id="mic-btn" onclick="toggleMic()">🎤 Muted</div>
+  <div id="mic-btn" onclick="toggleMic()">MIC: OFF</div>
   <div id="rec-indicator">&#9679; REC</div>
   <div id="cam-pos" style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.6);
     border:1px solid #fa0;padding:6px 12px;border-radius:8px;font-size:13px;color:#fa0;">
-    Cam pan:0° tilt:0°</div>
+    Cam pan:0 tilt:0</div>
 </div>
 
 <div id="name-dialog">
