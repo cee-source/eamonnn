@@ -483,7 +483,7 @@ var micReader = null;
 
 function toggleMic() {
   micMuted = !micMuted;
-  micBtn.textContent = micMuted ? '🎤 Muted' : '🎤 LIVE';
+  micBtn.textContent = micMuted ? 'MIC: OFF' : 'MIC: LIVE';
   micBtn.classList.toggle('on', !micMuted);
 }
 
