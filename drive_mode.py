@@ -5,6 +5,9 @@ Open browser: http://<pi-ip>:8080
 """
 
 import glob
+import json
+import os
+import re
 import struct
 import subprocess
 import sys
@@ -16,7 +19,9 @@ from urllib.parse import parse_qs, urlparse
 
 sys.stdout.reconfigure(line_buffering=True)
 
-PORT       = 8080
+PORT           = 8080
+RECORDINGS_DIR = os.path.expanduser("~/recordings")
+os.makedirs(RECORDINGS_DIR, exist_ok=True)
 serial_conn = None
 stream_frame = None
 stream_lock  = threading.Lock()
@@ -129,6 +134,84 @@ def sonar_loop():
     except Exception as e:
         print(f"[Sonar] Not available: {e}")
 
+# ── Recording ─────────────────────────────────────────────────────────────────
+
+_rec_active     = False
+_rec_lock       = threading.Lock()
+_rec_video_file = None
+_rec_audio_proc = None
+
+def start_recording():
+    global _rec_active, _rec_video_file, _rec_audio_proc
+    with _rec_lock:
+        if _rec_active:
+            return False
+        try:
+            _rec_video_file = open("/tmp/rec_video.mjpeg", "wb")
+        except Exception as e:
+            print(f"[Record] Can't open video temp file: {e}")
+            return False
+        device = _find_mic()
+        _rec_audio_proc = subprocess.Popen(
+            ["arecord", "-D", device, "-f", "S16_LE", "-r", "16000", "-c", "1",
+             "/tmp/rec_audio.wav"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        _rec_active = True
+        print("[Record] Started")
+        return True
+
+def stop_recording(name):
+    global _rec_active, _rec_video_file, _rec_audio_proc
+    with _rec_lock:
+        if not _rec_active:
+            return None
+        _rec_active = False
+        if _rec_audio_proc:
+            _rec_audio_proc.terminate()
+            try: _rec_audio_proc.wait(timeout=3)
+            except Exception: pass
+            _rec_audio_proc = None
+        if _rec_video_file:
+            _rec_video_file.close()
+            _rec_video_file = None
+
+    safe = re.sub(r'[^a-zA-Z0-9_\- ]', '', name).strip().replace(' ', '_') or "recording"
+    # Add timestamp suffix if name already exists
+    out_dir = os.path.join(RECORDINGS_DIR, safe)
+    if os.path.exists(out_dir):
+        safe = f"{safe}_{int(time.time())}"
+        out_dir = os.path.join(RECORDINGS_DIR, safe)
+    os.makedirs(out_dir, exist_ok=True)
+
+    video_src = "/tmp/rec_video.mjpeg"
+    audio_src = "/tmp/rec_audio.wav"
+    mp4_path  = os.path.join(out_dir, f"{safe}.mp4")
+    video_dst = os.path.join(out_dir, "video.mjpeg")
+    audio_dst = os.path.join(out_dir, "audio.wav")
+
+    # Try ffmpeg to produce an mp4
+    merged = False
+    if os.path.exists(video_src) and os.path.exists(audio_src):
+        try:
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", audio_src,
+                 "-f", "mjpeg", "-framerate", "15", "-i", video_src,
+                 "-c:v", "copy", "-c:a", "aac", mp4_path],
+                timeout=60, check=True,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            merged = True
+            print(f"[Record] Saved mp4: {mp4_path}")
+        except Exception as e:
+            print(f"[Record] ffmpeg failed ({e}), saving separate files")
+
+    if not merged:
+        if os.path.exists(video_src):
+            os.replace(video_src, video_dst)
+        if os.path.exists(audio_src):
+            os.replace(audio_src, audio_dst)
+
+    return safe
+
 # ── Microphone stream ─────────────────────────────────────────────────────────
 
 SAMPLE_RATE = 16000
@@ -148,7 +231,6 @@ def _wav_header():
 def _find_mic():
     """Return the first USB audio capture device, or 'default'."""
     try:
-        import re
         out = subprocess.check_output(
             ["arecord", "-l"], stderr=subprocess.DEVNULL, text=True)
         for line in out.splitlines():
@@ -189,6 +271,9 @@ def camera_loop():
                     buf   = buf[e+2:]
                     with stream_lock:
                         stream_frame = frame
+                    if _rec_active and _rec_video_file:
+                        try: _rec_video_file.write(frame)
+                        except Exception: pass
         except Exception as ex:
             print(f"[Camera] {ex}")
         finally:
@@ -221,6 +306,31 @@ PAGE = """<!DOCTYPE html>
     color: #aaa; cursor: pointer; user-select: none;
   }
   #mic-btn.on { border-color: #f44; color: #f44; }
+  #rec-indicator {
+    display: none; position: absolute; top: 50px; right: 10px;
+    background: rgba(0,0,0,0.7); border: 1px solid #f44;
+    padding: 6px 12px; border-radius: 8px; font-size: 13px; color: #f44;
+  }
+  #rec-indicator.on { display: block; animation: blink 1s step-start infinite; }
+  @keyframes blink { 50% { opacity: 0.3; } }
+  #name-dialog {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8); z-index: 99;
+    align-items: center; justify-content: center; flex-direction: column; gap: 12px;
+  }
+  #name-dialog.on { display: flex; }
+  #name-dialog h2 { color: #fff; font-family: monospace; }
+  #name-input {
+    font-family: monospace; font-size: 1.1rem;
+    padding: 10px 16px; border-radius: 8px;
+    border: 2px solid #08f; background: #111; color: #fff;
+    width: 280px; text-align: center;
+  }
+  #name-ok {
+    padding: 10px 28px; border-radius: 8px; border: none;
+    background: #08f; color: #fff; font-size: 1rem;
+    cursor: pointer; font-family: monospace;
+  }
   #status {
     position: absolute; top: 10px; right: 10px;
     background: rgba(0,0,0,0.6); border: 1px solid #08f;
@@ -255,9 +365,16 @@ PAGE = """<!DOCTYPE html>
   <div id="sonar">Sonar: --</div>
   <div id="status">STOPPED</div>
   <div id="mic-btn" onclick="toggleMic()">🎤 Muted</div>
+  <div id="rec-indicator">&#9679; REC</div>
   <div id="cam-pos" style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.6);
     border:1px solid #fa0;padding:6px 12px;border-radius:8px;font-size:13px;color:#fa0;">
     Cam pan:0° tilt:0°</div>
+</div>
+
+<div id="name-dialog">
+  <h2>Name this recording</h2>
+  <input id="name-input" type="text" placeholder="e.g. kitchen_patrol" maxlength="40">
+  <button id="name-ok" onclick="saveRecording()">Save &#9654;</button>
 </div>
 
 <div id="controls">
@@ -280,6 +397,16 @@ PAGE = """<!DOCTYPE html>
     <button class="btn" id="btn-D" data-cmd="D" style="width:80px">&#8681; Fork</button>
   </div>
 
+  <!-- Record button -->
+  <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+    <button id="rec-btn" class="btn" onclick="toggleRecord()"
+      style="width:80px;height:80px;border-radius:50%;font-size:13px;background:#1a0000;border-color:#f44;color:#f44;">
+      &#9679; REC
+    </button>
+    <a href="/recordings" target="_blank"
+       style="font-size:10px;color:#555;text-decoration:none;">&#128250; Library</a>
+  </div>
+
   <!-- Camera pan/tilt -->
   <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
     <div style="font-size:11px;color:#fa0;margin-bottom:2px;">&#128247; Camera</div>
@@ -298,10 +425,56 @@ PAGE = """<!DOCTYPE html>
 </div>
 
 <div id="labels">
-  WASD = drive &nbsp;|&nbsp; Space = mute/unmute mic &nbsp;|&nbsp; Q/E = forklift &nbsp;|&nbsp; Arrow keys = camera
+  WASD = drive &nbsp;|&nbsp; Space = mute/unmute mic &nbsp;|&nbsp; Enter = record &nbsp;|&nbsp; Q/E = forklift &nbsp;|&nbsp; Arrow keys = camera
 </div>
 
 <script>
+// Recording
+var recActive    = false;
+var recBtn       = document.getElementById('rec-btn');
+var recIndicator = document.getElementById('rec-indicator');
+var nameDialog   = document.getElementById('name-dialog');
+var nameInput    = document.getElementById('name-input');
+
+function toggleRecord() {
+  if (recActive) {
+    nameInput.value = '';
+    nameDialog.classList.add('on');
+    setTimeout(function(){ nameInput.focus(); }, 50);
+  } else {
+    fetch('/record/start', {method:'POST'}).then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d.ok) {
+          recActive = true;
+          recBtn.style.background = '#4a0000';
+          recBtn.innerHTML = '&#9632; STOP';
+          recIndicator.classList.add('on');
+        }
+      });
+  }
+}
+
+function saveRecording() {
+  var name = nameInput.value.trim() || 'recording';
+  nameDialog.classList.remove('on');
+  fetch('/record/stop', {method:'POST',
+    body:'name='+encodeURIComponent(name),
+    headers:{'Content-Type':'application/x-www-form-urlencoded'}})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      recActive = false;
+      recBtn.style.background = '#1a0000';
+      recBtn.innerHTML = '&#9679; REC';
+      recIndicator.classList.remove('on');
+      if (d.ok) alert('Saved as "' + d.name + '"!\nOpen /recordings to download.');
+    });
+}
+
+nameInput.addEventListener('keydown', function(e){
+  if (e.key === 'Enter') { e.stopPropagation(); saveRecording(); }
+  if (e.key === 'Escape') { nameDialog.classList.remove('on'); }
+});
+
 // Mic — Web Audio API streams raw PCM from /audio
 var micBtn    = document.getElementById('mic-btn');
 var micMuted  = true;
@@ -410,6 +583,7 @@ document.addEventListener('keydown', function(e) {
   if(held[k]) return;
   held[k] = true;
   if(k === ' ') { e.preventDefault(); toggleMic(); }
+  else if(k === 'enter' && !nameDialog.classList.contains('on')) { e.preventDefault(); toggleRecord(); }
   else if(motorMap[k]) { e.preventDefault(); sendMotor(motorMap[k]); }
   else if(camMap[k]) { e.preventDefault(); sendCam(camMap[k]); }
 });
@@ -487,6 +661,59 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 pass
 
+        elif path == "/recordings" or path == "/recordings/":
+            rows = ""
+            try:
+                entries = sorted(os.listdir(RECORDINGS_DIR), reverse=True)
+                for name in entries:
+                    d = os.path.join(RECORDINGS_DIR, name)
+                    if not os.path.isdir(d): continue
+                    files = os.listdir(d)
+                    links = ""
+                    for f in sorted(files):
+                        links += f'<a href="/recordings/{name}/{f}" download="{f}">{f}</a> '
+                    rows += f"<tr><td>{name}</td><td>{links}</td></tr>"
+            except Exception as e:
+                rows = f"<tr><td colspan=2>Error: {e}</td></tr>"
+            body = f"""<!DOCTYPE html><html><head><title>Blue Fish Recordings</title>
+<style>body{{background:#111;color:#fff;font-family:monospace;padding:24px}}
+h1{{color:#08f;margin-bottom:16px}}
+table{{border-collapse:collapse;width:100%}}
+th{{text-align:left;color:#666;padding:8px 12px;border-bottom:1px solid #333}}
+td{{padding:8px 12px;border-bottom:1px solid #222;vertical-align:top}}
+a{{color:#4af;margin-right:12px}}
+</style></head><body>
+<h1>&#127909; Blue Fish Recordings</h1>
+<table><tr><th>Name</th><th>Files</th></tr>{rows}</table>
+<p style="margin-top:20px;color:#555"><a href="/" style="color:#08f">&#8592; Back to drive mode</a></p>
+</body></html>""".encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        elif path.startswith("/recordings/"):
+            parts = path.strip("/").split("/")
+            if len(parts) == 3:  # recordings/<name>/<file>
+                fpath = os.path.join(RECORDINGS_DIR, parts[1], parts[2])
+                if os.path.isfile(fpath):
+                    with open(fpath, "rb") as f:
+                        data = f.read()
+                    ext = parts[2].rsplit(".", 1)[-1].lower()
+                    ct  = {"mp4": "video/mp4", "wav": "audio/wav",
+                           "mjpeg": "video/x-mjpeg"}.get(ext, "application/octet-stream")
+                    self.send_response(200)
+                    self.send_header("Content-Type", ct)
+                    self.send_header("Content-Length", str(len(data)))
+                    self.send_header("Content-Disposition",
+                                     f'attachment; filename="{parts[2]}"')
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
+            self.send_response(404)
+            self.end_headers()
+
         elif path == "/audio":
             self.send_response(200)
             self.send_header("Content-Type", "application/octet-stream")
@@ -563,6 +790,27 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Length", "0")
             self.end_headers()
+
+        elif path == "/record/start":
+            ok = start_recording()
+            body = json.dumps({"ok": ok}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        elif path == "/record/stop":
+            length = int(self.headers.get("Content-Length", 0))
+            params = parse_qs(self.rfile.read(length).decode())
+            name   = params.get("name", ["recording"])[0]
+            saved  = stop_recording(name)
+            body   = json.dumps({"ok": saved is not None, "name": saved}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
 
         else:
             self.send_response(404)
