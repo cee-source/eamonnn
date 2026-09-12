@@ -148,15 +148,17 @@ def _wav_header():
 def _find_mic():
     """Return the first USB audio capture device, or 'default'."""
     try:
+        import re
         out = subprocess.check_output(
             ["arecord", "-l"], stderr=subprocess.DEVNULL, text=True)
         for line in out.splitlines():
             if "USB" in line or "usb" in line:
-                # line: "card 1: Device [USB ...], device 0: ..."
-                import re
-                m = re.search(r'card (\d+):.*device (\d+):', line)
+                m = re.search(r'card (\d+):', line)
                 if m:
-                    return f"plughw:{m.group(1)},{m.group(2)}"
+                    # find device number on next line or same line
+                    dm = re.search(r'device (\d+):', line)
+                    dev = dm.group(1) if dm else "0"
+                    return f"plughw:{m.group(1)},{dev}"
     except Exception:
         pass
     return "default"
