@@ -228,9 +228,8 @@ PAGE = b"""<!DOCTYPE html>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#000;color:#fff;font-family:monospace;
      display:flex;flex-direction:column;height:100vh}
-#cam{flex:1;position:relative;overflow:hidden;min-height:0;cursor:none}
+#cam{flex:1;position:relative;overflow:hidden;min-height:0}
 #feed{width:100%;height:100%;object-fit:cover;display:block}
-#xhair{position:absolute;inset:0;cursor:none;pointer-events:none}
 .hud{position:absolute;background:rgba(0,0,0,.6);
      border-radius:6px;padding:5px 10px;font-size:12px}
 #sonar {bottom:8px;left:8px;border:1px solid #0f0;color:#0f0}
@@ -273,7 +272,6 @@ body{background:#000;color:#fff;font-family:monospace;
 <body>
 <div id="cam">
   <img src="/stream" id="feed" alt="">
-  <canvas id="xhair"></canvas>
   <div class="hud" id="sonar">Sonar: --</div>
   <div class="hud" id="status">STOPPED</div>
   <div class="hud" id="mic-btn" onclick="toggleMic()">MIC OFF</div>
@@ -446,74 +444,6 @@ document.querySelectorAll(".cb[data-a]").forEach(function(b){
   b.addEventListener("pointerdown",function(e){e.preventDefault();cam(a);});
 });
 
-// ---- Crosshair + mouse steering ----
-var canvas = document.getElementById("xhair");
-var ctx2d  = canvas.getContext("2d");
-var camDiv = document.getElementById("cam");
-var mouseX = -1, mouseY = -1;
-var mouseCmd = null, mouseCmdTimer = null;
-
-function resizeCanvas(){
-  canvas.width  = camDiv.offsetWidth;
-  canvas.height = camDiv.offsetHeight;
-}
-resizeCanvas();
-window.addEventListener("resize", resizeCanvas);
-
-function drawCrosshair(x, y, w, h){
-  ctx2d.clearRect(0, 0, w, h);
-  if(x < 0) return;
-  var dead = w * 0.12;
-  var zone = x < w/2 - dead ? "L" : x > w/2 + dead ? "R" : "";
-  ctx2d.strokeStyle = zone === "L" ? "#08f" : zone === "R" ? "#f44" : "#fff";
-  ctx2d.lineWidth   = 1.5;
-  ctx2d.globalAlpha = 0.85;
-  var g = 18, gap = 6;
-  // horizontal line
-  ctx2d.beginPath();
-  ctx2d.moveTo(x - g, y); ctx2d.lineTo(x - gap, y);
-  ctx2d.moveTo(x + gap, y); ctx2d.lineTo(x + g, y);
-  // vertical line
-  ctx2d.moveTo(x, y - g); ctx2d.lineTo(x, y - gap);
-  ctx2d.moveTo(x, y + gap); ctx2d.lineTo(x, y + g);
-  ctx2d.stroke();
-  // centre dot
-  ctx2d.fillStyle = ctx2d.strokeStyle;
-  ctx2d.beginPath();
-  ctx2d.arc(x, y, 2, 0, Math.PI*2);
-  ctx2d.fill();
-  // dead-zone lines
-  ctx2d.globalAlpha = 0.18;
-  ctx2d.strokeStyle = "#fff";
-  ctx2d.lineWidth = 1;
-  ctx2d.setLineDash([4,4]);
-  ctx2d.beginPath();
-  ctx2d.moveTo(w/2 - dead, 0); ctx2d.lineTo(w/2 - dead, h);
-  ctx2d.moveTo(w/2 + dead, 0); ctx2d.lineTo(w/2 + dead, h);
-  ctx2d.stroke();
-  ctx2d.setLineDash([]);
-  ctx2d.globalAlpha = 1;
-}
-
-camDiv.addEventListener("mousemove", function(e){
-  var r = camDiv.getBoundingClientRect();
-  mouseX = e.clientX - r.left;
-  mouseY = e.clientY - r.top;
-  var w    = camDiv.offsetWidth;
-  var dead = w * 0.12;
-  var newCmd = mouseX < w/2 - dead ? "L" : mouseX > w/2 + dead ? "R" : "S";
-  drawCrosshair(mouseX, mouseY, canvas.width, canvas.height);
-  if(newCmd !== mouseCmd){
-    mouseCmd = newCmd;
-    if(!nameOv.classList.contains("on")) motor(mouseCmd);
-  }
-});
-
-camDiv.addEventListener("mouseleave", function(){
-  mouseX = mouseY = -1;
-  ctx2d.clearRect(0, 0, canvas.width, canvas.height);
-  if(mouseCmd && mouseCmd !== "S"){ mouseCmd = "S"; motor("S"); }
-});
 
 setInterval(function(){
   fetch("/sonar").then(function(r){return r.json();}).then(function(d){
