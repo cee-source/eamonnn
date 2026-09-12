@@ -616,7 +616,7 @@ setInterval(function() {
     sonarEl.style.color = d.distance !== null && d.distance < 30 ? '#f80' : '#0f0';
   }).catch(function(){});
   fetch('/cam_pos').then(function(r){return r.json();}).then(function(d){
-    camEl.textContent = 'Cam pan:'+d.pan+'° tilt:'+d.tilt+'°';
+    camEl.textContent = 'Cam pan:'+d.pan+'deg tilt:'+d.tilt+'deg';
   }).catch(function(){});
 }, 300);
 </script>
