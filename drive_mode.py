@@ -43,17 +43,35 @@ def init_serial():
 def send_motor(cmd):
     global serial_conn
     with serial_lock:
-        if serial_conn is None:
-            init_serial()
-        if serial_conn is None:
-            print(f"[Motor] no serial, dropped: {cmd}")
-            return
-        try:
-            serial_conn.write((cmd + "\n").encode())
-            print(f"[Motor] sent: {cmd}")
-        except Exception as e:
-            print(f"[Motor] error: {e}")
-            serial_conn = None
+        for attempt in range(3):
+            if serial_conn is None:
+                init_serial()
+            if serial_conn is None:
+                time.sleep(0.5)
+                continue
+            try:
+                serial_conn.write((cmd + "\n").encode())
+                serial_conn.flush()
+                print(f"[Motor] sent: {cmd}")
+                return
+            except Exception as e:
+                print(f"[Motor] attempt {attempt+1} failed: {e}")
+                try: serial_conn.close()
+                except Exception: pass
+                serial_conn = None
+                time.sleep(0.3)
+        print(f"[Motor] gave up on: {cmd}")
+
+def serial_keepalive():
+    while True:
+        time.sleep(5)
+        with serial_lock:
+            if serial_conn:
+                try:
+                    serial_conn.write(b"S\n")
+                    serial_conn.flush()
+                except Exception as e:
+                    print(f"[Serial] keepalive failed: {e}")
 
 # ---------------------------------------------------------------------------
 # Camera stream
@@ -602,8 +620,9 @@ class ThreadedServer(ThreadingMixIn, HTTPServer):
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     init_serial()
-    threading.Thread(target=camera_loop, daemon=True).start()
-    threading.Thread(target=sonar_loop,  daemon=True).start()
+    threading.Thread(target=camera_loop,     daemon=True).start()
+    threading.Thread(target=sonar_loop,      daemon=True).start()
+    threading.Thread(target=serial_keepalive, daemon=True).start()
     server = ThreadedServer(("0.0.0.0", PORT), Handler)
     print(f"[Drive] http://0.0.0.0:{PORT}")
     try:
