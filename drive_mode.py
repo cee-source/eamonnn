@@ -297,7 +297,7 @@ PAGE = """<!DOCTYPE html>
 </div>
 
 <div id="labels">
-  WASD = drive &nbsp;|&nbsp; Space = stop &nbsp;|&nbsp; Q/E = forklift &nbsp;|&nbsp; Arrow keys = camera
+  WASD = drive &nbsp;|&nbsp; Space = mic toggle &nbsp;|&nbsp; Q/E = forklift &nbsp;|&nbsp; Arrow keys = camera
 </div>
 
 <script>
@@ -321,7 +321,7 @@ function toggleMic() {
   }
 }
 
-var motorMap = {'w':'F','a':'L','s':'B','d':'R',' ':'S','q':'U','e':'D'};
+var motorMap = {'w':'F','a':'L','s':'B','d':'R','q':'U','e':'D'};
 var camMap   = {'arrowleft':'left','arrowright':'right','arrowup':'up','arrowdown':'down'};
 
 var statusEl = document.getElementById('status');
@@ -355,13 +355,15 @@ document.addEventListener('keydown', function(e) {
   var k = e.key.toLowerCase();
   if(held[k]) return;
   held[k] = true;
-  if(motorMap[k]) { e.preventDefault(); sendMotor(motorMap[k]); }
+  if(k === ' ') { e.preventDefault(); toggleMic(); }
+  else if(motorMap[k]) { e.preventDefault(); sendMotor(motorMap[k]); }
   else if(camMap[k]) { e.preventDefault(); sendCam(camMap[k]); }
 });
 document.addEventListener('keyup', function(e) {
   var k = e.key.toLowerCase();
   held[k] = false;
   if(motorMap[k] && motorMap[k] !== 'U' && motorMap[k] !== 'D') stopMotor();
+  if(k === ' ') e.preventDefault();
 });
 
 // Touch buttons — motors
