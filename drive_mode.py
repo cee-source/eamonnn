@@ -252,7 +252,7 @@ PAGE = """<!DOCTYPE html>
   <img src="/stream" id="feed">
   <div id="sonar">Sonar: --</div>
   <div id="status">STOPPED</div>
-  <div id="mic-btn" onclick="toggleMic()">🎤 Mic: OFF</div>
+  <div id="mic-btn" onclick="toggleMic()">🎤 Muted</div>
   <audio id="mic-audio" style="display:none"></audio>
   <div id="cam-pos" style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.6);
     border:1px solid #fa0;padding:6px 12px;border-radius:8px;font-size:13px;color:#fa0;">
@@ -297,28 +297,20 @@ PAGE = """<!DOCTYPE html>
 </div>
 
 <div id="labels">
-  WASD = drive &nbsp;|&nbsp; Space = mic toggle &nbsp;|&nbsp; Q/E = forklift &nbsp;|&nbsp; Arrow keys = camera
+  WASD = drive &nbsp;|&nbsp; Space = mute/unmute mic &nbsp;|&nbsp; Q/E = forklift &nbsp;|&nbsp; Arrow keys = camera
 </div>
 
 <script>
-// Mic toggle
-var micOn = false;
+// Mic — always streaming, space toggles mute
 var micAudio = document.getElementById('mic-audio');
 var micBtn   = document.getElementById('mic-btn');
+micAudio.src = '/audio';
+micAudio.muted = true;
+micAudio.play().catch(function(){});
 function toggleMic() {
-  if (micOn) {
-    micAudio.pause();
-    micAudio.src = '';
-    micBtn.textContent = '🎤 Mic: OFF';
-    micBtn.classList.remove('on');
-    micOn = false;
-  } else {
-    micAudio.src = '/audio';
-    micAudio.play().catch(function(){});
-    micBtn.textContent = '🎤 Mic: ON';
-    micBtn.classList.add('on');
-    micOn = true;
-  }
+  micAudio.muted = !micAudio.muted;
+  micBtn.textContent = micAudio.muted ? '🎤 Muted' : '🎤 LIVE';
+  micBtn.classList.toggle('on', !micAudio.muted);
 }
 
 var motorMap = {'w':'F','a':'L','s':'B','d':'R','q':'U','e':'D'};
@@ -363,7 +355,6 @@ document.addEventListener('keyup', function(e) {
   var k = e.key.toLowerCase();
   held[k] = false;
   if(motorMap[k] && motorMap[k] !== 'U' && motorMap[k] !== 'D') stopMotor();
-  if(k === ' ') e.preventDefault();
 });
 
 // Touch buttons — motors
