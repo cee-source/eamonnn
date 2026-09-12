@@ -5,6 +5,7 @@ Open browser: http://<pi-ip>:8080
 """
 
 import glob
+import struct
 import subprocess
 import sys
 import threading
@@ -128,6 +129,38 @@ def sonar_loop():
     except Exception as e:
         print(f"[Sonar] Not available: {e}")
 
+# ── Microphone stream ─────────────────────────────────────────────────────────
+
+SAMPLE_RATE = 16000
+
+def _wav_header():
+    """Streaming WAV header with max data size so browser keeps reading."""
+    data_size = 0xFFFFFFFF
+    channels, bits = 1, 16
+    byte_rate = SAMPLE_RATE * channels * bits // 8
+    block_align = channels * bits // 8
+    h  = struct.pack('<4sI4s', b'RIFF', data_size + 36, b'WAVE')
+    h += struct.pack('<4sIHHIIHH', b'fmt ', 16, 1, channels,
+                    SAMPLE_RATE, byte_rate, block_align, bits)
+    h += struct.pack('<4sI', b'data', data_size)
+    return h
+
+def _find_mic():
+    """Return the first USB audio capture device, or 'default'."""
+    try:
+        out = subprocess.check_output(
+            ["arecord", "-l"], stderr=subprocess.DEVNULL, text=True)
+        for line in out.splitlines():
+            if "USB" in line or "usb" in line:
+                # line: "card 1: Device [USB ...], device 0: ..."
+                import re
+                m = re.search(r'card (\d+):.*device (\d+):', line)
+                if m:
+                    return f"plughw:{m.group(1)},{m.group(2)}"
+    except Exception:
+        pass
+    return "default"
+
 # ── Camera ────────────────────────────────────────────────────────────────────
 
 def camera_loop():
@@ -179,6 +212,13 @@ PAGE = """<!DOCTYPE html>
     background: rgba(0,0,0,0.6); border: 1px solid #0f0;
     padding: 8px 12px; border-radius: 8px; font-size: 14px; color: #0f0;
   }
+  #mic-btn {
+    position: absolute; bottom: 10px; right: 10px;
+    background: rgba(0,0,0,0.6); border: 1px solid #555;
+    padding: 8px 14px; border-radius: 8px; font-size: 14px;
+    color: #aaa; cursor: pointer; user-select: none;
+  }
+  #mic-btn.on { border-color: #f44; color: #f44; }
   #status {
     position: absolute; top: 10px; right: 10px;
     background: rgba(0,0,0,0.6); border: 1px solid #08f;
@@ -212,6 +252,8 @@ PAGE = """<!DOCTYPE html>
   <img src="/stream" id="feed">
   <div id="sonar">Sonar: --</div>
   <div id="status">STOPPED</div>
+  <div id="mic-btn" onclick="toggleMic()">🎤 Mic: OFF</div>
+  <audio id="mic-audio" style="display:none"></audio>
   <div id="cam-pos" style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.6);
     border:1px solid #fa0;padding:6px 12px;border-radius:8px;font-size:13px;color:#fa0;">
     Cam pan:0° tilt:0°</div>
@@ -259,6 +301,26 @@ PAGE = """<!DOCTYPE html>
 </div>
 
 <script>
+// Mic toggle
+var micOn = false;
+var micAudio = document.getElementById('mic-audio');
+var micBtn   = document.getElementById('mic-btn');
+function toggleMic() {
+  if (micOn) {
+    micAudio.pause();
+    micAudio.src = '';
+    micBtn.textContent = '🎤 Mic: OFF';
+    micBtn.classList.remove('on');
+    micOn = false;
+  } else {
+    micAudio.src = '/audio';
+    micAudio.play().catch(function(){});
+    micBtn.textContent = '🎤 Mic: ON';
+    micBtn.classList.add('on');
+    micOn = true;
+  }
+}
+
 var motorMap = {'w':'F','a':'L','s':'B','d':'R',' ':'S','q':'U','e':'D'};
 var camMap   = {'arrowleft':'left','arrowright':'right','arrowup':'up','arrowdown':'down'};
 
@@ -369,6 +431,32 @@ class Handler(BaseHTTPRequestHandler):
                     time.sleep(0.033)
             except Exception:
                 pass
+
+        elif path == "/audio":
+            self.send_response(200)
+            self.send_header("Content-Type", "audio/wav")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            self.wfile.write(_wav_header())
+            device = _find_mic()
+            print(f"[Mic] Streaming from {device}")
+            proc = subprocess.Popen(
+                ["arecord", "-D", device, "-f", "S16_LE",
+                 "-r", str(SAMPLE_RATE), "-c", "1"],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            try:
+                while True:
+                    chunk = proc.stdout.read(2048)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    self.wfile.flush()
+            except Exception:
+                pass
+            finally:
+                try: proc.kill()
+                except Exception: pass
 
         elif path == "/sonar":
             with sonar_lock:
