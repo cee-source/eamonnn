@@ -339,7 +339,7 @@ function toggleMic() {
         var usedBytes    = totalSamples * 2;
         leftover = combined.slice(usedBytes);
 
-        if (totalSamples > 0 && !micMuted) {
+        if (totalSamples > 0 && !micMuted && !motorSuppressed) {
           var buf = micCtx.createBuffer(1, totalSamples, SAMPLE_RATE);
           var f32 = buf.getChannelData(0);
           var view = new DataView(combined.buffer, combined.byteOffset, usedBytes);
@@ -371,6 +371,7 @@ var sonarEl  = document.getElementById('sonar');
 var camEl    = document.getElementById('cam-pos');
 var current  = null;
 
+var motorMuteTimer = null;
 function sendMotor(cmd) {
   fetch('/motor', {method:'POST', body:'cmd='+cmd,
     headers:{'Content-Type':'application/x-www-form-urlencoded'}});
@@ -380,7 +381,18 @@ function sendMotor(cmd) {
   document.querySelectorAll('.btn').forEach(function(b){b.classList.remove('active')});
   var b = document.getElementById('btn-'+cmd);
   if(b) b.classList.add('active');
+
+  // Suppress mic while motors are running
+  if (motorMuteTimer) clearTimeout(motorMuteTimer);
+  if (cmd === 'S') {
+    // Unmute 600ms after stopping so motor noise fades
+    motorMuteTimer = setTimeout(function() { motorSuppressed = false; }, 600);
+  } else {
+    motorSuppressed = true;
+  }
 }
+
+var motorSuppressed = false;
 
 function stopMotor() {
   if(current && current !== 'S') sendMotor('S');
