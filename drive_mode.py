@@ -536,6 +536,7 @@ function toggleMic() {
   }).catch(function(e){ console.error('Mic stream error', e); });
 })();
 
+var motorSuppressed = false;
 var motorMap = {'w':'F','a':'L','s':'B','d':'R','q':'U','e':'D'};
 var camMap   = {'arrowleft':'left','arrowright':'right','arrowup':'up','arrowdown':'down'};
 
@@ -564,8 +565,6 @@ function sendMotor(cmd) {
     motorSuppressed = true;
   }
 }
-
-var motorSuppressed = false;
 
 function stopMotor() {
   if(current && current !== 'S') sendMotor('S');
