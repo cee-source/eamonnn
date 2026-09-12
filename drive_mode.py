@@ -475,7 +475,7 @@ nameInput.addEventListener('keydown', function(e){
   if (e.key === 'Escape') { nameDialog.classList.remove('on'); }
 });
 
-// Mic — Web Audio API streams raw PCM from /audio
+// Mic - Web Audio API streams raw PCM from /audio
 var micBtn    = document.getElementById('mic-btn');
 var micMuted  = true;
 var micCtx    = null;
@@ -593,7 +593,7 @@ document.addEventListener('keyup', function(e) {
   if(motorMap[k] && motorMap[k] !== 'U' && motorMap[k] !== 'D') stopMotor();
 });
 
-// Touch buttons — motors
+// Touch buttons - motors
 document.querySelectorAll('.btn[data-cmd]').forEach(function(btn) {
   var cmd = btn.dataset.cmd;
   btn.addEventListener('pointerdown', function(e) { e.preventDefault(); sendMotor(cmd); });
@@ -603,7 +603,7 @@ document.querySelectorAll('.btn[data-cmd]').forEach(function(btn) {
   }
 });
 
-// Touch buttons — camera
+// Touch buttons - camera
 document.querySelectorAll('.cam-btn[data-action]').forEach(function(btn) {
   var action = btn.dataset.action;
   btn.addEventListener('pointerdown', function(e){ e.preventDefault(); sendCam(action); });
