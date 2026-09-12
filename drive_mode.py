@@ -255,7 +255,6 @@ PAGE = """<!DOCTYPE html>
   <div id="sonar">Sonar: --</div>
   <div id="status">STOPPED</div>
   <div id="mic-btn" onclick="toggleMic()">🎤 Muted</div>
-  <audio id="mic-audio" style="display:none"></audio>
   <div id="cam-pos" style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.6);
     border:1px solid #fa0;padding:6px 12px;border-radius:8px;font-size:13px;color:#fa0;">
     Cam pan:0° tilt:0°</div>
@@ -303,17 +302,66 @@ PAGE = """<!DOCTYPE html>
 </div>
 
 <script>
-// Mic — always streaming, space toggles mute
-var micAudio = document.getElementById('mic-audio');
-var micBtn   = document.getElementById('mic-btn');
-micAudio.src = '/audio';
-micAudio.muted = true;
-micAudio.play().catch(function(){});
+// Mic — Web Audio API streams raw PCM from /audio
+var micBtn    = document.getElementById('mic-btn');
+var micMuted  = true;
+var micCtx    = null;
+var micReader = null;
+
 function toggleMic() {
-  micAudio.muted = !micAudio.muted;
-  micBtn.textContent = micAudio.muted ? '🎤 Muted' : '🎤 LIVE';
-  micBtn.classList.toggle('on', !micAudio.muted);
+  micMuted = !micMuted;
+  micBtn.textContent = micMuted ? '🎤 Muted' : '🎤 LIVE';
+  micBtn.classList.toggle('on', !micMuted);
 }
+
+// Start fetching and playing audio immediately (muted until user unmutes)
+(function startMicStream() {
+  micCtx = new (window.AudioContext || window.webkitAudioContext)({sampleRate: 16000});
+  var SAMPLE_RATE = 16000;
+  var CHUNK_SAMPLES = 1024;
+  var playAt = micCtx.currentTime + 0.1;
+
+  fetch('/audio').then(function(resp) {
+    var reader = resp.body.getReader();
+    var leftover = new Uint8Array(0);
+
+    function pump() {
+      reader.read().then(function(result) {
+        if (result.done) return;
+        // Combine leftover bytes with new chunk
+        var incoming = result.value;
+        var combined = new Uint8Array(leftover.length + incoming.length);
+        combined.set(leftover);
+        combined.set(incoming, leftover.length);
+
+        // Process as many full sample pairs (2 bytes each) as we have
+        var totalSamples = Math.floor(combined.length / 2);
+        var usedBytes    = totalSamples * 2;
+        leftover = combined.slice(usedBytes);
+
+        if (totalSamples > 0 && !micMuted) {
+          var buf = micCtx.createBuffer(1, totalSamples, SAMPLE_RATE);
+          var f32 = buf.getChannelData(0);
+          var view = new DataView(combined.buffer, combined.byteOffset, usedBytes);
+          for (var i = 0; i < totalSamples; i++) {
+            f32[i] = view.getInt16(i * 2, true) / 32768;
+          }
+          var src = micCtx.createBufferSource();
+          src.buffer = buf;
+          src.connect(micCtx.destination);
+          var startAt = Math.max(playAt, micCtx.currentTime + 0.02);
+          src.start(startAt);
+          playAt = startAt + buf.duration;
+        } else if (totalSamples > 0) {
+          // Still advance playAt even when muted so we stay in sync
+          playAt = Math.max(playAt, micCtx.currentTime) + totalSamples / SAMPLE_RATE;
+        }
+        pump();
+      }).catch(function(){});
+    }
+    pump();
+  }).catch(function(e){ console.error('Mic stream error', e); });
+})();
 
 var motorMap = {'w':'F','a':'L','s':'B','d':'R','q':'U','e':'D'};
 var camMap   = {'arrowleft':'left','arrowright':'right','arrowup':'up','arrowdown':'down'};
@@ -429,13 +477,12 @@ class Handler(BaseHTTPRequestHandler):
 
         elif path == "/audio":
             self.send_response(200)
-            self.send_header("Content-Type", "audio/wav")
+            self.send_header("Content-Type", "application/octet-stream")
             self.send_header("Cache-Control", "no-cache")
-            self.send_header("Transfer-Encoding", "chunked")
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
-            self.wfile.write(_wav_header())
             device = _find_mic()
-            print(f"[Mic] Streaming from {device}")
+            print(f"[Mic] Streaming raw PCM from {device}")
             proc = subprocess.Popen(
                 ["arecord", "-D", device, "-f", "S16_LE",
                  "-r", str(SAMPLE_RATE), "-c", "1"],
