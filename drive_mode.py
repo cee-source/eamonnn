@@ -139,7 +139,7 @@ def _wav_header():
     channels, bits = 1, 16
     byte_rate = SAMPLE_RATE * channels * bits // 8
     block_align = channels * bits // 8
-    h  = struct.pack('<4sI4s', b'RIFF', data_size + 36, b'WAVE')
+    h  = struct.pack('<4sI4s', b'RIFF', data_size, b'WAVE')
     h += struct.pack('<4sIHHIIHH', b'fmt ', 16, 1, channels,
                     SAMPLE_RATE, byte_rate, block_align, bits)
     h += struct.pack('<4sI', b'data', data_size)
