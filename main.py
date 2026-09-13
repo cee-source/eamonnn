@@ -75,6 +75,7 @@ def init_display(args, config):
 def build_root_menu(config, display) -> list[MenuEntry]:
     from modules.rfid.rfid_menu import build_rfid_menu
     from modules.infrared.ir_menu import build_ir_menu
+    from modules.thermal.thermal_menu import build_thermal_menu
     from modules.subghz.subghz_menu import build_subghz_menu
     from modules.badusb.badusb_menu import build_badusb_menu
     from modules.gpio_tools.gpio_menu import build_gpio_menu
@@ -90,6 +91,7 @@ def build_root_menu(config, display) -> list[MenuEntry]:
     return [
         MenuEntry(label='RFID / NFC',  children=build_rfid_menu(config, display)),
         MenuEntry(label='Infrared',    children=build_ir_menu(config, display)),
+        MenuEntry(label='Thermal Cam', children=build_thermal_menu(config, display)),
         MenuEntry(label='Sub-GHz',     children=build_subghz_menu(config, display)),
         MenuEntry(label='Bad USB',     children=build_badusb_menu(config, display)),
         MenuEntry(label='GPIO Tools',  children=build_gpio_menu(config, display)),

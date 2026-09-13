@@ -6,3 +6,4 @@ adafruit-blinka>=8.0.0
 luma.oled>=3.13.0
 Pillow>=10.0.0
 pigpio>=1.78
+adafruit-circuitpython-mlx90640>=1.2.0
