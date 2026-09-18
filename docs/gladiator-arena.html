@@ -97,7 +97,6 @@
   button{font-family:inherit;}
   .icon{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;vertical-align:-.15em;}
   .icon.sm{width:.85em;height:.85em;}
-  .icon.solid{fill:currentColor;stroke:none;}
 
   #root{max-width:520px;margin:0 auto;padding-inline:14px;padding-block:14px 40px;min-height:100%;}
 
@@ -163,15 +162,12 @@
   }
   .scene-caption h2{font-size:1.2rem;color:var(--ink);text-shadow:0 2px 8px rgba(0,0,0,.5);}
 
-  /* Standing figure (NPCs) */
+  /* Standing figures */
   .scene-figure{
-    position:absolute; left:50%; bottom:6%; transform:translateX(-50%);
-    height:72%; filter:drop-shadow(0 10px 16px rgba(0,0,0,.5)); z-index:1;
+    position:absolute; left:50%; bottom:4%; transform:translateX(-50%);
+    height:78%; filter:drop-shadow(0 10px 16px rgba(0,0,0,.5)); z-index:1;
   }
-  .scene-figure svg{height:100%;width:auto;display:block;aspect-ratio:1/2;}
-  .scene-figure.magnus{color:#C7A550;}
-  .scene-figure.vita{color:var(--victory);}
-  .scene-figure.dominus{color:var(--blood);}
+  .scene-figure svg{height:100%;width:auto;display:block;aspect-ratio:120/240;}
   .scene-figure-badge{
     position:absolute; left:50%; bottom:6%; transform:translateX(38px);
     width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
@@ -221,12 +217,12 @@
   .btn-equipped{background:color-mix(in srgb, var(--victory) 18%, var(--surface));color:var(--victory);border-color:var(--victory);}
   .btn-disabled{background:var(--surface-2);color:var(--muted);border-color:var(--border-soft);}
 
-  /* ---------- Armorer ---------- */
-  .tab-row{display:flex;gap:8px;margin-bottom:10px;}
+  /* ---------- Armorer / Weaponsmith ---------- */
+  .tab-row{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
   .tab{
-    flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
-    padding:8px 6px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);
-    color:var(--muted);font-size:.76rem;font-weight:700;cursor:pointer;transition:.15s;
+    flex:1;min-width:70px;display:flex;align-items:center;justify-content:center;gap:5px;
+    padding:8px 4px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);
+    color:var(--muted);font-size:.72rem;font-weight:700;cursor:pointer;transition:.15s;
   }
   .tab.active{background:color-mix(in srgb, var(--gold) 16%, var(--surface-2));color:var(--gold);border-color:var(--gold-dim);}
   .armor-list{display:flex;flex-direction:column;gap:7px;}
@@ -262,16 +258,17 @@
 
   /* ---------- Combat scene ---------- */
   .arena-scene{height:340px;}
+  .arena-scene.aiming{cursor:none;}
   .boss-bar{position:absolute;top:34px;left:14px;right:14px;z-index:3;}
   .boss-name{font-family:var(--font-display);font-weight:700;font-size:.92rem;color:var(--ink);text-shadow:0 2px 8px rgba(0,0,0,.6);margin-bottom:5px;text-align:center;}
   .boss-bar .hpbar{height:9px;}
 
   .fighter-figure{
-    position:absolute;left:50%;bottom:16%;transform:translateX(-50%);height:56%;
-    color:var(--blood-dim);filter:drop-shadow(0 10px 18px rgba(0,0,0,.55));z-index:1;
+    position:absolute;left:50%;bottom:14%;transform:translateX(-50%);height:62%;
+    filter:drop-shadow(0 10px 18px rgba(0,0,0,.55));z-index:1;
     transition:transform .15s ease;
   }
-  .fighter-figure svg{height:100%;width:auto;display:block;aspect-ratio:1/2;}
+  .fighter-figure svg{height:100%;width:auto;display:block;aspect-ratio:120/240;}
   .fighter-figure.hit{animation:fighterHit .35s ease;}
   @keyframes fighterHit{
     0%{filter:drop-shadow(0 10px 18px rgba(0,0,0,.55)) brightness(1);}
@@ -283,7 +280,7 @@
 
   .viewmodel{position:absolute;bottom:-6%;width:46%;z-index:2;pointer-events:none;}
   .viewmodel svg{width:100%;height:auto;display:block;aspect-ratio:200/220;}
-  .viewmodel.sword{right:-6%;color:var(--muted);transform-origin:100% 100%;transition:transform .12s ease;}
+  .viewmodel.sword{right:-6%;transform-origin:100% 100%;transition:transform .12s ease;}
   .viewmodel.shield{left:-6%;color:var(--gold-dim);transform-origin:0% 100%;transition:transform .12s ease;}
   .viewmodel.sword.swing{animation:swordSwing .32s ease;}
   @keyframes swordSwing{0%{transform:rotate(0deg);}40%{transform:rotate(-38deg) translate(-14px,-8px);}100%{transform:rotate(0deg);}}
@@ -313,6 +310,22 @@
   @media (min-width:440px){ .action-row{grid-template-columns:repeat(4,1fr);} }
   .action-row .btn{flex-direction:column;padding:11px 6px;gap:4px;font-size:.72rem;}
   .action-row .icon{width:1.15rem;height:1.15rem;}
+
+  /* ---------- Crosshair ---------- */
+  .crosshair{
+    position:fixed; top:0; left:0; width:36px; height:36px;
+    transform:translate(-50%,-50%); pointer-events:none; z-index:200;
+    color:var(--ink); display:none;
+  }
+  .crosshair.active{display:block;}
+  .crosshair svg{width:100%;height:100%;filter:drop-shadow(0 0 3px rgba(0,0,0,.8));}
+  .crosshair.locked-on{color:var(--blood);}
+  .crosshair-tag{
+    position:absolute; top:40px; left:50%; transform:translateX(-50%);
+    font-size:.62rem; font-weight:800; letter-spacing:.08em; color:var(--blood); white-space:nowrap;
+    text-shadow:0 1px 5px rgba(0,0,0,.7); opacity:0;
+  }
+  .crosshair.locked-on .crosshair-tag{opacity:1;}
 
   /* ---------- Stats overlay ---------- */
   .overlay{
@@ -378,6 +391,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="crosshair" id="crosshair"><svg><use href="#i-crosshair"/></svg><span class="crosshair-tag">HEADSHOT</span></div>
 
 <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
 <defs>
@@ -437,26 +451,118 @@
     <path d="M6 8v9.8A2.2 2.2 0 0 0 8.2 20H18v-3H8.2"/>
     <path d="M9 11h6M9 14h6"/>
   </symbol>
-
-  <!-- Large illustrative figures (filled silhouettes, not line icons) -->
-  <symbol id="i-figure-npc" viewBox="0 0 100 200">
-    <circle cx="50" cy="27" r="19"/>
-    <path d="M31 44 Q50 37 69 44 L79 118 Q79 150 68 191 L57 191 L60 148 L40 148 L43 191 L32 191 Q21 150 21 118 Z"/>
-    <path d="M29 52 L9 108 L18 114 L36 66 Z"/>
-    <path d="M71 52 L91 108 L82 114 L64 66 Z"/>
-  </symbol>
-  <symbol id="i-figure-fighter" viewBox="0 0 100 200">
-    <circle cx="52" cy="24" r="17"/>
-    <path d="M33 40 Q52 34 70 41 L77 96 L60 122 L66 191 L54 191 L50 128 L38 191 L26 191 L33 118 L14 100 L20 88 L38 100 Z"/>
-    <path d="M70 41 L92 20 L98 30 L82 55 Z"/>
-    <path d="M33 40 L14 60 L21 68 L38 52 Z"/>
+  <symbol id="i-crosshair" viewBox="0 0 36 36">
+    <circle cx="18" cy="18" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/>
+    <path d="M18 1v7M18 28v7M1 18h7M28 18h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    <circle cx="18" cy="18" r="1.5" fill="currentColor"/>
   </symbol>
 
-  <!-- First-person weapon/shield viewmodels -->
-  <symbol id="i-vm-sword" viewBox="0 0 200 220">
-    <path d="M200 220 L108 96 L92 108 L172 220 Z"/>
-    <path d="M108 96 L44 8 L60 0 L120 88 Z"/>
-    <rect x="93" y="90" width="30" height="16" rx="3" transform="rotate(-53 108 98)"/>
+  <!-- Illustrated figures: layered, shaded, clothed — not flat silhouettes -->
+  <symbol id="i-person-magnus" viewBox="0 0 120 240">
+    <path d="M42 150 L38 226 Q38 233 46 233 L53 233 L55 168 L65 168 L67 233 L74 233 Q82 233 82 226 L78 150 Z" fill="#5B4632"/>
+    <ellipse cx="44" cy="235" rx="10" ry="5" fill="#201509"/>
+    <ellipse cx="76" cy="235" rx="10" ry="5" fill="#201509"/>
+    <path d="M32 70 Q60 58 88 70 L94 118 Q96 140 90 154 L30 154 Q24 140 26 118 Z" fill="#8B5E34"/>
+    <path d="M60 78 L57 150 M60 78 L63 150" stroke="#5B4632" stroke-width="3" fill="none"/>
+    <rect x="30" y="118" width="60" height="9" fill="#5B4632"/>
+    <path d="M30 78 Q22 96 24 116 Q25 124 33 123 Q39 122 38 112 L34 84 Z" fill="#D9A066"/>
+    <path d="M90 78 Q98 96 96 116 Q95 124 87 123 Q81 122 82 112 L86 84 Z" fill="#D9A066"/>
+    <path d="M24 116 Q18 134 22 150 Q24 157 32 156 Q38 155 37 147 L33 120 Z" fill="#D9A066"/>
+    <path d="M96 116 Q102 134 98 150 Q96 157 88 156 Q82 155 83 147 L87 120 Z" fill="#D9A066"/>
+    <rect x="88" y="118" width="7" height="36" rx="3" fill="#6B4A2E" transform="rotate(20 91 136)"/>
+    <rect x="80" y="112" width="26" height="15" rx="3" fill="#54545A" transform="rotate(20 93 119)"/>
+    <rect x="50" y="58" width="20" height="14" fill="#D9A066"/>
+    <circle cx="60" cy="35" r="21" fill="#D9A066"/>
+    <circle cx="39" cy="36" r="4" fill="#D9A066"/>
+    <circle cx="81" cy="36" r="4" fill="#D9A066"/>
+    <path d="M40 26 Q60 8 80 26 Q80 15 60 13 Q40 15 40 26Z" fill="#4A3527"/>
+    <path d="M46 31 L56 29 M64 29 L74 31" stroke="#3A2A1D" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+    <circle cx="51" cy="35" r="2.3" fill="#241A12"/>
+    <circle cx="69" cy="35" r="2.3" fill="#241A12"/>
+    <path d="M48 46 Q60 52 72 46 Q68 51 60 51 Q52 51 48 46Z" fill="#4A3527"/>
+  </symbol>
+
+  <symbol id="i-person-vita" viewBox="0 0 120 240">
+    <path d="M36 76 Q60 64 84 76 L92 140 Q96 190 84 232 L36 232 Q24 190 28 140 Z" fill="#5C7A50"/>
+    <ellipse cx="48" cy="234" rx="9" ry="4" fill="#2E4028"/>
+    <ellipse cx="72" cy="234" rx="9" ry="4" fill="#2E4028"/>
+    <rect x="30" y="118" width="60" height="7" fill="#3E5636"/>
+    <path d="M32 80 Q22 100 26 122 Q28 130 36 128 L38 90 Z" fill="#5C7A50"/>
+    <path d="M88 80 Q98 100 94 122 Q92 130 84 128 L82 90 Z" fill="#5C7A50"/>
+    <path d="M26 122 Q20 138 24 152 Q26 158 33 156 Q38 155 36 148 L34 124 Z" fill="#E8C39A"/>
+    <path d="M94 122 Q100 138 96 152 Q94 158 87 156 Q82 155 84 148 L86 124 Z" fill="#E8C39A"/>
+    <rect x="85" y="140" width="9" height="15" rx="2" fill="#BFE0C8" stroke="#3E5636" stroke-width="1"/>
+    <rect x="50" y="58" width="18" height="13" fill="#E8C39A"/>
+    <circle cx="60" cy="34" r="19" fill="#E8C39A"/>
+    <path d="M39 30 Q60 6 81 30 Q81 19 60 15 Q39 19 39 30Z" fill="#6B8B5C"/>
+    <path d="M75 23 Q90 34 85 54 Q83 40 72 31Z" fill="#6B8B5C"/>
+    <circle cx="52" cy="35" r="2.1" fill="#241A12"/>
+    <circle cx="68" cy="35" r="2.1" fill="#241A12"/>
+    <path d="M52 44 Q60 48 68 44" stroke="#8A5A3C" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </symbol>
+
+  <symbol id="i-person-dominus" viewBox="0 0 120 240">
+    <path d="M34 74 Q60 60 86 74 L94 150 Q96 196 86 230 L34 230 Q24 196 26 150 Z" fill="#8E3227"/>
+    <path d="M40 76 L86 150 L78 158 L34 88Z" fill="#C9A24A"/>
+    <ellipse cx="46" cy="232" rx="9" ry="4" fill="#241812"/>
+    <ellipse cx="74" cy="232" rx="9" ry="4" fill="#241812"/>
+    <path d="M30 90 Q26 112 40 128 Q52 138 66 130 L62 118 Q50 122 42 112 Q36 100 40 88Z" fill="#8E3227"/>
+    <ellipse cx="64" cy="128" rx="8" ry="7" fill="#E0AE7E"/>
+    <path d="M92 92 Q100 110 96 130 Q94 138 86 136 Q81 135 83 127 L86 96Z" fill="#E0AE7E"/>
+    <rect x="50" y="56" width="20" height="14" fill="#E0AE7E"/>
+    <circle cx="60" cy="33" r="20" fill="#E0AE7E"/>
+    <path d="M40 25 Q60 10 80 25 Q78 17 60 15 Q42 17 40 25Z" fill="#3A2E22"/>
+    <path d="M36 24c6-10 16-16 24-17M84 24c-6-10-16-16-24-17" stroke="#C9A24A" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M38 20l-4 3M42 15l-4 2M82 20l4 3M78 15l4 2" stroke="#C9A24A" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M46 29 L56 31 M64 31 L74 29" stroke="#3A2E22" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    <circle cx="51" cy="34" r="2.2" fill="#241A12"/>
+    <circle cx="69" cy="34" r="2.2" fill="#241A12"/>
+    <path d="M52 45 h16" stroke="#6B3A2E" stroke-width="2" stroke-linecap="round" fill="none"/>
+  </symbol>
+
+  <symbol id="i-person-fighter" viewBox="0 0 120 240">
+    <path d="M38 150 L26 226 Q25 233 33 233 L42 233 L52 156Z" fill="#C98A5A"/>
+    <path d="M82 150 L94 226 Q95 233 87 233 L78 233 L68 156Z" fill="#C98A5A"/>
+    <ellipse cx="34" cy="235" rx="10" ry="5" fill="#241812"/>
+    <ellipse cx="86" cy="235" rx="10" ry="5" fill="#241812"/>
+    <path d="M40 130 Q60 122 80 130 L84 160 Q60 172 36 160Z" fill="#6B4A2E"/>
+    <path d="M34 66 Q60 54 86 66 L92 100 Q94 118 86 132 Q60 142 34 132 Q26 118 28 100Z" fill="#C98A5A"/>
+    <path d="M60 70 L60 130 M42 90 Q60 96 78 90 M42 110 Q60 116 78 110" stroke="#A56E44" stroke-width="2" fill="none" opacity=".6"/>
+    <path d="M86 68 L104 40 L112 46 L98 76Z" fill="#C98A5A"/>
+    <path d="M90 62 L106 42 L114 50 L100 68Z" fill="#8B8B90"/>
+    <path d="M34 68 L16 92 L24 100 L40 80Z" fill="#C98A5A"/>
+    <rect x="50" y="54" width="20" height="12" fill="#C98A5A"/>
+    <path d="M38 44c0-14 10-24 22-24s22 10 22 24v6H38Z" fill="#7A7A80"/>
+    <rect x="36" y="48" width="48" height="8" rx="2" fill="#5C5C60"/>
+    <path d="M60 20 L60 5 M55 8 L60 1 L65 8" stroke="#B4453A" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <rect x="48" y="42" width="24" height="4" fill="#201812"/>
+  </symbol>
+
+  <!-- First-person weapon/shield viewmodels, one blade shape per sword type -->
+  <symbol id="i-vm-sword-0" viewBox="0 0 200 220">
+    <path d="M200 220 L118 108 L104 118 L176 220 Z" fill="#8A8A90"/>
+    <path d="M118 108 L70 34 L84 26 L130 100 Z" fill="#B8B8BE"/>
+    <rect x="103" y="102" width="26" height="14" rx="3" fill="#5C4A34" transform="rotate(-53 116 109)"/>
+  </symbol>
+  <symbol id="i-vm-sword-1" viewBox="0 0 200 220">
+    <path d="M200 220 L120 104 L104 116 L178 220 Z" fill="#9A9AA0"/>
+    <path d="M120 104 L86 46 Q100 34 118 46 L136 92Z" fill="#C6C6CC"/>
+    <rect x="104" y="98" width="28" height="15" rx="3" fill="#6B4A2E" transform="rotate(-52 118 106)"/>
+  </symbol>
+  <symbol id="i-vm-sword-2" viewBox="0 0 200 220">
+    <path d="M200 220 L112 100 L100 110 L172 220 Z" fill="#9A9AA0"/>
+    <path d="M112 100 L46 2 L58 -4 L128 92Z" fill="#D6D6DC"/>
+    <rect x="96" y="94" width="30" height="13" rx="3" fill="#4A3D2C" transform="rotate(-55 111 101)"/>
+  </symbol>
+  <symbol id="i-vm-sword-3" viewBox="0 0 200 220">
+    <path d="M200 220 L116 102 L102 114 L174 220 Z" fill="#9A9AA0"/>
+    <path d="M116 102 Q60 70 40 18 Q86 44 100 60 Q118 78 132 96Z" fill="#C2C2C8"/>
+    <rect x="100" y="96" width="28" height="14" rx="3" fill="#5C4A34" transform="rotate(-50 114 103)"/>
+  </symbol>
+  <symbol id="i-vm-sword-4" viewBox="0 0 200 220">
+    <path d="M200 220 L108 96 L92 108 L168 220 Z" fill="#A8A8AE"/>
+    <path d="M108 96 Q30 40 12 -22 Q78 6 100 40 Q122 66 132 88Z" fill="#E2E2E8"/>
+    <rect x="90" y="90" width="32" height="15" rx="3" fill="#3A2E22" transform="rotate(-54 106 98)"/>
   </symbol>
   <symbol id="i-vm-shield" viewBox="0 0 200 220">
     <path d="M0 220 L0 130 Q0 76 66 64 Q132 76 132 130 L132 220 Z"/>
@@ -470,9 +576,10 @@
   'use strict';
 
   // ------------------------------------------------------------------
-  // Data — mirrors the Python Gladiator Arena module 1:1
+  // Data
   // ------------------------------------------------------------------
   var SLOTS = ['Helmet','Chest','Shield'];
+  var SHOP_TABS = ['Weapon'].concat(SLOTS);
   var ROMAN = ['I','II','III','IV','V','VI','VII','VIII'];
 
   var ARMOR_CATALOG = [
@@ -488,6 +595,13 @@
     {name:'Bronze Scutum',  slot:'Shield', defense:7,  price:80},
     {name:'Iron Scutum',    slot:'Shield', defense:13, price:180},
     {name:'Tower Shield',   slot:'Shield', defense:20, price:340}
+  ];
+
+  var WEAPON_CATALOG = [
+    {name:'Gladius',   attack:2,  price:25,  blade:1, desc:'Short Roman stabbing sword'},
+    {name:'Spatha',    attack:5,  price:70,  blade:2, desc:'Long straight cavalry blade'},
+    {name:'Falx',      attack:9,  price:160, blade:3, desc:'Curved Dacian war blade'},
+    {name:'Rhomphaia', attack:14, price:300, blade:4, desc:'Massive Thracian great-blade'}
   ];
 
   var OPPONENTS = [
@@ -513,8 +627,9 @@
   ];
 
   function findArmor(name){ for (var i=0;i<ARMOR_CATALOG.length;i++){ if (ARMOR_CATALOG[i].name===name) return ARMOR_CATALOG[i]; } return null; }
+  function findWeapon(name){ for (var i=0;i<WEAPON_CATALOG.length;i++){ if (WEAPON_CATALOG[i].name===name) return WEAPON_CATALOG[i]; } return null; }
   function armorForSlot(slot){ return ARMOR_CATALOG.filter(function(a){ return a.slot===slot; }); }
-  function slotIcon(slot){ return slot==='Helmet' ? 'i-helm' : (slot==='Chest' ? 'i-chest' : 'i-shield'); }
+  function slotIcon(slot){ return slot==='Helmet' ? 'i-helm' : (slot==='Chest' ? 'i-chest' : (slot==='Shield' ? 'i-shield' : 'i-sword')); }
   function pct(v,max){ return Math.max(0, Math.min(100, 100*v/Math.max(1,max))); }
   function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
   function esc(s){ return String(s).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
@@ -526,11 +641,14 @@
     return {
       maxHp: STARTING_MAX_HP, hp: STARTING_MAX_HP,
       baseAttack: STARTING_ATTACK, baseDefense: STARTING_DEFENSE,
-      gold: STARTING_GOLD, armor: {Helmet:null, Chest:null, Shield:null},
+      gold: STARTING_GOLD, armor: {Helmet:null, Chest:null, Shield:null}, weapon: null,
       wins: 0, losses: 0, opponentIndex: 0
     };
   }
-  function pAttack(p){ return p.baseAttack + p.wins; }
+  function pAttack(p){
+    var w = p.weapon ? findWeapon(p.weapon) : null;
+    return p.baseAttack + p.wins + (w ? w.attack : 0);
+  }
   function pDefense(p){
     var bonus = 0;
     SLOTS.forEach(function(slot){
@@ -539,6 +657,7 @@
     });
     return p.baseDefense + bonus;
   }
+  function weaponBlade(p){ var w = p.weapon ? findWeapon(p.weapon) : null; return w ? w.blade : 0; }
   function nextOpponent(p){ return OPPONENTS[Math.max(0, Math.min(p.opponentIndex, OPPONENTS.length-1))]; }
   function isChampion(p){ return p.opponentIndex >= OPPONENTS.length-1 && p.wins >= OPPONENTS.length; }
   function healPlayer(p, amount){ var before=p.hp; p.hp=Math.min(p.maxHp,p.hp+amount); return p.hp-before; }
@@ -558,6 +677,7 @@
       p.gold = Number(d.gold!=null ? d.gold : p.gold);
       var sa = d.armor||{};
       SLOTS.forEach(function(slot){ p.armor[slot] = sa[slot]!=null ? sa[slot] : null; });
+      p.weapon = d.weapon || null;
       p.wins = Number(d.wins||0);
       p.losses = Number(d.losses||0);
       p.opponentIndex = Math.max(0, Math.min(Number(d.opponentIndex||0), OPPONENTS.length-1));
@@ -569,9 +689,9 @@
   // ------------------------------------------------------------------
   // Combat
   // ------------------------------------------------------------------
-  function rollDamage(atk, dfn){
+  function rollDamage(atk, dfn, forceCrit){
     var dmg = Math.max(1, atk - dfn + (Math.floor(Math.random()*5)-2));
-    var crit = Math.random() < CRIT_CHANCE;
+    var crit = !!forceCrit || (Math.random() < CRIT_CHANCE);
     if (crit) dmg = Math.floor(dmg*CRIT_MULT)+1;
     return {dmg:dmg, crit:crit};
   }
@@ -581,17 +701,19 @@
     this.lastHit = null; this.lastAction = null; this.lastLine = this.log[0];
   }
   Combat.prototype.isOver = function(){ return this.result !== null; };
-  Combat.prototype.attack = function(power){
+  Combat.prototype.attack = function(power, forceCrit){
     if (this.isOver()) return;
     this.defending = false; this.lastHit = null; this.lastAction = power ? 'power' : 'attack';
-    if (Math.random() < MISS_CHANCE){
+    if (!forceCrit && Math.random() < MISS_CHANCE){
       this.lastLine = 'You swing and miss!';
     } else {
       var atk = power ? Math.floor(pAttack(this.player)*POWER_MULT) : pAttack(this.player);
-      var r = rollDamage(atk, this.opponent.defense);
+      var r = rollDamage(atk, this.opponent.defense, forceCrit);
       this.enemyHp = Math.max(0, this.enemyHp - r.dmg);
       this.lastHit = 'enemy';
-      this.lastLine = 'You '+(power?'smash':'strike')+' for '+r.dmg+'!'+(r.crit?' CRITICAL!':'');
+      var verb = power ? 'smash' : (forceCrit ? 'skewer' : 'strike');
+      var tag = forceCrit ? ' HEADSHOT!' : (r.crit ? ' CRITICAL!' : '');
+      this.lastLine = 'You '+verb+' for '+r.dmg+'!'+tag;
     }
     this.log.push(this.lastLine);
     this._checkEnd();
@@ -639,7 +761,7 @@
   var player = loadGame();
   var view = 'hub';
   var combat = null;
-  var armorerSlot = 'Helmet';
+  var armorerSlot = 'Weapon';
   var npcLine = pick(ARMORER_LINES);
   var resultOverlay = null;
   var showStats = false;
@@ -659,9 +781,84 @@
     document.getElementById('toast').classList.remove('show');
   }
 
+  // ------------------------------------------------------------------
+  // Mouse-capture crosshair (combat only)
+  // ------------------------------------------------------------------
+  var aiming = false;
+  var aimPos = null;
+
+  function aimSupported(){
+    try { return window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').matches; }
+    catch(e){ return false; }
+  }
+
+  function enterAimMode(){
+    if (!aimSupported()) return;
+    var sceneEl = document.querySelector('.arena-scene');
+    if (!sceneEl) return;
+    aiming = true;
+    sceneEl.classList.add('aiming');
+    var r = sceneEl.getBoundingClientRect();
+    aimPos = { x: r.left + r.width/2, y: r.top + r.height/2 };
+    document.getElementById('crosshair').classList.add('active');
+    updateCrosshair();
+    document.addEventListener('mousemove', onAimMove);
+  }
+
+  function exitAimMode(){
+    aiming = false;
+    var ch = document.getElementById('crosshair');
+    if (ch) ch.classList.remove('active','locked-on');
+    document.removeEventListener('mousemove', onAimMove);
+    var sceneEl = document.querySelector('.arena-scene');
+    if (sceneEl) sceneEl.classList.remove('aiming');
+  }
+
+  function onAimMove(e){
+    if (!aiming || !aimPos) return;
+    aimPos.x = e.clientX;
+    aimPos.y = e.clientY;
+    var sceneEl = document.querySelector('.arena-scene');
+    if (sceneEl){
+      var r = sceneEl.getBoundingClientRect();
+      aimPos.x = Math.max(r.left+6, Math.min(r.right-6, aimPos.x));
+      aimPos.y = Math.max(r.top+6, Math.min(r.bottom-6, aimPos.y));
+    }
+    updateCrosshair();
+  }
+
+  function updateCrosshair(){
+    if (!aimPos) return;
+    var ch = document.getElementById('crosshair');
+    if (!ch) return;
+    ch.style.left = aimPos.x + 'px';
+    ch.style.top = aimPos.y + 'px';
+    var fighter = document.querySelector('.fighter-figure');
+    var lockedOn = false;
+    if (fighter){
+      var fr = fighter.getBoundingClientRect();
+      if (fr.width > 0 && aimPos.x >= fr.left && aimPos.x <= fr.right &&
+          aimPos.y >= fr.top && aimPos.y <= fr.top + fr.height*0.32){
+        lockedOn = true;
+      }
+    }
+    ch.classList.toggle('locked-on', lockedOn);
+  }
+
+  function onAimClick(){
+    if (!aiming || !combat || combat.isOver()) return;
+    var ch = document.getElementById('crosshair');
+    var headshot = !!(ch && ch.classList.contains('locked-on'));
+    combat.attack(false, headshot);
+    render();
+    updateCrosshair();
+    if (combat.isOver()) setTimeout(finishCombat, 700);
+  }
+
   function navigate(v){
+    exitAimMode();
     combat = null; resultOverlay = null; confirmingReset = false; showStats = false;
-    if (v === 'armorer') armorerSlot = 'Helmet';
+    if (v === 'armorer') armorerSlot = 'Weapon';
     view = v;
     clearToast();
     render();
@@ -676,6 +873,18 @@
     player.armor[piece.slot] = piece.name;
     saveGame(player);
     toast('Equipped '+piece.name+'! Defense is now '+pDefense(player));
+    render();
+  }
+
+  function buyWeapon(name){
+    var w = findWeapon(name);
+    if (!w) return;
+    if (player.weapon === w.name){ toast('Already equipped.'); return; }
+    if (player.gold < w.price){ toast('Not enough gold — need '+w.price+'g, have '+player.gold+'g'); return; }
+    player.gold -= w.price;
+    player.weapon = w.name;
+    saveGame(player);
+    toast('Equipped '+w.name+'! Attack is now '+pAttack(player));
     render();
   }
 
@@ -697,6 +906,8 @@
     combat = new Combat(player, nextOpponent(player));
     view = 'combat';
     render();
+    enterAimMode();
+    if (aiming) toast('Aim with your mouse — click to swing. Head shots crit!');
   }
 
   function doCombatAction(action){
@@ -707,12 +918,14 @@
     else if (action==='flee') combat.flee();
 
     render();
+    updateCrosshair();
     if (combat.isOver()){
       setTimeout(finishCombat, action==='flee' ? 200 : 700);
     }
   }
 
   function finishCombat(){
+    exitAimMode();
     var opp = combat.opponent, overlay;
     if (combat.result === 'win'){
       var wasChampion = isChampion(player);
@@ -737,7 +950,7 @@
   // ------------------------------------------------------------------
   // Rendering — first-person scenes
   // ------------------------------------------------------------------
-  function sceneShell(kind, opts){
+  function sceneShell(opts){
     opts = opts || {};
     var extra = opts.extraClass ? ' ' + opts.extraClass : '';
     return '<div class="scene'+extra+'">' +
@@ -751,15 +964,15 @@
   function renderHub(){
     var opp = nextOpponent(player);
     var inner =
-      '<div class="scene-figure magnus" style="left:20%" data-nav="armorer"><svg class="icon solid"><use href="#i-figure-npc"/></svg></div>' +
-      '<div class="scene-figure vita" style="left:50%" data-nav="healer"><svg class="icon solid"><use href="#i-figure-npc"/></svg></div>' +
-      '<div class="scene-figure dominus" style="left:80%" data-nav="arenaMaster"><svg class="icon solid"><use href="#i-figure-npc"/></svg></div>';
+      '<div class="scene-figure" style="left:20%" data-nav="armorer"><svg><use href="#i-person-magnus"/></svg></div>' +
+      '<div class="scene-figure" style="left:50%" data-nav="healer"><svg><use href="#i-person-vita"/></svg></div>' +
+      '<div class="scene-figure" style="left:80%" data-nav="arenaMaster"><svg><use href="#i-person-dominus"/></svg></div>';
     return '' +
     '<section class="view">' +
-      sceneShell('hub', {title:'Ludus Magnus · Gladiator School', inner: inner}) +
+      sceneShell({title:'Ludus Magnus · Gladiator School', inner: inner}) +
       '<div class="scene-caption"><h2>The Sand Remembers</h2><p class="npc-line" style="margin-bottom:0">Approach one of the three to speak with them.</p></div>' +
       '<div class="sheet" style="margin-top:10px">' +
-        '<button class="btn btn-outline btn-block" data-nav="armorer" style="justify-content:flex-start;margin-bottom:8px"><svg class="icon"><use href="#i-chest"/></svg>&nbsp;Magnus — The Armorer</button>' +
+        '<button class="btn btn-outline btn-block" data-nav="armorer" style="justify-content:flex-start;margin-bottom:8px"><svg class="icon"><use href="#i-sword"/></svg>&nbsp;Magnus — Weapons &amp; Armor</button>' +
         '<button class="btn btn-outline btn-block" data-nav="healer" style="justify-content:flex-start;margin-bottom:8px"><svg class="icon"><use href="#i-potion"/></svg>&nbsp;Vita — The Healer</button>' +
         '<button class="btn btn-primary btn-block" data-nav="arenaMaster" style="justify-content:flex-start"><svg class="icon"><use href="#i-crossed-swords"/></svg>&nbsp;Dominus — next: '+esc(opp.name)+'</button>' +
       '</div>' +
@@ -772,26 +985,29 @@
   }
 
   function renderArmorer(){
-    var slot = armorerSlot, items = armorForSlot(slot);
-    var inner = '<div class="scene-figure magnus"><svg class="icon solid"><use href="#i-figure-npc"/></svg></div>' +
-                '<div class="scene-figure-badge"><svg class="icon sm"><use href="#i-chest"/></svg></div>';
+    var slot = armorerSlot;
+    var isWeapon = slot === 'Weapon';
+    var items = isWeapon ? WEAPON_CATALOG : armorForSlot(slot);
+    var inner = '<div class="scene-figure"><svg><use href="#i-person-magnus"/></svg></div>' +
+                '<div class="scene-figure-badge"><svg class="icon sm"><use href="#i-sword"/></svg></div>';
     return '' +
     '<section class="view">' +
-      sceneShell('armorer', {title:'The Forge', inner: inner}) +
+      sceneShell({title:'The Forge', inner: inner}) +
       '<div class="scene-caption"><h2>Magnus the Armorer</h2></div>' +
       '<p class="npc-line">“'+npcLine+'”</p>' +
       '<div class="sheet">' +
         '<div class="tab-row">' +
-          SLOTS.map(function(s){ return '<button class="tab'+(s===slot?' active':'')+'" data-slot="'+s+'"><svg class="icon"><use href="#'+slotIcon(s)+'"/></svg>'+s+'</button>'; }).join('') +
+          SHOP_TABS.map(function(s){ return '<button class="tab'+(s===slot?' active':'')+'" data-slot="'+s+'"><svg class="icon"><use href="#'+slotIcon(s)+'"/></svg>'+s+'</button>'; }).join('') +
         '</div>' +
         '<div class="armor-list">' +
           items.map(function(a){
-            var equipped = player.armor[slot] === a.name;
+            var equipped = isWeapon ? (player.weapon === a.name) : (player.armor[slot] === a.name);
             var afford = player.gold >= a.price;
+            var statLabel = isWeapon ? ('+'+a.attack+' ATK — '+a.desc) : ('+'+a.defense+' DEF');
             return '<div class="armor-row'+(equipped?' is-equipped':'')+'">' +
               '<svg class="icon armor-row-icon"><use href="#'+slotIcon(slot)+'"/></svg>' +
-              '<div class="armor-row-info"><strong>'+esc(a.name)+'</strong><span class="armor-row-def">+'+a.defense+' DEF</span></div>' +
-              '<button class="btn btn-sm '+(equipped?'btn-equipped':(afford?'btn-buy':'btn-disabled'))+'" data-buy="'+esc(a.name)+'">' +
+              '<div class="armor-row-info"><strong>'+esc(a.name)+'</strong><span class="armor-row-def">'+esc(statLabel)+'</span></div>' +
+              '<button class="btn btn-sm '+(equipped?'btn-equipped':(afford?'btn-buy':'btn-disabled'))+'" data-buy="'+esc(a.name)+'" data-buy-kind="'+(isWeapon?'weapon':'armor')+'">' +
                 (equipped ? 'Equipped' : a.price+'g') +
               '</button>' +
             '</div>';
@@ -804,11 +1020,11 @@
 
   function renderHealer(){
     var missing = player.maxHp - player.hp, fullCost = missing*GOLD_PER_HP_FULL;
-    var inner = '<div class="scene-figure vita"><svg class="icon solid"><use href="#i-figure-npc"/></svg></div>' +
+    var inner = '<div class="scene-figure"><svg><use href="#i-person-vita"/></svg></div>' +
                 '<div class="scene-figure-badge"><svg class="icon sm"><use href="#i-potion"/></svg></div>';
     return '' +
     '<section class="view">' +
-      sceneShell('healer', {title:'The Healing Tent', inner: inner}) +
+      sceneShell({title:'The Healing Tent', inner: inner}) +
       '<div class="scene-caption"><h2>Vita the Healer</h2></div>' +
       '<p class="npc-line">“Let me mend your wounds.”</p>' +
       '<div class="sheet">' +
@@ -825,11 +1041,11 @@
     var opp = nextOpponent(player);
     var idx = Math.max(0, Math.min(player.opponentIndex, OPPONENTS.length-1));
     var wounded = player.hp <= Math.max(1, player.maxHp*.15);
-    var inner = '<div class="scene-figure dominus"><svg class="icon solid"><use href="#i-figure-npc"/></svg></div>' +
+    var inner = '<div class="scene-figure"><svg><use href="#i-person-dominus"/></svg></div>' +
                 '<div class="scene-figure-badge"><svg class="icon sm"><use href="#i-crossed-swords"/></svg></div>';
     return '' +
     '<section class="view">' +
-      sceneShell('dominus', {title:'Bout '+ROMAN[idx]+' of '+ROMAN[OPPONENTS.length-1], inner: inner}) +
+      sceneShell({title:'Bout '+ROMAN[idx]+' of '+ROMAN[OPPONENTS.length-1], inner: inner}) +
       '<div class="scene-caption"><h2>Dominus, Arena Master</h2></div>' +
       '<p class="npc-line">“'+esc(opp.taunt)+'”</p>' +
       '<div class="sheet">' +
@@ -854,16 +1070,17 @@
     var fighterClass = 'fighter-figure' + (combat.lastHit==='enemy' ? ' hit' : '') + (combat.result==='win' ? ' fallen' : '');
     var swordClass = 'viewmodel sword' + (combat.lastAction==='attack' ? ' swing' : combat.lastAction==='power' ? ' swing power' : '');
     var shieldClass = 'viewmodel shield' + (combat.lastAction==='defend' ? ' raise' : '');
+    var bladeIcon = 'i-vm-sword-' + weaponBlade(player);
     var inner =
-      '<div class="'+fighterClass+'" style="transform:translateX(-50%) scale('+scale.toFixed(2)+')"><svg class="icon solid"><use href="#i-figure-fighter"/></svg></div>' +
+      '<div class="'+fighterClass+'" style="transform:translateX(-50%) scale('+scale.toFixed(2)+')"><svg><use href="#i-person-fighter"/></svg></div>' +
       '<div class="combat-flash'+(combat.lastHit==='player'?' hit':'')+'"></div>' +
       (combat.lastLine ? '<div class="combat-callout">'+esc(combat.lastLine)+'</div>' : '') +
       '<div class="boss-bar"><div class="boss-name">'+esc(o.name)+'</div><div class="hpbar"><div class="hpbar-fill enemy" style="width:'+pct(combat.enemyHp,o.maxHp)+'%"></div></div></div>' +
       '<div class="'+shieldClass+'"><svg><use href="#i-vm-shield"/></svg></div>' +
-      '<div class="'+swordClass+'"><svg><use href="#i-vm-sword"/></svg></div>';
+      '<div class="'+swordClass+'"><svg><use href="#'+bladeIcon+'"/></svg></div>';
     return '' +
     '<section class="view combat-view">' +
-      sceneShell('combat', {inner: inner, extraClass:'arena-scene'}) +
+      sceneShell({inner: inner, extraClass:'arena-scene'}) +
       '<div class="combat-log-strip">' + combat.log.slice(-2).map(function(l){ return '<p>'+esc(l)+'</p>'; }).join('') + '</div>' +
       '<div class="action-row">' +
         '<button class="btn btn-outline" data-combat-action="attack"><svg class="icon"><use href="#i-sword"/></svg>Attack</button>' +
@@ -896,6 +1113,7 @@
   }
 
   function renderStatsOverlay(){
+    var w = player.weapon ? findWeapon(player.weapon) : null;
     return '' +
     '<div class="overlay" data-close-stats>' +
       '<div class="card-modal stats-modal" onclick="event.stopPropagation()">' +
@@ -909,6 +1127,7 @@
           '<dt>Losses</dt><dd>'+player.losses+'</dd>' +
         '</dl>' +
         '<div class="stats-grid" style="grid-template-columns:1fr">' +
+          '<div><dt>Weapon</dt><dd style="font-size:.86rem">'+(w ? w.name+' (+'+w.attack+' ATK)' : 'Bare hands')+'</dd></div>' +
           '<div><dt>Helmet</dt><dd style="font-size:.86rem">'+ownedLabel('Helmet')+'</dd></div>' +
           '<div><dt>Chest</dt><dd style="font-size:.86rem">'+ownedLabel('Chest')+'</dd></div>' +
           '<div><dt>Shield</dt><dd style="font-size:.86rem">'+ownedLabel('Shield')+'</dd></div>' +
@@ -937,6 +1156,9 @@
   // Event delegation
   // ------------------------------------------------------------------
   document.getElementById('root').addEventListener('click', function(e){
+    var sceneEl = e.target.closest('.arena-scene');
+    if (aiming && sceneEl){ onAimClick(); return; }
+
     if (e.target.closest('[data-close-stats]')){ showStats = false; render(); return; }
     if (e.target.closest('[data-stats]')){ showStats = true; render(); return; }
     var t = e.target.closest('[data-nav],[data-back],[data-slot],[data-buy],[data-heal],[data-fight],[data-combat-action],[data-continue],[data-reset],[data-reset-confirm],[data-reset-cancel]');
@@ -944,7 +1166,7 @@
     if (t.dataset.nav){ if (t.dataset.nav==='armorer') npcLine = pick(ARMORER_LINES); navigate(t.dataset.nav); }
     else if (t.dataset.back !== undefined) navigate('hub');
     else if (t.dataset.slot){ armorerSlot = t.dataset.slot; render(); }
-    else if (t.dataset.buy) buyArmor(t.dataset.buy);
+    else if (t.dataset.buy){ if (t.dataset.buyKind==='weapon') buyWeapon(t.dataset.buy); else buyArmor(t.dataset.buy); }
     else if (t.dataset.heal) doHeal(t.dataset.heal);
     else if (t.dataset.fight) startFight();
     else if (t.dataset.combatAction) doCombatAction(t.dataset.combatAction);
