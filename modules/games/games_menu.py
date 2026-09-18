@@ -11,6 +11,7 @@ def build_games_menu(config: ConfigManager, display=None) -> list[MenuEntry]:
         MenuEntry(label='Chess 2 Player', action=lambda: _chess(display, vs_ai=False)),
         MenuEntry(label='Tetris',         action=lambda: _tetris(display)),
         MenuEntry(label='Flappy Bird',    action=lambda: _flappy(display)),
+        MenuEntry(label='Gladiator Arena', action=lambda: _gladiator(display, config)),
     ]
 
 
@@ -49,3 +50,8 @@ def _flappy(display) -> None:
     if display:
         display.draw_message([f'Game Over!', f'Score: {score}'])
         time.sleep(2)
+
+
+def _gladiator(display, config) -> None:
+    from modules.games.gladiator import play_gladiator
+    play_gladiator(display, config)
