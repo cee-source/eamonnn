@@ -3526,12 +3526,6 @@ document.addEventListener('pointerlockchange', ()=>{
   }
 });
 
-// Pointer lock unavailable (sandboxed iframe, etc.) — enable play without it
-document.addEventListener('pointerlockerror', ()=>{
-  ghostLocked = true;
-  setHUD('WASD move | Right-drag look | Click unit/fort to possess | F = exit');
-});
-
 // ─── Key events ───────────────────────────────────────────────
 document.addEventListener('keydown', e=>{
   ghostKeys[e.code]=true;
@@ -3768,26 +3762,13 @@ function _initMobileControls(){
 }
 
 // ─── Mouse look ───────────────────────────────────────────────
-// Right-drag look — works when pointer lock is unavailable (iframes, etc.)
-let _rDrag=false, _rDragX=0, _rDragY=0;
-renderer.domElement.addEventListener('mousedown', e=>{
-  if(e.button===2){ _rDrag=true; _rDragX=e.clientX; _rDragY=e.clientY; e.preventDefault(); }
-});
-document.addEventListener('mouseup', e=>{ if(e.button===2) _rDrag=false; });
-
 document.addEventListener('mousemove', e=>{
   if(!ghostLocked) return;
-  let mx, my;
-  if(document.pointerLockElement){
-    // Gate: ignore all events for 150ms after pointer lock is acquired
-    if(performance.now() - _lockTime < 150) return;
-    // Clamp per-event delta
-    mx = Math.max(-50, Math.min(50, e.movementX));
-    my = Math.max(-50, Math.min(50, e.movementY));
-  } else if(_rDrag){
-    mx = e.clientX - _rDragX; _rDragX = e.clientX;
-    my = e.clientY - _rDragY; _rDragY = e.clientY;
-  } else return;
+  // Gate: ignore all events for 150ms after pointer lock is acquired
+  if(performance.now() - _lockTime < 150) return;
+  // Clamp per-event delta — caps any rogue huge movement from OS/browser artifacts
+  const mx = Math.max(-50, Math.min(50, e.movementX));
+  const my = Math.max(-50, Math.min(50, e.movementY));
 
   if(cameraMode==='ghost' || cameraMode==='fort'){
     // Use persistent yaw/pitch — no quaternion round-trip, no float drift
@@ -3809,29 +3790,10 @@ const raycaster = new THREE.Raycaster();
 const screenCentre = new THREE.Vector2(0,0);   // pointer-locked = always screen centre
 
 renderer.domElement.addEventListener('click', e=>{
-  if(!ghostLocked){ document.body.requestPointerLock?.(); return; }
+  if(!ghostLocked){ document.body.requestPointerLock(); return; }
 
-  // Pick NDC from actual mouse pos (no pointer lock) or screen center (pointer lock)
-  let rayPt;
-  if(document.pointerLockElement){
-    rayPt = screenCentre;
-  } else {
-    const rect = renderer.domElement.getBoundingClientRect();
-    rayPt = new THREE.Vector2(
-      ((e.clientX - rect.left) / rect.width) * 2 - 1,
-      -((e.clientY - rect.top) / rect.height) * 2 + 1
-    );
-  }
-
-  // Ghost mode: try to possess clicked unit/fort first, else fire
+  // Ghost mode: left-click = fire projectile
   if(cameraMode==='ghost'){
-    raycaster.setFromCamera(rayPt, camera);
-    const uTargets=units.flatMap(u=>{const a=[];u.mesh.traverse(c=>{if(c.isMesh)a.push(c);});return a;});
-    const uHit=raycaster.intersectObjects(uTargets,false)[0];
-    if(uHit){ const u=uHit.object.userData.unitRef; if(u&&u.player===1){ possessUnit(u); return; } }
-    const fTargets=forts.flatMap(f=>{const a=[];f.mesh.traverse(c=>{if(c.isMesh)a.push(c);});return a;});
-    const fHit=raycaster.intersectObjects(fTargets,false)[0];
-    if(fHit){ const f=fHit.object.userData.fortRef; if(f&&f.player===1){ possessFort(f); return; } }
     if(playerMana >= SHOT_COST) spawnPlayerShot();
     else setHUD('⚡ Out of mana!');
   }
@@ -5330,12 +5292,7 @@ function _doStartPlaying(){
     _initMobileControls();
     setHUD('Joystick: move  |  Drag right: look  |  🎙 hold: radio');
   } else {
-    // Try pointer lock; if unavailable (sandboxed iframe), fall back gracefully
-    document.body.requestPointerLock?.();
-    setTimeout(()=>{
-      if(!document.pointerLockElement){ ghostLocked = true; }
-    }, 300);
-    setHUD('WASD move | Right-drag to look | Click unit/fort to possess | F = exit');
+    setHUD('WASD move | Mouse look | Click unit/fort to possess | F = unlock');
   }
 }
 
