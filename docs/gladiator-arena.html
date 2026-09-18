@@ -1,0 +1,816 @@
+<title>Gladiator Arena</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;900&family=Archivo:wght@400;500;600;700;800&display=swap">
+<style>
+  :root{
+    color-scheme: dark;
+    --bg:#120D09;
+    --surface:#1E1712;
+    --surface-2:#2A2018;
+    --surface-3:#362A1E;
+    --ink:#F1E7D3;
+    --muted:#B0A188;
+    --gold:#D4A72C;
+    --gold-dim:#8C7327;
+    --gold-ink:#2A1F0B;
+    --blood:#B4453A;
+    --blood-dim:#7A2620;
+    --victory:#8CA97C;
+    --border:rgba(212,167,44,.2);
+    --border-soft:rgba(212,167,44,.1);
+    --shadow:rgba(0,0,0,.55);
+    --font-display:'Cinzel',Cambria,'Times New Roman',serif;
+    --font-body:'Archivo','Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    --r-sm:8px; --r-md:14px; --r-lg:22px; --r-pill:999px;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      color-scheme: light;
+      --bg:#F1E4C4;
+      --surface:#FFFAEE;
+      --surface-2:#EDDDB4;
+      --surface-3:#E2CE9B;
+      --ink:#2A1D10;
+      --muted:#6E5A3D;
+      --gold:#9C6E0A;
+      --gold-dim:#C7A550;
+      --gold-ink:#FFF8E8;
+      --blood:#93301F;
+      --blood-dim:#C97465;
+      --victory:#3E6B37;
+      --border:rgba(147,48,31,.18);
+      --border-soft:rgba(147,48,31,.09);
+      --shadow:rgba(120,90,40,.2);
+    }
+  }
+  :root[data-theme="light"]{
+    color-scheme: light;
+    --bg:#F1E4C4;
+    --surface:#FFFAEE;
+    --surface-2:#EDDDB4;
+    --surface-3:#E2CE9B;
+    --ink:#2A1D10;
+    --muted:#6E5A3D;
+    --gold:#9C6E0A;
+    --gold-dim:#C7A550;
+    --gold-ink:#FFF8E8;
+    --blood:#93301F;
+    --blood-dim:#C97465;
+    --victory:#3E6B37;
+    --border:rgba(147,48,31,.18);
+    --border-soft:rgba(147,48,31,.09);
+    --shadow:rgba(120,90,40,.2);
+  }
+
+  *,*::before,*::after{box-sizing:border-box;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, var(--surface-2), transparent 60%),
+      repeating-linear-gradient(135deg, rgba(255,255,255,.015) 0 1px, transparent 1px 4px),
+      var(--bg);
+    color:var(--ink);
+    font-family:var(--font-body);
+    font-size:15px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance;letter-spacing:.01em;}
+  p{margin:0;}
+  button{font-family:inherit;}
+  .icon{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;vertical-align:-.15em;}
+  .icon.sm{width:.85em;height:.85em;}
+
+  #root{max-width:560px;margin:0 auto;padding-inline:16px;padding-block:14px 40px;min-height:100%;}
+
+  /* ---------- HUD ---------- */
+  .hud{
+    position:sticky; top:env(safe-area-inset-top,0px);
+    z-index:20;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 14px;
+    margin-bottom:16px;
+    background:color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border:1px solid var(--border);
+    border-radius:var(--r-pill);
+    box-shadow:0 8px 24px var(--shadow);
+  }
+  .hud-brand{display:flex;align-items:center;gap:7px;font-family:var(--font-display);font-weight:700;font-size:.82rem;letter-spacing:.06em;color:var(--gold);white-space:nowrap;}
+  .hud-brand .icon{width:1.15em;height:1.15em;}
+  .hud-stats{display:flex;align-items:center;gap:14px;}
+  .hud-gold{display:flex;align-items:center;gap:5px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--gold);}
+  .hud-gold .icon{color:var(--gold);}
+  .hud-hp{display:flex;align-items:center;gap:7px;}
+  .hud-hp-text{font-size:.78rem;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;}
+
+  .hpbar{position:relative;height:12px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-soft);overflow:hidden;}
+  .hpbar.mini{width:64px;height:9px;}
+  .hpbar-fill{height:100%;border-radius:var(--r-pill);transition:width .5s cubic-bezier(.22,.9,.35,1),background-color .3s;}
+  .hpbar-fill.player{background:linear-gradient(90deg,var(--gold-dim),var(--gold));}
+  .hpbar-fill.enemy{background:linear-gradient(90deg,var(--blood-dim),var(--blood));}
+
+  /* ---------- Layout / views ---------- */
+  .view{animation:viewIn .32s cubic-bezier(.2,.7,.3,1) both;}
+  @keyframes viewIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+  .subheader{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .back-btn{
+    display:inline-flex;align-items:center;gap:4px;
+    background:none;border:1px solid var(--border);color:var(--muted);
+    font-size:.8rem;font-weight:600;padding:7px 12px;border-radius:var(--r-pill);
+    cursor:pointer;transition:.15s;
+  }
+  .back-btn:hover{color:var(--ink);border-color:var(--gold-dim);}
+
+  .eyebrow{display:block;font-size:.7rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:8px;}
+
+  .hero{text-align:center;padding:18px 6px 6px;}
+  .hero h1{font-size:1.9rem;font-weight:700;color:var(--ink);}
+  .hero .tagline{margin-top:8px;color:var(--muted);font-size:.92rem;}
+
+  .record-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:22px 0 14px;}
+  .record-tile{
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    padding:12px 4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);
+  }
+  .record-tile .icon{color:var(--gold-dim);width:1.2em;height:1.2em;}
+  .record-tile strong{font-family:var(--font-display);font-size:1.15rem;font-variant-numeric:tabular-nums;}
+  .record-tile span{font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+
+  .loadout-strip{display:flex;gap:8px;margin-bottom:22px;flex-wrap:wrap;}
+  .loadout-chip{
+    flex:1 1 140px;display:flex;align-items:center;gap:7px;
+    padding:9px 12px;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--r-pill);
+    font-size:.76rem;color:var(--muted);
+  }
+  .loadout-chip .icon{color:var(--gold-dim);}
+  .loadout-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+  .npc-grid{display:grid;grid-template-columns:1fr;gap:10px;}
+  @media (min-width:460px){ .npc-grid{grid-template-columns:repeat(3,1fr);} }
+  .npc-card{
+    display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;
+    padding:18px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);
+    cursor:pointer;transition:.18s;
+  }
+  .npc-card:hover{border-color:var(--gold-dim);transform:translateY(-2px);box-shadow:0 10px 24px var(--shadow);}
+  .npc-card:active{transform:translateY(0) scale(.98);}
+  .npc-icon{width:2rem;height:2rem;color:var(--gold);margin-bottom:2px;}
+  .npc-card h3{font-size:1.05rem;color:var(--ink);}
+  .npc-card p{font-size:.76rem;color:var(--muted);line-height:1.4;}
+
+  .reset-link{
+    display:block;margin:26px auto 0;background:none;border:none;color:var(--muted);
+    font-size:.72rem;text-decoration:underline;text-underline-offset:3px;cursor:pointer;opacity:.7;
+  }
+  .reset-link:hover{opacity:1;color:var(--blood);}
+  .reset-confirm{
+    margin-top:12px;padding:14px;background:var(--surface);border:1px solid var(--blood-dim);border-radius:var(--r-md);
+    text-align:center;font-size:.8rem;color:var(--muted);
+  }
+  .reset-confirm-actions{display:flex;gap:8px;justify-content:center;margin-top:10px;}
+
+  /* ---------- Buttons ---------- */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    padding:11px 18px;border-radius:var(--r-pill);border:1px solid transparent;
+    font-weight:700;font-size:.86rem;cursor:pointer;transition:.15s;letter-spacing:.01em;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  .btn-sm{padding:8px 13px;font-size:.76rem;}
+  .btn-block{width:100%;}
+  .btn-primary{background:linear-gradient(180deg,var(--gold),var(--gold-dim));color:var(--gold-ink);box-shadow:0 6px 16px var(--shadow);}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-primary[disabled]{opacity:.4;cursor:not-allowed;filter:none;}
+  .btn-outline{background:var(--surface);color:var(--ink);border-color:var(--border);}
+  .btn-outline:hover{border-color:var(--gold-dim);color:var(--gold);}
+  .btn-danger{background:var(--surface);color:var(--blood);border-color:var(--blood-dim);}
+  .btn-danger:hover{background:var(--blood-dim);color:var(--gold-ink);}
+  .btn-buy{background:var(--surface-2);color:var(--gold);border-color:var(--border);}
+  .btn-buy:hover{border-color:var(--gold);}
+  .btn-equipped{background:color-mix(in srgb, var(--victory) 18%, var(--surface));color:var(--victory);border-color:var(--victory);}
+  .btn-disabled{background:var(--surface-2);color:var(--muted);border-color:var(--border-soft);}
+
+  /* ---------- NPC dialogue line ---------- */
+  .npc-line{font-style:italic;color:var(--muted);font-size:.86rem;margin-bottom:18px;padding-left:12px;border-left:2px solid var(--gold-dim);}
+
+  /* ---------- Armorer ---------- */
+  .tab-row{display:flex;gap:8px;margin-bottom:14px;}
+  .tab{
+    flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
+    padding:9px 6px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);
+    color:var(--muted);font-size:.78rem;font-weight:700;cursor:pointer;transition:.15s;
+  }
+  .tab.active{background:var(--surface-2);color:var(--gold);border-color:var(--gold-dim);}
+  .armor-list{display:flex;flex-direction:column;gap:8px;}
+  .armor-row{
+    display:flex;align-items:center;gap:12px;padding:12px 14px;
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);
+  }
+  .armor-row.is-equipped{border-color:var(--victory);}
+  .armor-row-icon{width:1.5rem;height:1.5rem;color:var(--gold-dim);flex-shrink:0;}
+  .armor-row-info{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .armor-row-info strong{font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .armor-row-def{font-size:.72rem;color:var(--muted);}
+
+  /* ---------- Healer ---------- */
+  .hp-readout{display:flex;align-items:center;gap:10px;margin-bottom:20px;}
+  .hp-readout .hpbar{flex:1;}
+  .hp-readout span{font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .heal-options{display:flex;flex-direction:column;gap:10px;}
+  .option-card{
+    display:flex;align-items:center;gap:14px;padding:14px 16px;text-align:left;
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);cursor:pointer;transition:.15s;
+  }
+  .option-card:hover{border-color:var(--gold-dim);}
+  .option-card.is-disabled{opacity:.55;}
+  .option-card .icon{width:1.5rem;height:1.5rem;color:var(--victory);flex-shrink:0;}
+  .option-card > div{flex:1;display:flex;flex-direction:column;gap:2px;}
+  .option-card strong{font-size:.9rem;}
+  .option-card span{font-size:.76rem;color:var(--muted);}
+  .option-card .price{font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums;}
+
+  /* ---------- Arena master ---------- */
+  .opponent-card{
+    text-align:center;padding:26px 18px;background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--r-lg);margin-bottom:16px;position:relative;overflow:hidden;
+  }
+  .opponent-tier{display:block;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-dim);font-weight:700;margin-bottom:10px;}
+  .opponent-icon{width:2.4rem;height:2.4rem;color:var(--blood);margin-bottom:8px;}
+  .opponent-card h3{font-size:1.3rem;margin-bottom:8px;}
+  .opponent-card .npc-line{margin:0 auto 16px;max-width:34ch;border-left:none;padding-left:0;}
+  .opponent-stats{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .opponent-stats span{display:inline-flex;align-items:center;gap:5px;}
+  .opponent-stats .icon{color:var(--gold-dim);}
+  .warning-line{color:var(--blood);font-size:.8rem;text-align:center;margin-bottom:12px;}
+
+  /* ---------- Combat ---------- */
+  .combat-view{display:flex;flex-direction:column;gap:12px;}
+  .fighter{padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);}
+  .fighter-name{display:block;font-family:var(--font-display);font-weight:700;font-size:.92rem;margin-bottom:8px;}
+  .fighter.enemy .fighter-name{color:var(--blood);}
+  .fighter.player .fighter-name{color:var(--gold);}
+  .fighter-hp{display:block;margin-top:6px;font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums;text-align:right;}
+  .fighter.shake{animation:shake .4s ease;}
+  @keyframes shake{10%,90%{transform:translateX(-1px);}20%,80%{transform:translateX(2px);}30%,50%,70%{transform:translateX(-4px);}40%,60%{transform:translateX(4px);}}
+
+  .combat-log{
+    max-height:160px;overflow-y:auto;padding:12px 14px;background:var(--surface-2);
+    border:1px solid var(--border-soft);border-radius:var(--r-md);font-size:.82rem;color:var(--muted);
+  }
+  .combat-log p{padding:3px 0;border-bottom:1px dashed var(--border-soft);}
+  .combat-log p:last-child{border-bottom:none;color:var(--ink);font-weight:600;}
+
+  .action-row{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;}
+  @media (min-width:480px){ .action-row{grid-template-columns:repeat(4,1fr);} }
+  .action-row .btn{flex-direction:column;padding:12px 6px;gap:5px;font-size:.74rem;}
+  .action-row .icon{width:1.2rem;height:1.2rem;}
+
+  /* ---------- Result overlay ---------- */
+  .overlay{
+    position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:20px;
+    background:color-mix(in srgb, var(--bg) 78%, transparent);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    animation:overlayIn .25s ease both;
+  }
+  @keyframes overlayIn{from{opacity:0;}to{opacity:1;}}
+  .result-card{
+    width:100%;max-width:320px;text-align:center;padding:32px 24px 26px;
+    background:var(--surface);border:1px solid var(--gold-dim);border-radius:var(--r-lg);
+    box-shadow:0 20px 60px var(--shadow);animation:resultIn .4s cubic-bezier(.2,.9,.3,1.1) both;
+  }
+  @keyframes resultIn{from{opacity:0;transform:translateY(14px) scale(.96);}to{opacity:1;transform:translateY(0) scale(1);}}
+  .result-icon{width:2.6rem;height:2.6rem;margin-bottom:10px;}
+  .result-card.win .result-icon{color:var(--gold);}
+  .result-card.loss .result-icon{color:var(--blood);}
+  .result-card.fled .result-icon{color:var(--muted);}
+  .result-card h2{font-size:1.5rem;margin-bottom:10px;}
+  .result-card p{color:var(--muted);font-size:.86rem;margin-bottom:4px;}
+  .result-card .btn{margin-top:18px;}
+
+  /* ---------- Toast ---------- */
+  .toast{
+    position:fixed;left:50%;bottom:24px;transform:translate(-50%,140%);
+    max-width:calc(100% - 32px);padding:12px 18px;background:var(--surface-3);color:var(--ink);
+    border:1px solid var(--gold-dim);border-radius:var(--r-pill);font-size:.82rem;font-weight:600;
+    box-shadow:0 10px 30px var(--shadow);z-index:60;transition:transform .3s cubic-bezier(.2,.9,.3,1);
+    text-align:center;
+  }
+  .toast.show{transform:translate(-50%,0);}
+
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;}
+  }
+</style>
+
+<div id="root">
+  <header class="hud">
+    <div class="hud-brand"><svg class="icon"><use href="#i-laurel"/></svg><span>Gladiator Arena</span></div>
+    <div class="hud-stats">
+      <div class="hud-hp">
+        <div class="hpbar mini"><div class="hpbar-fill player" id="hud-hp-fill" style="width:100%"></div></div>
+        <span class="hud-hp-text" id="hud-hp-text">50/50</span>
+      </div>
+      <div class="hud-gold"><svg class="icon"><use href="#i-coin"/></svg><span id="hud-gold">30</span></div>
+    </div>
+  </header>
+  <main id="app"></main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+<defs>
+  <symbol id="i-laurel" viewBox="0 0 24 24">
+    <path d="M12 3v16.5"/>
+    <path d="M12 6.2c-2 .4-3.8 2-4.4 4.3M12 9.2c-1.5.3-2.8 1.4-3.4 3M12 12.2c-1.2.2-2.2.9-2.8 2.1"/>
+    <path d="M12 6.2c2 .4 3.8 2 4.4 4.3M12 9.2c1.5.3 2.8 1.4 3.4 3M12 12.2c1.2.2 2.2.9 2.8 2.1"/>
+    <path d="M9 19c1-1 2-1 3-1s2 0 3 1"/>
+  </symbol>
+  <symbol id="i-helm" viewBox="0 0 24 24">
+    <path d="M5 14.5c0-4.6 3-8.3 7-8.3s7 3.7 7 8.3"/>
+    <path d="M4 14.5h16v1.7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1.7Z"/>
+    <path d="M12 6.2V3M9.2 3.7l.9-.9M14.8 3.7l-.9-.9"/>
+    <path d="M9 14.5v2.2M9 14.5c0-1.3.9-2.3 2-2.5"/>
+  </symbol>
+  <symbol id="i-chest" viewBox="0 0 24 24">
+    <path d="M12 4 7 6.2v4.6c0 5 2.5 8 5 9.2 2.5-1.2 5-4.2 5-9.2V6.2L12 4Z"/>
+    <path d="M12 4v15.8M9.2 9c1-.9 1.9-.9 2.8-.5M14.8 9c-1-.9-1.9-.9-2.8-.5"/>
+  </symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24">
+    <path d="M12 3 19 6v5c0 5-3 8.5-7 10-4-1.5-7-5-7-10V6l7-3Z"/>
+  </symbol>
+  <symbol id="i-cracked-shield" viewBox="0 0 24 24">
+    <path d="M12 3 19 6v5c0 5-3 8.5-7 10-4-1.5-7-5-7-10V6l7-3Z"/>
+    <path d="M10 5.5 13 10l-2.5 2L14 17"/>
+  </symbol>
+  <symbol id="i-sword" viewBox="0 0 24 24">
+    <path d="M12 2.2v13.6"/>
+    <path d="M8.6 6.6h6.8"/>
+    <path d="M12 15.8l-1.7 1.7v2.3M12 15.8l1.7 1.7v2.3"/>
+    <path d="M9.6 21h4.8"/>
+  </symbol>
+  <symbol id="i-crossed-swords" viewBox="0 0 24 24">
+    <path d="M4.5 4.5l14.8 14.8M19.3 4.5 4.5 19.3"/>
+    <path d="M4.5 4.5h2.4M4.5 4.5v2.4M19.3 4.5h-2.4M19.3 4.5v2.4M4.5 19.3h2.4M4.5 19.3v-2.4M19.3 19.3h-2.4M19.3 19.3v-2.4"/>
+  </symbol>
+  <symbol id="i-burst" viewBox="0 0 24 24">
+    <path d="M12 2.5v4.6M12 16.9v4.6M2.5 12h4.6M16.9 12h4.6"/>
+    <path d="M5 5l3.3 3.3M19 19l-3.3-3.3M19 5l-3.3 3.3M5 19l3.3-3.3"/>
+  </symbol>
+  <symbol id="i-exit" viewBox="0 0 24 24">
+    <path d="M9.5 3.5H5.3a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1H9.5"/>
+    <path d="M12.5 12h8m0 0-3.2-3.2M20.5 12l-3.2 3.2"/>
+  </symbol>
+  <symbol id="i-potion" viewBox="0 0 24 24">
+    <path d="M10 3h4M11 3v4.8L7.3 13.4c-1.1 1.7-.1 4.1 2 4.1h5.4c2.1 0 3.1-2.4 2-4.1L13 7.8V3"/>
+    <path d="M8.6 15h6.8"/>
+  </symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8.4"/>
+    <circle cx="12" cy="12" r="5.6"/>
+    <path d="M12 8.6v6.8M10.1 10.3c0-.9.8-1.4 1.9-1.4s1.9.5 1.9 1.2c0 1.7-3.8.7-3.8 2.4 0 .7.8 1.2 1.9 1.2s1.9-.5 1.9-1.3"/>
+  </symbol>
+  <symbol id="i-scroll" viewBox="0 0 24 24">
+    <path d="M6 4h11a2 2 0 0 1 2 2v1.2H8A2 2 0 0 0 6 9.2V4Z"/>
+    <path d="M6 4a2 2 0 0 0 0 4M18 20a2 2 0 0 0 0-4"/>
+    <path d="M6 8v9.8A2.2 2.2 0 0 0 8.2 20H18v-3H8.2"/>
+    <path d="M9 11h6M9 14h6"/>
+  </symbol>
+</defs>
+</svg>
+
+<script>
+(function(){
+  'use strict';
+
+  // ------------------------------------------------------------------
+  // Data — mirrors the Python Gladiator Arena module 1:1
+  // ------------------------------------------------------------------
+  var SLOTS = ['Helmet','Chest','Shield'];
+  var ROMAN = ['I','II','III','IV','V','VI','VII','VIII'];
+
+  var ARMOR_CATALOG = [
+    {name:'Leather Cap',    slot:'Helmet', defense:2,  price:20},
+    {name:'Bronze Helm',    slot:'Helmet', defense:5,  price:60},
+    {name:'Iron Helm',      slot:'Helmet', defense:9,  price:140},
+    {name:'Spartan Helm',   slot:'Helmet', defense:14, price:260},
+    {name:'Padded Tunic',   slot:'Chest',  defense:3,  price:30},
+    {name:'Bronze Cuirass', slot:'Chest',  defense:8,  price:90},
+    {name:'Iron Plate',     slot:'Chest',  defense:14, price:200},
+    {name:'Myrmillo Plate', slot:'Chest',  defense:22, price:380},
+    {name:'Wooden Buckler', slot:'Shield', defense:3,  price:25},
+    {name:'Bronze Scutum',  slot:'Shield', defense:7,  price:80},
+    {name:'Iron Scutum',    slot:'Shield', defense:13, price:180},
+    {name:'Tower Shield',   slot:'Shield', defense:20, price:340}
+  ];
+
+  var OPPONENTS = [
+    {name:'Straw Dummy',             maxHp:20,  attack:3,  defense:0,  gold:10,  taunt:'It does not move.'},
+    {name:'Rusty Marcus',            maxHp:28,  attack:6,  defense:1,  gold:22,  taunt:'Fresh meat for the sand!'},
+    {name:'Titus the Bull',          maxHp:40,  attack:9,  defense:3,  gold:38,  taunt:"I'll crush you like a grape!"},
+    {name:'Flavia Ironfist',         maxHp:50,  attack:12, defense:5,  gold:58,  taunt:'Show me your worst, weakling.'},
+    {name:'Brutus Maximus',          maxHp:65,  attack:15, defense:6,  gold:85,  taunt:'None have survived me.'},
+    {name:'The Retiarius',           maxHp:78,  attack:18, defense:8,  gold:120, taunt:'Net or trident — pick your death.'},
+    {name:'Crixus the Undefeated',   maxHp:95,  attack:22, defense:10, gold:170, taunt:'I am undefeated. You are next.'},
+    {name:"The Emperor's Champion",  maxHp:125, attack:27, defense:13, gold:260, taunt:'For glory and the Emperor!'}
+  ];
+
+  var STARTING_GOLD = 30, STARTING_MAX_HP = 50, STARTING_ATTACK = 8, STARTING_DEFENSE = 1;
+  var MISS_CHANCE = .08, CRIT_CHANCE = .12, CRIT_MULT = 1.5, POWER_MULT = 1.5;
+  var ENEMY_POWER_MULT = 1.4, ENEMY_HESITATE_CHANCE = .12, ENEMY_POWER_CHANCE = .15;
+  var HEAL_SMALL_AMOUNT = 20, HEAL_SMALL_COST = 10, GOLD_PER_HP_FULL = 1;
+  var ARMORER_LINES = [
+    'Steel keeps you breathing, friend.',
+    'Bronze is cheap. Cheap gets you killed.',
+    'Iron for those who mean business.',
+    'A good shield outlives a good sword arm.'
+  ];
+
+  function findArmor(name){ for (var i=0;i<ARMOR_CATALOG.length;i++){ if (ARMOR_CATALOG[i].name===name) return ARMOR_CATALOG[i]; } return null; }
+  function armorForSlot(slot){ return ARMOR_CATALOG.filter(function(a){ return a.slot===slot; }); }
+  function slotIcon(slot){ return slot==='Helmet' ? 'i-helm' : (slot==='Chest' ? 'i-chest' : 'i-shield'); }
+  function pct(v,max){ return Math.max(0, Math.min(100, 100*v/Math.max(1,max))); }
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+  function esc(s){ return String(s).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
+
+  // ------------------------------------------------------------------
+  // Player
+  // ------------------------------------------------------------------
+  function freshPlayer(){
+    return {
+      maxHp: STARTING_MAX_HP, hp: STARTING_MAX_HP,
+      baseAttack: STARTING_ATTACK, baseDefense: STARTING_DEFENSE,
+      gold: STARTING_GOLD, armor: {Helmet:null, Chest:null, Shield:null},
+      wins: 0, losses: 0, opponentIndex: 0
+    };
+  }
+  function pAttack(p){ return p.baseAttack + p.wins; }
+  function pDefense(p){
+    var bonus = 0;
+    SLOTS.forEach(function(slot){
+      var piece = p.armor[slot] ? findArmor(p.armor[slot]) : null;
+      if (piece) bonus += piece.defense;
+    });
+    return p.baseDefense + bonus;
+  }
+  function nextOpponent(p){ return OPPONENTS[Math.max(0, Math.min(p.opponentIndex, OPPONENTS.length-1))]; }
+  function isChampion(p){ return p.opponentIndex >= OPPONENTS.length-1 && p.wins >= OPPONENTS.length; }
+  function healPlayer(p, amount){ var before=p.hp; p.hp=Math.min(p.maxHp,p.hp+amount); return p.hp-before; }
+  function recordWin(p, opp){ p.gold+=opp.gold; p.wins+=1; if (p.opponentIndex < OPPONENTS.length-1) p.opponentIndex+=1; }
+  function recordLoss(p){ p.losses+=1; p.hp=Math.max(1, Math.floor(p.maxHp/2)); }
+
+  var SAVE_KEY = 'gladiator-arena-save-v1';
+  function loadGame(){
+    try{
+      var raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return freshPlayer();
+      var d = JSON.parse(raw), p = freshPlayer();
+      p.maxHp = Number(d.maxHp||p.maxHp);
+      p.hp = Number(d.hp!=null ? d.hp : p.maxHp);
+      p.baseAttack = Number(d.baseAttack!=null ? d.baseAttack : p.baseAttack);
+      p.baseDefense = Number(d.baseDefense!=null ? d.baseDefense : p.baseDefense);
+      p.gold = Number(d.gold!=null ? d.gold : p.gold);
+      var sa = d.armor||{};
+      SLOTS.forEach(function(slot){ p.armor[slot] = sa[slot]!=null ? sa[slot] : null; });
+      p.wins = Number(d.wins||0);
+      p.losses = Number(d.losses||0);
+      p.opponentIndex = Math.max(0, Math.min(Number(d.opponentIndex||0), OPPONENTS.length-1));
+      return p;
+    } catch(e){ return freshPlayer(); }
+  }
+  function saveGame(p){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(p)); } catch(e){} }
+
+  // ------------------------------------------------------------------
+  // Combat
+  // ------------------------------------------------------------------
+  function rollDamage(atk, dfn){
+    var dmg = Math.max(1, atk - dfn + (Math.floor(Math.random()*5)-2));
+    var crit = Math.random() < CRIT_CHANCE;
+    if (crit) dmg = Math.floor(dmg*CRIT_MULT)+1;
+    return {dmg:dmg, crit:crit};
+  }
+  function Combat(player, opponent){
+    this.player = player; this.opponent = opponent; this.enemyHp = opponent.maxHp;
+    this.log = ['“'+opponent.taunt+'”']; this.defending = false; this.result = null;
+    this.lastHit = null; // 'player' | 'enemy' | null — drives the shake animation
+  }
+  Combat.prototype.isOver = function(){ return this.result !== null; };
+  Combat.prototype.attack = function(power){
+    if (this.isOver()) return;
+    this.defending = false; this.lastHit = null;
+    if (Math.random() < MISS_CHANCE){
+      this.log.push('You swing and miss!');
+    } else {
+      var atk = power ? Math.floor(pAttack(this.player)*POWER_MULT) : pAttack(this.player);
+      var r = rollDamage(atk, this.opponent.defense);
+      this.enemyHp = Math.max(0, this.enemyHp - r.dmg);
+      this.lastHit = 'enemy';
+      this.log.push('You '+(power?'smash':'strike')+' for '+r.dmg+'!'+(r.crit?' CRITICAL!':''));
+    }
+    this._checkEnd();
+    if (!this.isOver()) this._enemyTurn();
+  };
+  Combat.prototype.defend = function(){
+    if (this.isOver()) return;
+    this.defending = true; this.lastHit = null;
+    var healed = healPlayer(this.player, 2);
+    this.log.push('You brace behind your shield.'+(healed?' (+'+healed+' HP)':''));
+    this._enemyTurn();
+  };
+  Combat.prototype.flee = function(){
+    if (this.isOver()) return;
+    this.result = 'fled';
+    this.log.push('You flee the arena!');
+  };
+  Combat.prototype._enemyTurn = function(){
+    if (this.isOver()) return;
+    var roll = Math.random();
+    if (roll < ENEMY_HESITATE_CHANCE){
+      this.log.push(this.opponent.name+' hesitates, catching their breath.');
+    } else {
+      var power = roll > (1-ENEMY_POWER_CHANCE);
+      var atk = power ? Math.floor(this.opponent.attack*ENEMY_POWER_MULT) : this.opponent.attack;
+      var r = rollDamage(atk, pDefense(this.player));
+      var dmg = this.defending ? Math.max(1, Math.floor(r.dmg/2)) : r.dmg;
+      this.player.hp = Math.max(0, this.player.hp - dmg);
+      this.lastHit = 'player';
+      this.log.push(this.opponent.name+' '+(power?'crushes':'hits')+' you for '+dmg+'!'+(r.crit?' CRITICAL!':''));
+    }
+    this.defending = false;
+    this._checkEnd();
+  };
+  Combat.prototype._checkEnd = function(){
+    if (this.enemyHp <= 0){ this.result = 'win'; this.log.push(this.opponent.name+' falls! Victory!'); }
+    else if (this.player.hp <= 0){ this.result = 'loss'; this.log.push('You collapse in the sand...'); }
+  };
+
+  // ------------------------------------------------------------------
+  // App state
+  // ------------------------------------------------------------------
+  var player = loadGame();
+  var view = 'hub';
+  var combat = null;
+  var armorerSlot = 'Helmet';
+  var npcLine = pick(ARMORER_LINES);
+  var resultOverlay = null;
+  var confirmingReset = false;
+  var toastTimer = null;
+
+  function toast(msg){
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 2400);
+  }
+
+  function navigate(v){
+    combat = null; resultOverlay = null; confirmingReset = false;
+    if (v === 'armorer') armorerSlot = 'Helmet';
+    view = v;
+    clearTimeout(toastTimer);
+    document.getElementById('toast').classList.remove('show');
+    render();
+  }
+
+  function buyArmor(name){
+    var piece = findArmor(name);
+    if (!piece) return;
+    if (player.armor[piece.slot] === piece.name){ toast('Already equipped.'); return; }
+    if (player.gold < piece.price){ toast('Not enough gold — need '+piece.price+'g, have '+player.gold+'g'); return; }
+    player.gold -= piece.price;
+    player.armor[piece.slot] = piece.name;
+    saveGame(player);
+    toast('Equipped '+piece.name+'! Defense is now '+pDefense(player));
+    render();
+  }
+
+  function doHeal(kind){
+    var missing = player.maxHp - player.hp;
+    if (missing <= 0){ toast('Already at full HP!'); return; }
+    var amount = kind==='small' ? HEAL_SMALL_AMOUNT : missing;
+    var cost = kind==='small' ? HEAL_SMALL_COST : missing*GOLD_PER_HP_FULL;
+    if (player.gold < cost){ toast('Not enough gold — need '+cost+'g, have '+player.gold+'g'); return; }
+    player.gold -= cost;
+    var healed = healPlayer(player, amount);
+    saveGame(player);
+    toast('Healed '+healed+' HP! ('+player.hp+'/'+player.maxHp+')');
+    render();
+  }
+
+  function startFight(){
+    if (player.hp <= Math.max(1, player.maxHp*.15)){ toast('Too wounded to fight! See Vita the Healer first.'); return; }
+    combat = new Combat(player, nextOpponent(player));
+    view = 'combat';
+    render();
+  }
+
+  function doCombatAction(action){
+    if (!combat || combat.isOver()) return;
+    if (action==='attack') combat.attack(false);
+    else if (action==='power') combat.attack(true);
+    else if (action==='defend') combat.defend();
+    else if (action==='flee') combat.flee();
+
+    if (combat.isOver()) finishCombat();
+    else render();
+  }
+
+  function finishCombat(){
+    var opp = combat.opponent, overlay;
+    if (combat.result === 'win'){
+      var wasChampion = isChampion(player);
+      recordWin(player, opp);
+      overlay = { type:'win', title: (!wasChampion && isChampion(player)) ? 'Champion of the Arena!' : 'Victory!',
+                  lines: ['+'+opp.gold+' gold', player.gold+'g total'] };
+    } else if (combat.result === 'loss'){
+      recordLoss(player);
+      overlay = { type:'loss', title:'Defeated…', lines:['Carried from the sand.', 'HP restored to '+player.hp] };
+    } else {
+      overlay = { type:'fled', title:'You Fled', lines:['No shame in living to fight on.'] };
+    }
+    saveGame(player);
+    resultOverlay = overlay;
+    render();
+  }
+
+  function dismissResult(){ resultOverlay = null; combat = null; view = 'arenaMaster'; render(); }
+
+  function doReset(){ player = freshPlayer(); saveGame(player); confirmingReset = false; view = 'hub'; render(); }
+
+  // ------------------------------------------------------------------
+  // Rendering
+  // ------------------------------------------------------------------
+  function renderHub(){
+    var opp = nextOpponent(player);
+    return '' +
+    '<section class="view">' +
+      '<div class="hero">' +
+        '<span class="eyebrow">Ludus Magnus · Gladiator School</span>' +
+        '<h1>The Sand Remembers</h1>' +
+        '<p class="tagline">Fight. Earn gold. Gear up. Survive.</p>' +
+      '</div>' +
+      '<div class="record-strip">' +
+        '<div class="record-tile"><svg class="icon"><use href="#i-laurel"/></svg><strong>'+player.wins+'</strong><span>Wins</span></div>' +
+        '<div class="record-tile"><svg class="icon"><use href="#i-cracked-shield"/></svg><strong>'+player.losses+'</strong><span>Losses</span></div>' +
+        '<div class="record-tile"><svg class="icon"><use href="#i-sword"/></svg><strong>'+pAttack(player)+'</strong><span>Attack</span></div>' +
+        '<div class="record-tile"><svg class="icon"><use href="#i-shield"/></svg><strong>'+pDefense(player)+'</strong><span>Defense</span></div>' +
+      '</div>' +
+      '<div class="loadout-strip">' +
+        SLOTS.map(function(slot){
+          var owned = player.armor[slot];
+          return '<div class="loadout-chip"><svg class="icon"><use href="#'+slotIcon(slot)+'"/></svg><span>'+(owned?esc(owned):'No '+slot.toLowerCase())+'</span></div>';
+        }).join('') +
+      '</div>' +
+      '<div class="npc-grid">' +
+        '<button class="npc-card" data-nav="armorer"><svg class="icon npc-icon"><use href="#i-chest"/></svg><h3>Magnus</h3><p>The Armorer — bronze, iron &amp; steel</p></button>' +
+        '<button class="npc-card" data-nav="healer"><svg class="icon npc-icon"><use href="#i-potion"/></svg><h3>Vita</h3><p>The Healer — mends wounds for coin</p></button>' +
+        '<button class="npc-card" data-nav="arenaMaster"><svg class="icon npc-icon"><use href="#i-crossed-swords"/></svg><h3>Dominus</h3><p>Arena Master — next: '+esc(opp.name)+'</p></button>' +
+      '</div>' +
+      '<button class="reset-link" data-reset>Reset progress</button>' +
+      (confirmingReset ?
+        '<div class="reset-confirm"><span>Erase this gladiator and start over?</span>' +
+        '<div class="reset-confirm-actions"><button class="btn btn-danger btn-sm" data-reset-confirm>Yes, reset</button><button class="btn btn-outline btn-sm" data-reset-cancel>Cancel</button></div></div>'
+        : '') +
+    '</section>';
+  }
+
+  function renderArmorer(){
+    var slot = armorerSlot, items = armorForSlot(slot);
+    return '' +
+    '<section class="view">' +
+      '<div class="subheader"><button class="back-btn" data-back>‹ Back</button><h2>Magnus the Armorer</h2></div>' +
+      '<p class="npc-line">“'+npcLine+'”</p>' +
+      '<div class="tab-row">' +
+        SLOTS.map(function(s){ return '<button class="tab'+(s===slot?' active':'')+'" data-slot="'+s+'"><svg class="icon"><use href="#'+slotIcon(s)+'"/></svg>'+s+'</button>'; }).join('') +
+      '</div>' +
+      '<div class="armor-list">' +
+        items.map(function(a){
+          var equipped = player.armor[slot] === a.name;
+          var afford = player.gold >= a.price;
+          return '<div class="armor-row'+(equipped?' is-equipped':'')+'">' +
+            '<svg class="icon armor-row-icon"><use href="#'+slotIcon(slot)+'"/></svg>' +
+            '<div class="armor-row-info"><strong>'+esc(a.name)+'</strong><span class="armor-row-def">+'+a.defense+' DEF</span></div>' +
+            '<button class="btn btn-sm '+(equipped?'btn-equipped':(afford?'btn-buy':'btn-disabled'))+'" data-buy="'+esc(a.name)+'">' +
+              (equipped ? 'Equipped' : a.price+'g') +
+            '</button>' +
+          '</div>';
+        }).join('') +
+      '</div>' +
+    '</section>';
+  }
+
+  function renderHealer(){
+    var missing = player.maxHp - player.hp, fullCost = missing*GOLD_PER_HP_FULL;
+    return '' +
+    '<section class="view">' +
+      '<div class="subheader"><button class="back-btn" data-back>‹ Back</button><h2>Vita the Healer</h2></div>' +
+      '<p class="npc-line">“Let me mend your wounds.”</p>' +
+      '<div class="hp-readout"><div class="hpbar"><div class="hpbar-fill player" style="width:'+pct(player.hp,player.maxHp)+'%"></div></div><span>'+player.hp+'/'+player.maxHp+' HP</span></div>' +
+      '<div class="heal-options">' +
+        '<button class="option-card" data-heal="small"><svg class="icon"><use href="#i-potion"/></svg><div><strong>Patch Up</strong><span>Restore '+HEAL_SMALL_AMOUNT+' HP</span></div><span class="price">'+HEAL_SMALL_COST+'g</span></button>' +
+        '<button class="option-card'+(missing<=0?' is-disabled':'')+'" data-heal="full"><svg class="icon"><use href="#i-potion"/></svg><div><strong>Full Heal</strong><span>'+(missing>0?'Restore all '+missing+' HP':'Already full')+'</span></div><span class="price">'+(missing>0?fullCost+'g':'—')+'</span></button>' +
+      '</div>' +
+    '</section>';
+  }
+
+  function renderArenaMaster(){
+    var opp = nextOpponent(player);
+    var idx = Math.max(0, Math.min(player.opponentIndex, OPPONENTS.length-1));
+    var wounded = player.hp <= Math.max(1, player.maxHp*.15);
+    return '' +
+    '<section class="view">' +
+      '<div class="subheader"><button class="back-btn" data-back>‹ Back</button><h2>Dominus, Arena Master</h2></div>' +
+      '<div class="opponent-card">' +
+        '<span class="opponent-tier">Bout '+ROMAN[idx]+' of '+ROMAN[OPPONENTS.length-1]+'</span>' +
+        '<svg class="icon opponent-icon"><use href="#i-crossed-swords"/></svg>' +
+        '<h3>'+esc(opp.name)+'</h3>' +
+        '<p class="npc-line">“'+esc(opp.taunt)+'”</p>' +
+        '<div class="opponent-stats">' +
+          '<span><svg class="icon sm"><use href="#i-sword"/></svg>'+opp.attack+' ATK</span>' +
+          '<span><svg class="icon sm"><use href="#i-shield"/></svg>'+opp.defense+' DEF</span>' +
+          '<span><svg class="icon sm"><use href="#i-coin"/></svg>'+opp.gold+'g reward</span>' +
+        '</div>' +
+      '</div>' +
+      (wounded ? '<p class="warning-line">You’re too wounded to fight. See Vita the Healer first.</p>' : '') +
+      '<button class="btn btn-primary btn-block" data-fight="enter"'+(wounded?' disabled':'')+'><svg class="icon"><use href="#i-crossed-swords"/></svg>Enter the Arena</button>' +
+    '</section>';
+  }
+
+  function renderCombat(){
+    var p = combat.player, o = combat.opponent;
+    return '' +
+    '<section class="view combat-view">' +
+      '<div class="fighter enemy" id="fighter-enemy"><span class="fighter-name">'+esc(o.name)+'</span><div class="hpbar"><div class="hpbar-fill enemy" style="width:'+pct(combat.enemyHp,o.maxHp)+'%"></div></div><span class="fighter-hp">'+combat.enemyHp+'/'+o.maxHp+'</span></div>' +
+      '<div class="combat-log" id="combat-log">' + combat.log.map(function(l){ return '<p>'+esc(l)+'</p>'; }).join('') + '</div>' +
+      '<div class="fighter player" id="fighter-player"><span class="fighter-name">You</span><div class="hpbar"><div class="hpbar-fill player" style="width:'+pct(p.hp,p.maxHp)+'%"></div></div><span class="fighter-hp">'+p.hp+'/'+p.maxHp+'</span></div>' +
+      '<div class="action-row">' +
+        '<button class="btn btn-outline" data-combat-action="attack"><svg class="icon"><use href="#i-sword"/></svg>Attack</button>' +
+        '<button class="btn btn-outline" data-combat-action="power"><svg class="icon"><use href="#i-burst"/></svg>Power</button>' +
+        '<button class="btn btn-outline" data-combat-action="defend"><svg class="icon"><use href="#i-shield"/></svg>Defend</button>' +
+        '<button class="btn btn-danger" data-combat-action="flee"><svg class="icon"><use href="#i-exit"/></svg>Flee</button>' +
+      '</div>' +
+    '</section>';
+  }
+
+  function renderResultOverlay(){
+    var r = resultOverlay;
+    var icon = r.type==='win' ? 'i-laurel' : (r.type==='loss' ? 'i-cracked-shield' : 'i-exit');
+    return '' +
+    '<div class="overlay">' +
+      '<div class="result-card '+r.type+'">' +
+        '<svg class="icon result-icon"><use href="#'+icon+'"/></svg>' +
+        '<h2>'+r.title+'</h2>' +
+        r.lines.map(function(l){ return '<p>'+l+'</p>'; }).join('') +
+        '<button class="btn btn-primary" data-continue>Continue</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function render(){
+    document.getElementById('hud-gold').textContent = player.gold;
+    document.getElementById('hud-hp-text').textContent = player.hp+'/'+player.maxHp;
+    document.getElementById('hud-hp-fill').style.width = pct(player.hp, player.maxHp)+'%';
+
+    var app = document.getElementById('app');
+    var html = '';
+    if (view==='hub') html = renderHub();
+    else if (view==='armorer') html = renderArmorer();
+    else if (view==='healer') html = renderHealer();
+    else if (view==='arenaMaster') html = renderArenaMaster();
+    else if (view==='combat') html = renderCombat();
+    app.innerHTML = html + (resultOverlay ? renderResultOverlay() : '');
+
+    if (view==='combat'){
+      var log = document.getElementById('combat-log');
+      if (log) log.scrollTop = log.scrollHeight;
+      if (combat && combat.lastHit){
+        var target = document.getElementById(combat.lastHit==='player' ? 'fighter-player' : 'fighter-enemy');
+        if (target){ target.classList.remove('shake'); void target.offsetWidth; target.classList.add('shake'); }
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Event delegation
+  // ------------------------------------------------------------------
+  document.getElementById('root').addEventListener('click', function(e){
+    var t = e.target.closest('[data-nav],[data-back],[data-slot],[data-buy],[data-heal],[data-fight],[data-combat-action],[data-continue],[data-reset],[data-reset-confirm],[data-reset-cancel]');
+    if (!t || t.hasAttribute('disabled')) return;
+    if (t.dataset.nav){ if (t.dataset.nav==='armorer') npcLine = pick(ARMORER_LINES); navigate(t.dataset.nav); }
+    else if (t.dataset.back !== undefined) navigate('hub');
+    else if (t.dataset.slot){ armorerSlot = t.dataset.slot; render(); }
+    else if (t.dataset.buy) buyArmor(t.dataset.buy);
+    else if (t.dataset.heal) doHeal(t.dataset.heal);
+    else if (t.dataset.fight) startFight();
+    else if (t.dataset.combatAction) doCombatAction(t.dataset.combatAction);
+    else if (t.dataset.continue !== undefined) dismissResult();
+    else if (t.dataset.reset !== undefined){ confirmingReset = true; render(); }
+    else if (t.dataset.resetCancel !== undefined){ confirmingReset = false; render(); }
+    else if (t.dataset.resetConfirm !== undefined) doReset();
+  });
+
+  render();
+})();
+</script>
