@@ -1,3 +1,5 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gladiator Arena</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;900&family=Archivo:wght@400;500;600;700;800&display=swap">
@@ -185,7 +187,7 @@
   /* ---------- Walkable courtyard (WASD) ---------- */
   .courtyard-layer{position:absolute;inset:0;transform-origin:50% 100%;will-change:transform;}
   .courtyard-hint{
-    position:absolute; top:12px; right:14px; z-index:3;
+    position:absolute; top:12px; right:14px; z-index:3; max-width:32%;
     font-size:.62rem; color:var(--muted); letter-spacing:.05em;
     text-shadow:0 1px 4px rgba(0,0,0,.6); text-align:right; line-height:1.5;
   }
@@ -198,21 +200,21 @@
   }
   .courtyard-prompt.show{opacity:1; transform:translate(-50%,0);}
 
-  .dpad{
-    position:absolute; left:10px; bottom:10px; z-index:5;
-    display:grid; grid-template-columns:repeat(3,30px); grid-template-rows:repeat(3,30px); gap:3px;
+  .joystick{
+    position:absolute; left:14px; bottom:14px; z-index:5;
+    width:84px; height:84px; border-radius:50%;
+    background:color-mix(in srgb, var(--bg) 45%, transparent);
+    border:1px solid var(--border-soft);
+    touch-action:none; user-select:none; -webkit-user-select:none;
   }
-  .dpad-btn{
-    display:flex; align-items:center; justify-content:center;
-    background:color-mix(in srgb, var(--bg) 55%, transparent); border:1px solid var(--border-soft);
-    border-radius:8px; color:var(--ink); font-size:.8rem; line-height:1; cursor:pointer;
-    touch-action:none; user-select:none; -webkit-user-select:none; padding:0;
+  .joystick-knob{
+    position:absolute; left:50%; top:50%; width:38px; height:38px; margin:-19px 0 0 -19px;
+    border-radius:50%; background:color-mix(in srgb, var(--gold-dim) 65%, transparent);
+    border:1px solid var(--gold-dim); pointer-events:none;
+    transition:transform .12s ease-out;
   }
-  .dpad-btn:active{background:var(--gold-dim); color:var(--gold-ink); border-color:var(--gold-dim);}
-  .dpad-up{grid-column:2;grid-row:1;}
-  .dpad-left{grid-column:1;grid-row:2;}
-  .dpad-right{grid-column:3;grid-row:2;}
-  .dpad-down{grid-column:2;grid-row:3;}
+  .joystick.active{border-color:var(--gold-dim);}
+  .joystick.active .joystick-knob{transition:none;}
 
   /* ---------- NPC dialogue + sheet ---------- */
   .npc-line{
@@ -1019,12 +1021,14 @@
   // ------------------------------------------------------------------
   // Walkable courtyard — WASD movement, like walking up to an NPC
   // ------------------------------------------------------------------
-  var SHOW_WALK_HINT = aimSupported();
   var NPC_TARGETS = { armorer: 20, healer: 50, arenaMaster: 80 };
   var NPC_LABELS = { armorer: 'Magnus', healer: 'Vita', arenaMaster: 'Dominus' };
   var courtyard = { x: 50, z: 0 };
   var COURTYARD_SPEED = 1.7;
   var keysDown = {};
+  var joystick = { active: false, dx: 0, dz: 0 };
+  var JOYSTICK_MAX = 38;
+  var joystickPointerId = null;
   var nearNpc = null;
   var courtyardRAF = null;
 
@@ -1053,7 +1057,7 @@
       var prompt = document.getElementById('courtyard-prompt');
       if (prompt){
         if (nearNpc){
-          prompt.textContent = 'Press E to talk to ' + NPC_LABELS[nearNpc];
+          prompt.textContent = 'Tap or press E to talk to ' + NPC_LABELS[nearNpc];
           prompt.classList.add('show');
         } else {
           prompt.classList.remove('show');
@@ -1073,6 +1077,9 @@
         if (keysDown.d || keysDown.arrowright) dx += 1;
         if (keysDown.w || keysDown.arrowup) dz += 1;
         if (keysDown.s || keysDown.arrowdown) dz -= 1;
+        if (joystick.active){ dx += joystick.dx; dz += joystick.dz; }
+        var mag = Math.sqrt(dx*dx + dz*dz);
+        if (mag > 1){ dx /= mag; dz /= mag; }
         if (dx || dz){
           courtyard.x = Math.max(4, Math.min(96, courtyard.x + dx*COURTYARD_SPEED));
           courtyard.z = Math.max(0, Math.min(100, courtyard.z + dz*COURTYARD_SPEED));
@@ -1110,11 +1117,59 @@
   });
   document.addEventListener('keyup', function(e){ keysDown[e.key.toLowerCase()] = false; });
 
+  // On-screen joystick — drag-to-move, Minecraft-style. Pointer-driven and
+  // keyboard-independent, so it works regardless of whether the page has
+  // keyboard focus (and on touch devices, which have no WASD at all).
+  function joystickCenter(){
+    var el = document.getElementById('joystick');
+    if (!el) return null;
+    var r = el.getBoundingClientRect();
+    return { x: r.left + r.width/2, y: r.top + r.height/2 };
+  }
+  function joystickStart(e){
+    var el = document.getElementById('joystick');
+    if (!el) return;
+    joystickPointerId = e.pointerId;
+    try { el.setPointerCapture(e.pointerId); } catch(err){}
+    el.classList.add('active');
+    joystickMove(e);
+  }
+  function joystickMove(e){
+    if (joystickPointerId === null || e.pointerId !== joystickPointerId) return;
+    var c = joystickCenter();
+    if (!c) return;
+    var ox = e.clientX - c.x, oy = e.clientY - c.y;
+    var dist = Math.min(Math.sqrt(ox*ox + oy*oy), JOYSTICK_MAX);
+    var angle = Math.atan2(oy, ox);
+    var kx = Math.cos(angle) * dist, ky = Math.sin(angle) * dist;
+    joystick.active = true;
+    joystick.dx = kx / JOYSTICK_MAX;
+    joystick.dz = -ky / JOYSTICK_MAX;
+    var knob = document.getElementById('joystick-knob');
+    if (knob) knob.style.transform = 'translate('+kx.toFixed(1)+'px,'+ky.toFixed(1)+'px)';
+  }
+  function joystickEnd(e){
+    if (joystickPointerId === null || (e && e.pointerId !== joystickPointerId)) return;
+    joystickPointerId = null;
+    joystick.active = false; joystick.dx = 0; joystick.dz = 0;
+    var el = document.getElementById('joystick');
+    if (el) el.classList.remove('active');
+    var knob = document.getElementById('joystick-knob');
+    if (knob) knob.style.transform = '';
+  }
+  document.getElementById('root').addEventListener('pointerdown', function(e){
+    if (e.target.closest('#joystick')){ e.preventDefault(); joystickStart(e); }
+  });
+  document.addEventListener('pointermove', joystickMove);
+  document.addEventListener('pointerup', joystickEnd);
+  document.addEventListener('pointercancel', joystickEnd);
+
   function navigate(v){
     exitAimMode();
     stopCourtyardLoop();
     clearEnemyTimer();
     keysDown = {};
+    joystickEnd();
     combat = null; resultOverlay = null; confirmingReset = false; showStats = false;
     if (v === 'armorer') armorerSlot = 'Weapon';
     if (v === 'hub') resetCourtyard();
@@ -1271,21 +1326,15 @@
 
   function renderHub(){
     var opp = nextOpponent(player);
-    var walkable = SHOW_WALK_HINT;
     var inner =
       '<div class="courtyard-layer" id="courtyard-layer">' +
         '<div class="scene-figure" style="left:20%" data-nav="armorer"><svg><use href="#i-person-magnus"/></svg></div>' +
         '<div class="scene-figure" style="left:50%" data-nav="healer"><svg><use href="#i-person-vita"/></svg></div>' +
         '<div class="scene-figure" style="left:80%" data-nav="arenaMaster"><svg><use href="#i-person-dominus"/></svg></div>' +
       '</div>' +
-      (walkable ? '<div class="courtyard-hint">WASD or ▲◀▼▶ to walk<br>E or tap ▲ to talk</div>' : '') +
+      '<div class="courtyard-hint">WASD or drag to walk</div>' +
       '<div class="courtyard-prompt" id="courtyard-prompt"></div>' +
-      '<div class="dpad">' +
-        '<button type="button" class="dpad-btn dpad-up" data-move="w" aria-label="Walk forward">▲</button>' +
-        '<button type="button" class="dpad-btn dpad-left" data-move="a" aria-label="Strafe left">◀</button>' +
-        '<button type="button" class="dpad-btn dpad-right" data-move="d" aria-label="Strafe right">▶</button>' +
-        '<button type="button" class="dpad-btn dpad-down" data-move="s" aria-label="Walk back">▼</button>' +
-      '</div>';
+      '<div class="joystick" id="joystick" aria-label="Move"><div class="joystick-knob" id="joystick-knob"></div></div>';
     return '' +
     '<section class="view">' +
       sceneShell({title:'Ludus Magnus · Gladiator School', inner: inner}) +
@@ -1496,24 +1545,6 @@
     else if (t.dataset.resetCancel !== undefined){ confirmingReset = false; render(); }
     else if (t.dataset.resetConfirm !== undefined) doReset();
   });
-
-  // On-screen D-pad — press-and-hold, same keysDown flags WASD uses.
-  // This is the guaranteed-to-work control: it's pointer-driven, so it
-  // doesn't depend on the page having keyboard focus the way WASD does.
-  document.getElementById('root').addEventListener('pointerdown', function(e){
-    var btn = e.target.closest('[data-move]');
-    if (btn){ e.preventDefault(); keysDown[btn.dataset.move] = true; }
-  });
-  document.getElementById('root').addEventListener('pointerup', function(e){
-    var btn = e.target.closest('[data-move]');
-    if (btn) keysDown[btn.dataset.move] = false;
-  });
-  document.getElementById('root').addEventListener('pointerout', function(e){
-    var btn = e.target.closest('[data-move]');
-    if (btn && !btn.contains(e.relatedTarget)) keysDown[btn.dataset.move] = false;
-  });
-  document.addEventListener('pointerup', function(){ keysDown.w = keysDown.a = keysDown.s = keysDown.d = false; });
-  document.addEventListener('pointercancel', function(){ keysDown.w = keysDown.a = keysDown.s = keysDown.d = false; });
 
   updateSoundIcon();
   render();
