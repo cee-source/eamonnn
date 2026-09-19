@@ -147,6 +147,34 @@
     isolation:isolate;
   }
   .scene-sky{position:absolute;inset:0 0 40% 0;background:linear-gradient(180deg,var(--sky-top) 0%,var(--sky-bottom) 100%);}
+  /* Tiered arena stands, packed with a crowd of tiny fans -- combat only. */
+  .scene-stands{
+    position:absolute; inset:0 0 40% 0; overflow:hidden;
+    background-color:#7A6650;
+    background-image:
+      repeating-linear-gradient(180deg, rgba(0,0,0,.22) 0 3px, transparent 3px 26px),
+      radial-gradient(circle, #B4453A 42%, transparent 46%),
+      radial-gradient(circle, #3E5636 42%, transparent 46%),
+      radial-gradient(circle, #D9A066 42%, transparent 46%),
+      radial-gradient(circle, #5C7A50 42%, transparent 46%),
+      radial-gradient(circle, #8E3227 42%, transparent 46%),
+      radial-gradient(circle, #E8C39A 42%, transparent 46%),
+      radial-gradient(circle, #4A6B8C 42%, transparent 46%),
+      linear-gradient(180deg, #40352A 0%, #6E5A42 55%, #8A7457 100%);
+    background-size:
+      100% 26px,
+      18px 26px, 18px 26px, 18px 26px, 18px 26px, 18px 26px, 18px 26px, 18px 26px,
+      100% 100%;
+    background-position:
+      0 0,
+      0 4px, 6px 14px, 12px 2px, 3px 20px, 15px 9px, 9px 22px, 13px 17px,
+      0 0;
+  }
+  .stands-wall{
+    position:absolute; left:0; right:0; bottom:40%; height:4.5%; z-index:1;
+    background:linear-gradient(180deg,#C7A06A,#8A6B48);
+    box-shadow:0 3px 6px rgba(0,0,0,.4);
+  }
   .scene-glow{position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 30%, color-mix(in srgb, var(--gold) 22%, transparent), transparent 70%);mix-blend-mode:screen;}
   .scene-floor{
     position:absolute; left:0; right:0; bottom:0; height:42%;
@@ -387,8 +415,11 @@
   }
 
   /* ---------- Crosshair ---------- */
+  /* Fixed in the middle of the screen (roughly headshot height on the
+     centered fighter figure) rather than tracking the mouse -- works
+     identically on touch and desktop; tap/click anywhere to swing. */
   .crosshair{
-    position:fixed; top:0; left:0; width:36px; height:36px;
+    position:fixed; top:26%; left:50%; width:36px; height:36px;
     transform:translate(-50%,-50%); pointer-events:none; z-index:200;
     color:var(--ink); display:none;
   }
@@ -1166,63 +1197,42 @@
   }
 
   // ------------------------------------------------------------------
-  // Mouse-capture crosshair (combat only)
+  // Fixed center-screen crosshair (combat only) -- pinned in place via
+  // CSS (see .crosshair), not mouse-tracked, so it works identically on
+  // touch and desktop. Tapping/clicking anywhere in the arena swings;
+  // whether that swing is a head shot depends on whether the fixed
+  // crosshair point currently falls within the fighter's head zone.
   // ------------------------------------------------------------------
   var aiming = false;
-  var aimPos = null;
-
-  function aimSupported(){
-    try { return window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').matches; }
-    catch(e){ return false; }
-  }
 
   function enterAimMode(){
-    if (!aimSupported()) return;
     var sceneEl = document.querySelector('.arena-scene');
     if (!sceneEl) return;
     aiming = true;
     sceneEl.classList.add('aiming');
-    var r = sceneEl.getBoundingClientRect();
-    aimPos = { x: r.left + r.width/2, y: r.top + r.height/2 };
     document.getElementById('crosshair').classList.add('active');
     updateCrosshair();
-    document.addEventListener('mousemove', onAimMove);
   }
 
   function exitAimMode(){
     aiming = false;
     var ch = document.getElementById('crosshair');
     if (ch) ch.classList.remove('active','locked-on');
-    document.removeEventListener('mousemove', onAimMove);
     var sceneEl = document.querySelector('.arena-scene');
     if (sceneEl) sceneEl.classList.remove('aiming');
   }
 
-  function onAimMove(e){
-    if (!aiming || !aimPos) return;
-    aimPos.x = e.clientX;
-    aimPos.y = e.clientY;
-    var sceneEl = document.querySelector('.arena-scene');
-    if (sceneEl){
-      var r = sceneEl.getBoundingClientRect();
-      aimPos.x = Math.max(r.left+6, Math.min(r.right-6, aimPos.x));
-      aimPos.y = Math.max(r.top+6, Math.min(r.bottom-6, aimPos.y));
-    }
-    updateCrosshair();
-  }
-
   function updateCrosshair(){
-    if (!aimPos) return;
     var ch = document.getElementById('crosshair');
     if (!ch) return;
-    ch.style.left = aimPos.x + 'px';
-    ch.style.top = aimPos.y + 'px';
     var fighter = document.querySelector('.fighter-figure');
     var lockedOn = false;
     if (fighter){
       var fr = fighter.getBoundingClientRect();
-      if (fr.width > 0 && aimPos.x >= fr.left && aimPos.x <= fr.right &&
-          aimPos.y >= fr.top && aimPos.y <= fr.top + fr.height*0.32){
+      var cx = window.innerWidth / 2;
+      var cy = window.innerHeight * 0.26;
+      if (fr.width > 0 && cx >= fr.left && cx <= fr.right &&
+          cy >= fr.top && cy <= fr.top + fr.height*0.32){
         lockedOn = true;
       }
     }
@@ -1515,7 +1525,7 @@
     document.body.classList.add('combat-fullscreen');
     render();
     enterAimMode();
-    if (aiming) toast('Aim with your mouse — click to swing. Head shots crit!');
+    toast('Tap the arena to swing — line up the crosshair for a head shot!');
     scheduleEnemyTurn();
   }
 
@@ -1572,8 +1582,11 @@
   function sceneShell(opts){
     opts = opts || {};
     var extra = opts.extraClass ? ' ' + opts.extraClass : '';
+    var backdrop = opts.crowd
+      ? '<div class="scene-stands"></div><div class="stands-wall"></div>'
+      : '<div class="scene-sky"></div>';
     return '<div class="scene'+extra+'">' +
-      '<div class="scene-sky"></div><div class="scene-glow"></div><div class="scene-floor"></div>' +
+      backdrop + '<div class="scene-glow"></div><div class="scene-floor"></div>' +
       (opts.title ? '<div class="scene-title">'+opts.title+'</div>' : '') +
       (opts.inner || '') +
       '<div class="scene-vignette"></div>' +
@@ -1710,7 +1723,7 @@
       '<div class="joystick" id="joystick" aria-label="Move / dodge"><div class="joystick-knob" id="joystick-knob"></div></div>';
     return '' +
     '<section class="view combat-view">' +
-      sceneShell({inner: inner, extraClass:'arena-scene'}) +
+      sceneShell({inner: inner, extraClass:'arena-scene', crowd:true}) +
       '<div class="combat-log-strip">' + combat.log.slice(-2).map(function(l){ return '<p>'+esc(l)+'</p>'; }).join('') + '</div>' +
       '<div class="action-row">' +
         '<button class="btn btn-outline" data-combat-action="attack"><svg class="icon"><use href="#i-sword"/></svg>Attack</button>' +
