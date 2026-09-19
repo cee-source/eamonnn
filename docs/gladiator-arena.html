@@ -155,6 +155,7 @@
     position:absolute; top:12px; left:14px; right:14px; z-index:3;
     font-size:.68rem; letter-spacing:.14em; text-transform:uppercase; color:var(--gold);
     text-shadow:0 2px 6px rgba(0,0,0,.6); font-weight:700;
+    max-width:60%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
   .scene-caption{
     position:relative; z-index:2; margin-top:-46px; padding:34px 16px 12px;
@@ -174,6 +175,22 @@
     background:var(--surface);border:1px solid var(--border);color:var(--ink);z-index:2;
     box-shadow:0 4px 12px var(--shadow);
   }
+
+  /* ---------- Walkable courtyard (WASD) ---------- */
+  .courtyard-layer{position:absolute;inset:0;transform-origin:50% 100%;will-change:transform;}
+  .courtyard-hint{
+    position:absolute; top:12px; right:14px; z-index:3;
+    font-size:.62rem; color:var(--muted); letter-spacing:.05em;
+    text-shadow:0 1px 4px rgba(0,0,0,.6); text-align:right; line-height:1.5;
+  }
+  .courtyard-prompt{
+    position:absolute; bottom:9%; left:50%; transform:translate(-50%,8px); z-index:4;
+    padding:7px 16px; background:color-mix(in srgb, var(--bg) 65%, transparent);
+    border:1px solid var(--gold-dim); border-radius:var(--r-pill); color:var(--gold);
+    font-size:.76rem; font-weight:700; white-space:nowrap;
+    opacity:0; pointer-events:none; transition:opacity .15s, transform .15s;
+  }
+  .courtyard-prompt.show{opacity:1; transform:translate(-50%,0);}
 
   /* ---------- NPC dialogue + sheet ---------- */
   .npc-line{
@@ -855,13 +872,108 @@
     if (combat.isOver()) setTimeout(finishCombat, 700);
   }
 
+  // ------------------------------------------------------------------
+  // Walkable courtyard — WASD movement, like walking up to an NPC
+  // ------------------------------------------------------------------
+  var SHOW_WALK_HINT = aimSupported();
+  var NPC_TARGETS = { armorer: 20, healer: 50, arenaMaster: 80 };
+  var NPC_LABELS = { armorer: 'Magnus', healer: 'Vita', arenaMaster: 'Dominus' };
+  var courtyard = { x: 50, z: 0 };
+  var COURTYARD_SPEED = 1.7;
+  var keysDown = {};
+  var nearNpc = null;
+  var courtyardRAF = null;
+
+  function resetCourtyard(){ courtyard.x = 50; courtyard.z = 0; nearNpc = null; }
+
+  function computeNearNpc(){
+    if (courtyard.z < 68) return null;
+    var best = null, bestDist = 15;
+    Object.keys(NPC_TARGETS).forEach(function(key){
+      var d = Math.abs(NPC_TARGETS[key] - courtyard.x);
+      if (d < bestDist){ bestDist = d; best = key; }
+    });
+    return best;
+  }
+
+  function updateCourtyardVisual(){
+    var layer = document.getElementById('courtyard-layer');
+    if (!layer) return;
+    var scale = 1 + (courtyard.z/100)*0.6;
+    var shiftPct = -(courtyard.x-50)*0.9;
+    layer.style.transform = 'translateX('+shiftPct.toFixed(2)+'%) scale('+scale.toFixed(3)+')';
+
+    var near = computeNearNpc();
+    if (near !== nearNpc){
+      nearNpc = near;
+      var prompt = document.getElementById('courtyard-prompt');
+      if (prompt){
+        if (nearNpc){
+          prompt.textContent = 'Press E to talk to ' + NPC_LABELS[nearNpc];
+          prompt.classList.add('show');
+        } else {
+          prompt.classList.remove('show');
+        }
+      }
+    }
+  }
+
+  function startCourtyardLoop(){
+    stopCourtyardLoop();
+    function tick(){
+      if (view !== 'hub'){ courtyardRAF = null; return; }
+      if (!showStats && !confirmingReset && !resultOverlay){
+        var dx = 0, dz = 0;
+        if (keysDown.a || keysDown.arrowleft) dx -= 1;
+        if (keysDown.d || keysDown.arrowright) dx += 1;
+        if (keysDown.w || keysDown.arrowup) dz += 1;
+        if (keysDown.s || keysDown.arrowdown) dz -= 1;
+        if (dx || dz){
+          courtyard.x = Math.max(4, Math.min(96, courtyard.x + dx*COURTYARD_SPEED));
+          courtyard.z = Math.max(0, Math.min(100, courtyard.z + dz*COURTYARD_SPEED));
+          updateCourtyardVisual();
+        }
+      }
+      courtyardRAF = requestAnimationFrame(tick);
+    }
+    courtyardRAF = requestAnimationFrame(tick);
+  }
+
+  function stopCourtyardLoop(){
+    if (courtyardRAF) cancelAnimationFrame(courtyardRAF);
+    courtyardRAF = null;
+  }
+
+  var MOVE_KEYS = ['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'];
+  document.addEventListener('keydown', function(e){
+    var k = e.key.toLowerCase();
+    if (view === 'hub' && MOVE_KEYS.indexOf(k) !== -1){
+      keysDown[k] = true;
+      e.preventDefault();
+    }
+    if (view === 'hub' && (k === 'e' || k === 'enter' || k === ' ')){
+      var focused = document.activeElement;
+      if (focused && (focused.tagName === 'BUTTON' || focused.tagName === 'A')) return;
+      if (nearNpc){
+        e.preventDefault();
+        if (nearNpc === 'armorer') npcLine = pick(ARMORER_LINES);
+        navigate(nearNpc);
+      }
+    }
+  });
+  document.addEventListener('keyup', function(e){ keysDown[e.key.toLowerCase()] = false; });
+
   function navigate(v){
     exitAimMode();
+    stopCourtyardLoop();
+    keysDown = {};
     combat = null; resultOverlay = null; confirmingReset = false; showStats = false;
     if (v === 'armorer') armorerSlot = 'Weapon';
+    if (v === 'hub') resetCourtyard();
     view = v;
     clearToast();
     render();
+    if (v === 'hub') startCourtyardLoop();
   }
 
   function buyArmor(name){
@@ -963,10 +1075,15 @@
 
   function renderHub(){
     var opp = nextOpponent(player);
+    var walkable = SHOW_WALK_HINT;
     var inner =
-      '<div class="scene-figure" style="left:20%" data-nav="armorer"><svg><use href="#i-person-magnus"/></svg></div>' +
-      '<div class="scene-figure" style="left:50%" data-nav="healer"><svg><use href="#i-person-vita"/></svg></div>' +
-      '<div class="scene-figure" style="left:80%" data-nav="arenaMaster"><svg><use href="#i-person-dominus"/></svg></div>';
+      '<div class="courtyard-layer" id="courtyard-layer">' +
+        '<div class="scene-figure" style="left:20%" data-nav="armorer"><svg><use href="#i-person-magnus"/></svg></div>' +
+        '<div class="scene-figure" style="left:50%" data-nav="healer"><svg><use href="#i-person-vita"/></svg></div>' +
+        '<div class="scene-figure" style="left:80%" data-nav="arenaMaster"><svg><use href="#i-person-dominus"/></svg></div>' +
+      '</div>' +
+      (walkable ? '<div class="courtyard-hint">WASD to walk<br>E to talk</div>' : '') +
+      '<div class="courtyard-prompt" id="courtyard-prompt"></div>';
     return '' +
     '<section class="view">' +
       sceneShell({title:'Ludus Magnus · Gladiator School', inner: inner}) +
@@ -1150,6 +1267,7 @@
     else if (view==='arenaMaster') html = renderArenaMaster();
     else if (view==='combat') html = renderCombat();
     app.innerHTML = html + (resultOverlay ? renderResultOverlay() : '') + (showStats ? renderStatsOverlay() : '');
+    if (view === 'hub') updateCourtyardVisual();
   }
 
   // ------------------------------------------------------------------
@@ -1177,5 +1295,6 @@
   });
 
   render();
+  if (view === 'hub') startCourtyardLoop();
 })();
 </script>
