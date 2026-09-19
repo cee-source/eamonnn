@@ -352,6 +352,40 @@
   .action-row .btn{flex-direction:column;padding:11px 6px;gap:4px;font-size:.72rem;}
   .action-row .icon{width:1.15rem;height:1.15rem;}
 
+  /* ---------- Full-screen combat ---------- */
+  .combat-player-hud{
+    position:absolute; top:calc(env(safe-area-inset-top,0px) + 10px); left:14px; z-index:4;
+    display:flex; align-items:center; gap:7px;
+    background:color-mix(in srgb, var(--bg) 55%, transparent);
+    padding:5px 11px; border-radius:var(--r-pill); border:1px solid var(--border-soft);
+    font-size:.72rem; font-weight:600; color:var(--muted); font-variant-numeric:tabular-nums;
+  }
+  .combat-player-hud .hpbar{width:46px;height:7px;}
+  .combat-player-hud .gold{color:var(--gold);display:flex;align-items:center;gap:3px;}
+  .combat-player-hud .gold .icon{width:.85em;height:.85em;}
+
+  body.combat-fullscreen{overflow:hidden;}
+  body.combat-fullscreen #root{max-width:none;padding:0;}
+  body.combat-fullscreen .hud{display:none;}
+  body.combat-fullscreen #app{height:100dvh;}
+  body.combat-fullscreen .combat-view{
+    position:fixed; inset:0; z-index:20; display:flex; flex-direction:column;
+  }
+  body.combat-fullscreen .arena-scene{
+    flex:1; height:auto; min-height:0; border-radius:0; border:none; box-shadow:none;
+  }
+  body.combat-fullscreen .boss-bar{top:calc(env(safe-area-inset-top,0px) + 46px);}
+  /* log-strip and action-row are normal flex children below the scene
+     (not absolutely positioned over it), so their heights can never
+     overlap the joystick or each other regardless of content/font size. */
+  body.combat-fullscreen .combat-log-strip{
+    flex-shrink:0; margin:0; background:color-mix(in srgb, var(--surface) 94%, transparent);
+  }
+  body.combat-fullscreen .action-row{
+    flex-shrink:0; margin:0; padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));
+    background:var(--surface);
+  }
+
   /* ---------- Crosshair ---------- */
   .crosshair{
     position:fixed; top:0; left:0; width:36px; height:36px;
@@ -437,6 +471,40 @@
 
 <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
 <defs>
+  <!-- Character shading gradients -->
+  <linearGradient id="g-skin-magnus" x1="0.2" y1="0" x2="0.8" y2="1">
+    <stop offset="0%" stop-color="#F2CD9C"/><stop offset="50%" stop-color="#D9A066"/><stop offset="100%" stop-color="#A8763F"/>
+  </linearGradient>
+  <linearGradient id="g-skin-vita" x1="0.2" y1="0" x2="0.8" y2="1">
+    <stop offset="0%" stop-color="#F7DFC0"/><stop offset="50%" stop-color="#E8C39A"/><stop offset="100%" stop-color="#BF9468"/>
+  </linearGradient>
+  <linearGradient id="g-skin-dominus" x1="0.2" y1="0" x2="0.8" y2="1">
+    <stop offset="0%" stop-color="#F2C592"/><stop offset="50%" stop-color="#E0AE7E"/><stop offset="100%" stop-color="#AF7C52"/>
+  </linearGradient>
+  <linearGradient id="g-skin-fighter" x1="0.2" y1="0" x2="0.8" y2="1">
+    <stop offset="0%" stop-color="#E4AD7C"/><stop offset="50%" stop-color="#C98A5A"/><stop offset="100%" stop-color="#8F5A36"/>
+  </linearGradient>
+  <radialGradient id="g-face-magnus" cx="0.4" cy="0.35" r="0.7">
+    <stop offset="0%" stop-color="#F6D3A5"/><stop offset="65%" stop-color="#DBA268"/><stop offset="100%" stop-color="#B07C48"/>
+  </radialGradient>
+  <radialGradient id="g-face-vita" cx="0.4" cy="0.35" r="0.7">
+    <stop offset="0%" stop-color="#FAE3C4"/><stop offset="65%" stop-color="#E9C59D"/><stop offset="100%" stop-color="#C69A6E"/>
+  </radialGradient>
+  <radialGradient id="g-face-dominus" cx="0.4" cy="0.35" r="0.7">
+    <stop offset="0%" stop-color="#F6CA98"/><stop offset="65%" stop-color="#E2B080"/><stop offset="100%" stop-color="#B98357"/>
+  </radialGradient>
+  <radialGradient id="g-face-fighter" cx="0.4" cy="0.35" r="0.7">
+    <stop offset="0%" stop-color="#EBB484"/><stop offset="65%" stop-color="#CB8C5C"/><stop offset="100%" stop-color="#9B6238"/>
+  </radialGradient>
+  <linearGradient id="g-leather-magnus" x1="0.25" y1="0" x2="0.75" y2="1">
+    <stop offset="0%" stop-color="#9C7042"/><stop offset="55%" stop-color="#8B5E34"/><stop offset="100%" stop-color="#5E3F20"/>
+  </linearGradient>
+  <linearGradient id="g-robe-vita" x1="0.25" y1="0" x2="0.75" y2="1">
+    <stop offset="0%" stop-color="#729263"/><stop offset="55%" stop-color="#5C7A50"/><stop offset="100%" stop-color="#3C5232"/>
+  </linearGradient>
+  <linearGradient id="g-robe-dominus" x1="0.25" y1="0" x2="0.75" y2="1">
+    <stop offset="0%" stop-color="#A8493A"/><stop offset="55%" stop-color="#8E3227"/><stop offset="100%" stop-color="#601F18"/>
+  </linearGradient>
   <symbol id="i-laurel" viewBox="0 0 24 24">
     <path d="M12 3v16.5"/>
     <path d="M12 6.2c-2 .4-3.8 2-4.4 4.3M12 9.2c-1.5.3-2.8 1.4-3.4 3M12 12.2c-1.2.2-2.2.9-2.8 2.1"/>
@@ -509,83 +577,250 @@
 
   <!-- Illustrated figures: layered, shaded, clothed — not flat silhouettes -->
   <symbol id="i-person-magnus" viewBox="0 0 120 240">
-    <path d="M42 150 L38 226 Q38 233 46 233 L53 233 L55 168 L65 168 L67 233 L74 233 Q82 233 82 226 L78 150 Z" fill="#5B4632"/>
-    <ellipse cx="44" cy="235" rx="10" ry="5" fill="#201509"/>
-    <ellipse cx="76" cy="235" rx="10" ry="5" fill="#201509"/>
-    <path d="M32 70 Q60 58 88 70 L94 118 Q96 140 90 154 L30 154 Q24 140 26 118 Z" fill="#8B5E34"/>
-    <path d="M60 78 L57 150 M60 78 L63 150" stroke="#5B4632" stroke-width="3" fill="none"/>
-    <rect x="30" y="118" width="60" height="9" fill="#5B4632"/>
-    <path d="M30 78 Q22 96 24 116 Q25 124 33 123 Q39 122 38 112 L34 84 Z" fill="#D9A066"/>
-    <path d="M90 78 Q98 96 96 116 Q95 124 87 123 Q81 122 82 112 L86 84 Z" fill="#D9A066"/>
-    <path d="M24 116 Q18 134 22 150 Q24 157 32 156 Q38 155 37 147 L33 120 Z" fill="#D9A066"/>
-    <path d="M96 116 Q102 134 98 150 Q96 157 88 156 Q82 155 83 147 L87 120 Z" fill="#D9A066"/>
-    <rect x="88" y="118" width="7" height="36" rx="3" fill="#6B4A2E" transform="rotate(20 91 136)"/>
-    <rect x="80" y="112" width="26" height="15" rx="3" fill="#54545A" transform="rotate(20 93 119)"/>
-    <rect x="50" y="58" width="20" height="14" fill="#D9A066"/>
-    <circle cx="60" cy="35" r="21" fill="#D9A066"/>
-    <circle cx="39" cy="36" r="4" fill="#D9A066"/>
-    <circle cx="81" cy="36" r="4" fill="#D9A066"/>
-    <path d="M40 26 Q60 8 80 26 Q80 15 60 13 Q40 15 40 26Z" fill="#4A3527"/>
-    <path d="M46 31 L56 29 M64 29 L74 31" stroke="#3A2A1D" stroke-width="2.4" stroke-linecap="round" fill="none"/>
-    <circle cx="51" cy="35" r="2.3" fill="#241A12"/>
-    <circle cx="69" cy="35" r="2.3" fill="#241A12"/>
-    <path d="M48 46 Q60 52 72 46 Q68 51 60 51 Q52 51 48 46Z" fill="#4A3527"/>
+    <!-- legs / boots -->
+    <path d="M43 150 L39 222 Q39 230 47 230 L54 230 L56 168 L64 168 L66 230 L73 230 Q81 230 81 222 L77 150Z" fill="#4A3A28"/>
+    <path d="M39 210 L56 210 M64 210 L77 210" stroke="#3A2D1E" stroke-width="1.4" fill="none" opacity=".7"/>
+    <ellipse cx="45" cy="233" rx="10" ry="5.5" fill="#1C130A"/>
+    <ellipse cx="75" cy="233" rx="10" ry="5.5" fill="#1C130A"/>
+    <path d="M35 225 L55 225 M65 225 L85 225" stroke="#000" stroke-width="1" opacity=".25"/>
+    <!-- apron -->
+    <path d="M32 72 Q60 60 88 72 L94 118 Q96 138 90 152 L30 152 Q24 138 26 118Z" fill="url(#g-leather-magnus)"/>
+    <path d="M32 72 Q60 60 88 72 L89 82 Q60 72 31 82Z" fill="#6E4A28"/>
+    <path d="M60 80 L57 150 M60 80 L63 150" stroke="#4A3220" stroke-width="2.6" fill="none"/>
+    <path d="M38 100 Q60 106 82 100" stroke="#4A3220" stroke-width="1.6" fill="none" opacity=".6"/>
+    <rect x="30" y="118" width="60" height="9" fill="#4A3220"/>
+    <rect x="30" y="118" width="60" height="3" fill="#6E4A28"/>
+    <circle cx="60" cy="122.5" r="3.4" fill="#C9A24A"/>
+    <!-- arms -->
+    <path d="M30 78 Q21 96 23 116 Q24 126 33 125 Q40 124 39 113 L35 84Z" fill="url(#g-skin-magnus)"/>
+    <path d="M90 78 Q99 96 97 116 Q96 126 87 125 Q80 124 81 113 L85 84Z" fill="url(#g-skin-magnus)"/>
+    <path d="M26 96 Q25 104 27 112" stroke="#ffffff30" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M94 96 Q95 104 93 112" stroke="#ffffff30" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- forearms + hands (gripping a hammer haft on the right) -->
+    <path d="M23 116 Q17 134 21 150 Q23 158 32 157 Q39 156 37 147 L33 120Z" fill="url(#g-skin-magnus)"/>
+    <path d="M97 116 Q103 134 99 150 Q97 158 88 157 Q81 156 83 147 L87 120Z" fill="url(#g-skin-magnus)"/>
+    <g fill="url(#g-skin-magnus)">
+      <ellipse cx="93" cy="151" rx="7" ry="6"/>
+      <path d="M88 146 Q84 144 85 148 Q86 152 90 151Z"/>
+      <path d="M97 145 Q100 142 102 145 Q102 149 98 150Z"/>
+    </g>
+    <rect x="88" y="112" width="7" height="42" rx="3" fill="#5C4020" transform="rotate(18 91 133)"/>
+    <path d="M80 108 Q92 104 106 112 Q108 116 104 119 Q92 124 80 118Z" fill="#54545A"/>
+    <g fill="url(#g-skin-magnus)">
+      <ellipse cx="26" cy="150" rx="6.5" ry="5.5"/>
+      <path d="M21 155 Q18 158 20 161 Q23 161 24 157Z"/>
+      <path d="M30 155 Q33 158 31 161 Q28 161 27 157Z"/>
+    </g>
+    <!-- neck + collarbone -->
+    <rect x="50" y="59" width="20" height="13" fill="url(#g-face-magnus)"/>
+    <path d="M52 68 Q60 71 68 68" stroke="#00000020" stroke-width="1.6" fill="none"/>
+    <!-- head -->
+    <path d="M39 40 Q39 15 60 14 Q81 15 81 40 Q82 52 76 60 Q68 66 60 66 Q52 66 44 60 Q38 52 39 40Z" fill="url(#g-face-magnus)"/>
+    <path d="M37 34 Q34 38 36 43 Q38 45 39 41Z" fill="url(#g-face-magnus)"/>
+    <path d="M83 34 Q86 38 84 43 Q82 45 81 41Z" fill="url(#g-face-magnus)"/>
+    <!-- hair (back/sides only, balding-smith look) + brows -->
+    <path d="M39 32 Q37 18 50 13 Q44 22 43 34Z" fill="#5C4A36"/>
+    <path d="M81 32 Q83 18 70 13 Q76 22 77 34Z" fill="#5C4A36"/>
+    <path d="M46 30 Q53 25 60 29" stroke="#3E2E1F" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+    <path d="M60 29 Q67 25 74 30" stroke="#3E2E1F" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+    <!-- eyes -->
+    <ellipse cx="50" cy="37" rx="4.6" ry="3.2" fill="#F5EFE4"/>
+    <ellipse cx="70" cy="37" rx="4.6" ry="3.2" fill="#F5EFE4"/>
+    <circle cx="51" cy="37.3" r="2.1" fill="#5A4530"/>
+    <circle cx="69" cy="37.3" r="2.1" fill="#5A4530"/>
+    <circle cx="51.4" cy="37" r="0.9" fill="#181008"/>
+    <circle cx="69.4" cy="37" r="0.9" fill="#181008"/>
+    <circle cx="50" cy="36.2" r="0.6" fill="#fff" opacity=".8"/>
+    <circle cx="68" cy="36.2" r="0.6" fill="#fff" opacity=".8"/>
+    <path d="M45 34.5 Q50 32.5 55 34.5" stroke="#8A6540" stroke-width="1" fill="none" opacity=".5"/>
+    <path d="M65 34.5 Q70 32.5 75 34.5" stroke="#8A6540" stroke-width="1" fill="none" opacity=".5"/>
+    <!-- nose -->
+    <path d="M59 38 Q57 45 56 48 Q59 50 62 48" stroke="#9C7448" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    <path d="M56.5 48.5 Q59 50 61.5 48.5" stroke="#00000025" stroke-width="1" fill="none"/>
+    <!-- beard + mouth -->
+    <path d="M42 50 Q42 62 50 68 Q60 72 70 68 Q78 62 78 50 Q78 58 70 62 Q60 66 60 66 Q60 66 50 62 Q42 58 42 50Z" fill="#6B5138"/>
+    <path d="M44 52 Q44 60 51 65 M76 52 Q76 60 69 65" stroke="#4A3826" stroke-width="1.2" fill="none" opacity=".6"/>
+    <path d="M52 56 Q60 61 68 56" stroke="#2A1D12" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    <path d="M53 59 Q60 62 67 59" stroke="#8A3A2E" stroke-width="1.4" fill="none" stroke-linecap="round" opacity=".7"/>
   </symbol>
 
   <symbol id="i-person-vita" viewBox="0 0 120 240">
-    <path d="M36 76 Q60 64 84 76 L92 140 Q96 190 84 232 L36 232 Q24 190 28 140 Z" fill="#5C7A50"/>
-    <ellipse cx="48" cy="234" rx="9" ry="4" fill="#2E4028"/>
-    <ellipse cx="72" cy="234" rx="9" ry="4" fill="#2E4028"/>
-    <rect x="30" y="118" width="60" height="7" fill="#3E5636"/>
-    <path d="M32 80 Q22 100 26 122 Q28 130 36 128 L38 90 Z" fill="#5C7A50"/>
-    <path d="M88 80 Q98 100 94 122 Q92 130 84 128 L82 90 Z" fill="#5C7A50"/>
-    <path d="M26 122 Q20 138 24 152 Q26 158 33 156 Q38 155 36 148 L34 124 Z" fill="#E8C39A"/>
-    <path d="M94 122 Q100 138 96 152 Q94 158 87 156 Q82 155 84 148 L86 124 Z" fill="#E8C39A"/>
-    <rect x="85" y="140" width="9" height="15" rx="2" fill="#BFE0C8" stroke="#3E5636" stroke-width="1"/>
-    <rect x="50" y="58" width="18" height="13" fill="#E8C39A"/>
-    <circle cx="60" cy="34" r="19" fill="#E8C39A"/>
-    <path d="M39 30 Q60 6 81 30 Q81 19 60 15 Q39 19 39 30Z" fill="#6B8B5C"/>
-    <path d="M75 23 Q90 34 85 54 Q83 40 72 31Z" fill="#6B8B5C"/>
-    <circle cx="52" cy="35" r="2.1" fill="#241A12"/>
-    <circle cx="68" cy="35" r="2.1" fill="#241A12"/>
-    <path d="M52 44 Q60 48 68 44" stroke="#8A5A3C" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- robe -->
+    <path d="M35 78 Q60 65 85 78 L93 142 Q97 192 85 230 L35 230 Q23 192 27 142Z" fill="url(#g-robe-vita)"/>
+    <path d="M35 78 Q60 65 85 78 L86 88 Q60 76 34 88Z" fill="#82A272"/>
+    <path d="M60 84 L58 226 M44 96 Q60 102 76 96" stroke="#3C5232" stroke-width="1.6" fill="none" opacity=".55"/>
+    <path d="M40 140 Q44 180 40 222 M80 140 Q76 180 80 222" stroke="#3C5232" stroke-width="1.4" fill="none" opacity=".45"/>
+    <rect x="30" y="120" width="60" height="7" fill="#3E5636"/>
+    <circle cx="60" cy="123.5" r="2.8" fill="#D8C88E"/>
+    <ellipse cx="46" cy="234" rx="9" ry="4.5" fill="#2E4028"/>
+    <ellipse cx="74" cy="234" rx="9" ry="4.5" fill="#2E4028"/>
+    <!-- arms/sleeves -->
+    <path d="M33 82 Q22 102 26 124 Q28 134 37 132 L40 92Z" fill="url(#g-robe-vita)"/>
+    <path d="M87 82 Q98 102 94 124 Q92 134 83 132 L80 92Z" fill="url(#g-robe-vita)"/>
+    <path d="M26 124 Q19 140 23 154 Q25 161 33 159 Q38 158 36 150 L34 126Z" fill="url(#g-skin-vita)"/>
+    <path d="M94 124 Q101 140 97 154 Q95 161 87 159 Q82 158 84 150 L86 126Z" fill="url(#g-skin-vita)"/>
+    <g fill="url(#g-skin-vita)">
+      <ellipse cx="29" cy="157" rx="6" ry="5"/><path d="M25 161 Q22 164 24 166 Q27 166 27 163Z"/>
+    </g>
+    <g fill="url(#g-skin-vita)">
+      <ellipse cx="91" cy="157" rx="6" ry="5"/><path d="M95 161 Q98 164 96 166 Q93 166 93 163Z"/>
+    </g>
+    <!-- healing vial in right hand -->
+    <rect x="86" y="142" width="9" height="16" rx="2.5" fill="#BFE0C8" stroke="#3E5636" stroke-width="1"/>
+    <rect x="87.5" y="139" width="6" height="4" rx="1" fill="#8C6A46"/>
+    <!-- neck -->
+    <rect x="51" y="60" width="18" height="12" fill="url(#g-face-vita)"/>
+    <path d="M52 68 Q60 70 68 68" stroke="#00000018" stroke-width="1.4" fill="none"/>
+    <!-- head -->
+    <path d="M41 38 Q41 16 60 15 Q79 16 79 38 Q80 50 73 58 Q67 64 60 64 Q53 64 47 58 Q40 50 41 38Z" fill="url(#g-face-vita)"/>
+    <!-- hair: soft bun + loose strands + headband -->
+    <path d="M40 32 Q37 8 60 5 Q83 8 80 32 Q80 20 60 17 Q40 20 40 32Z" fill="#6B8B5C"/>
+    <path d="M74 20 Q92 30 87 52 Q84 40 74 32Z" fill="#5A7A4C"/>
+    <path d="M76 24 Q86 32 84 44" stroke="#82A272" stroke-width="1.4" fill="none" opacity=".7"/>
+    <path d="M40 30 Q39 20 44 14" stroke="#82A272" stroke-width="1.6" fill="none" opacity=".6"/>
+    <path d="M39 30 Q60 22 81 30" stroke="#D8C88E" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <!-- brows + eyes -->
+    <path d="M48 35 Q52 32.5 56 34.5" stroke="#4A3826" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M64 34.5 Q68 32.5 72 35" stroke="#4A3826" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <ellipse cx="52.5" cy="38" rx="4.2" ry="3" fill="#FBF6EC"/>
+    <ellipse cx="67.5" cy="38" rx="4.2" ry="3" fill="#FBF6EC"/>
+    <circle cx="53" cy="38.2" r="2" fill="#4A6B3C"/>
+    <circle cx="67" cy="38.2" r="2" fill="#4A6B3C"/>
+    <circle cx="53.3" cy="38" r="0.85" fill="#161008"/>
+    <circle cx="66.7" cy="38" r="0.85" fill="#161008"/>
+    <circle cx="52.2" cy="37.2" r="0.55" fill="#fff" opacity=".85"/>
+    <circle cx="66.2" cy="37.2" r="0.55" fill="#fff" opacity=".85"/>
+    <path d="M48.5 41.5 Q52.5 43 56.5 41.5" stroke="#00000018" stroke-width="1" fill="none"/>
+    <path d="M63.5 41.5 Q67.5 43 71.5 41.5" stroke="#00000018" stroke-width="1" fill="none"/>
+    <!-- nose + lips + cheeks -->
+    <path d="M59 39 Q57.5 44 57 46.5 Q59 48 61 46.5" stroke="#C89A6E" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+    <path d="M53 51 Q60 54.5 67 51 Q60 56 53 51Z" fill="#B4685A"/>
+    <path d="M55 51 Q60 53 65 51" stroke="#8A4A3E" stroke-width=".8" fill="none" opacity=".6"/>
+    <ellipse cx="48" cy="47" rx="3.4" ry="2.3" fill="#E8A088" opacity=".35"/>
+    <ellipse cx="72" cy="47" rx="3.4" ry="2.3" fill="#E8A088" opacity=".35"/>
   </symbol>
 
   <symbol id="i-person-dominus" viewBox="0 0 120 240">
-    <path d="M34 74 Q60 60 86 74 L94 150 Q96 196 86 230 L34 230 Q24 196 26 150 Z" fill="#8E3227"/>
-    <path d="M40 76 L86 150 L78 158 L34 88Z" fill="#C9A24A"/>
-    <ellipse cx="46" cy="232" rx="9" ry="4" fill="#241812"/>
-    <ellipse cx="74" cy="232" rx="9" ry="4" fill="#241812"/>
-    <path d="M30 90 Q26 112 40 128 Q52 138 66 130 L62 118 Q50 122 42 112 Q36 100 40 88Z" fill="#8E3227"/>
-    <ellipse cx="64" cy="128" rx="8" ry="7" fill="#E0AE7E"/>
-    <path d="M92 92 Q100 110 96 130 Q94 138 86 136 Q81 135 83 127 L86 96Z" fill="#E0AE7E"/>
-    <rect x="50" y="56" width="20" height="14" fill="#E0AE7E"/>
-    <circle cx="60" cy="33" r="20" fill="#E0AE7E"/>
-    <path d="M40 25 Q60 10 80 25 Q78 17 60 15 Q42 17 40 25Z" fill="#3A2E22"/>
-    <path d="M36 24c6-10 16-16 24-17M84 24c-6-10-16-16-24-17" stroke="#C9A24A" stroke-width="3" fill="none" stroke-linecap="round"/>
-    <path d="M38 20l-4 3M42 15l-4 2M82 20l4 3M78 15l4 2" stroke="#C9A24A" stroke-width="2" stroke-linecap="round" fill="none"/>
-    <path d="M46 29 L56 31 M64 31 L74 29" stroke="#3A2E22" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-    <circle cx="51" cy="34" r="2.2" fill="#241A12"/>
-    <circle cx="69" cy="34" r="2.2" fill="#241A12"/>
-    <path d="M52 45 h16" stroke="#6B3A2E" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <!-- toga -->
+    <path d="M33 76 Q60 62 87 76 L95 152 Q97 198 87 228 L33 228 Q23 198 25 152Z" fill="url(#g-robe-dominus)"/>
+    <path d="M33 76 Q60 62 87 76 L88 87 Q60 74 32 87Z" fill="#B65A47"/>
+    <!-- gold sash -->
+    <path d="M40 78 L86 152 L77 161 L32 90Z" fill="#C9A24A"/>
+    <path d="M40 78 L46 74 L92 148 L86 152Z" fill="#E0BE6E"/>
+    <path d="M45 88 L52 98 M55 103 L62 113 M65 118 L72 128" stroke="#8E6E2E" stroke-width="1.2" opacity=".5"/>
+    <path d="M60 88 Q56 130 60 165 M45 100 Q60 108 75 100" stroke="#60261C" stroke-width="1.4" fill="none" opacity=".4"/>
+    <rect x="30" y="122" width="60" height="6" fill="#601F18" opacity=".6"/>
+    <ellipse cx="46" cy="230" rx="9" ry="4.5" fill="#201510"/>
+    <ellipse cx="74" cy="230" rx="9" ry="4.5" fill="#201510"/>
+    <!-- arms -->
+    <path d="M30 90 Q25 114 40 132 Q52 142 67 133 L63 121 Q51 125 43 115 Q36 102 40 90Z" fill="url(#g-robe-dominus)"/>
+    <ellipse cx="65" cy="131" rx="8.5" ry="7.5" fill="url(#g-skin-dominus)"/>
+    <path d="M60 128 Q65 124 70 128" stroke="#00000018" stroke-width="1.2" fill="none"/>
+    <path d="M93 92 Q102 112 97 132 Q95 141 86 139 Q80 137 82 129 L86 98Z" fill="url(#g-skin-dominus)"/>
+    <path d="M88 100 Q92 112 90 124" stroke="#ffffff26" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    <g fill="url(#g-skin-dominus)">
+      <ellipse cx="84" cy="136" rx="6.5" ry="5.5"/><path d="M80 141 Q77 144 79 147 Q82 147 82 143Z"/>
+    </g>
+    <!-- neck + collarbone -->
+    <rect x="50" y="57" width="20" height="14" fill="url(#g-face-dominus)"/>
+    <path d="M52 67 Q60 70 68 67" stroke="#00000022" stroke-width="1.6" fill="none"/>
+    <!-- head -->
+    <path d="M40 36 Q40 14 60 13 Q80 14 80 36 Q81 49 74 58 Q67 65 60 65 Q53 65 46 58 Q39 49 40 36Z" fill="url(#g-face-dominus)"/>
+    <!-- laurel-crowned hair, greying at temples -->
+    <path d="M40 30 Q60 10 80 25 Q78 15 60 13 Q42 15 40 30Z" fill="#3A2E22"/>
+    <path d="M36 26c6-10 16-16 24-17M84 26c-6-10-16-16-24-17" stroke="#C9A24A" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M38 22l-4 3M42 17l-4 2M46 14l-3 3M82 22l4 3M78 17l4 2M74 14l3 3" stroke="#8FA24A" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M41 29 Q44 25 40 22" stroke="#6E6258" stroke-width="1.6" fill="none" opacity=".7"/>
+    <path d="M79 29 Q76 25 80 22" stroke="#6E6258" stroke-width="1.6" fill="none" opacity=".7"/>
+    <!-- brows (heavy, stern) + eyes -->
+    <path d="M45 33 Q51 29.5 57 32.5" stroke="#241A12" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <path d="M63 32.5 Q69 29.5 75 33" stroke="#241A12" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <ellipse cx="51.5" cy="37" rx="4.3" ry="2.9" fill="#F2E9D8"/>
+    <ellipse cx="68.5" cy="37" rx="4.3" ry="2.9" fill="#F2E9D8"/>
+    <circle cx="52" cy="37.2" r="1.95" fill="#3A2A1C"/>
+    <circle cx="68" cy="37.2" r="1.95" fill="#3A2A1C"/>
+    <circle cx="52.4" cy="37" r="0.8" fill="#100A05"/>
+    <circle cx="67.6" cy="37" r="0.8" fill="#100A05"/>
+    <circle cx="51.2" cy="36.3" r="0.5" fill="#fff" opacity=".8"/>
+    <circle cx="66.8" cy="36.3" r="0.5" fill="#fff" opacity=".8"/>
+    <!-- strong nose + shadow -->
+    <path d="M59 38 Q56.5 46 55 49.5 Q59 52 63 49.5" stroke="#8A5E3C" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    <path d="M55.5 50 Q59 52 62.5 50" stroke="#00000028" stroke-width="1" fill="none"/>
+    <!-- jaw shading + stern mouth + faint scar -->
+    <path d="M42 45 Q44 55 52 60" stroke="#00000015" stroke-width="3" fill="none"/>
+    <path d="M78 45 Q76 55 68 60" stroke="#00000015" stroke-width="3" fill="none"/>
+    <path d="M52 56 h16" stroke="#6B3A2E" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    <path d="M70 30 L74 42" stroke="#B08060" stroke-width="1.2" opacity=".55" stroke-linecap="round"/>
   </symbol>
 
   <symbol id="i-person-fighter" viewBox="0 0 120 240">
-    <path d="M38 150 L26 226 Q25 233 33 233 L42 233 L52 156Z" fill="#C98A5A"/>
-    <path d="M82 150 L94 226 Q95 233 87 233 L78 233 L68 156Z" fill="#C98A5A"/>
-    <ellipse cx="34" cy="235" rx="10" ry="5" fill="#241812"/>
-    <ellipse cx="86" cy="235" rx="10" ry="5" fill="#241812"/>
-    <path d="M40 130 Q60 122 80 130 L84 160 Q60 172 36 160Z" fill="#6B4A2E"/>
-    <path d="M34 66 Q60 54 86 66 L92 100 Q94 118 86 132 Q60 142 34 132 Q26 118 28 100Z" fill="#C98A5A"/>
-    <path d="M60 70 L60 130 M42 90 Q60 96 78 90 M42 110 Q60 116 78 110" stroke="#A56E44" stroke-width="2" fill="none" opacity=".6"/>
-    <path d="M86 68 L104 40 L112 46 L98 76Z" fill="#C98A5A"/>
-    <path d="M90 62 L106 42 L114 50 L100 68Z" fill="#8B8B90"/>
-    <path d="M34 68 L16 92 L24 100 L40 80Z" fill="#C98A5A"/>
-    <rect x="50" y="54" width="20" height="12" fill="#C98A5A"/>
-    <path d="M38 44c0-14 10-24 22-24s22 10 22 24v6H38Z" fill="#7A7A80"/>
-    <rect x="36" y="48" width="48" height="8" rx="2" fill="#5C5C60"/>
-    <path d="M60 20 L60 5 M55 8 L60 1 L65 8" stroke="#B4453A" stroke-width="3" fill="none" stroke-linecap="round"/>
-    <rect x="48" y="42" width="24" height="4" fill="#201812"/>
+    <!-- legs -->
+    <path d="M40 148 Q34 178 30 202 Q27 218 26 227 Q25 234 32 234 L41 234 Q44 234 44 229 L46 200 Q49 172 53 152Z" fill="url(#g-skin-fighter)"/>
+    <path d="M80 148 Q86 178 90 202 Q93 218 94 227 Q95 234 88 234 L79 234 Q76 234 76 229 L74 200 Q71 172 67 152Z" fill="url(#g-skin-fighter)"/>
+    <!-- calf muscle shading (soft, inset well within the leg silhouette) -->
+    <path d="M35 182 Q31 192 32 203 Q38 200 41 194 Q40 186 38 180Z" fill="#0000001c"/>
+    <path d="M85 182 Q89 192 88 203 Q82 200 79 194 Q80 186 82 180Z" fill="#0000001c"/>
+    <!-- feet + gladiator sandals -->
+    <path d="M25 227 Q24 233 30 234 L42 234 Q45 234 45 231 L44 224 Q35 221 25 227Z" fill="#3C2A1C"/>
+    <path d="M75 227 Q76 233 90 234 L95 233 Q96 232 95 227 Q85 221 76 224Z" fill="#3C2A1C"/>
+    <path d="M27 226 L43 226 M28 230 L42 230" stroke="#6B4A2E" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+    <path d="M77 226 L93 226 M78 230 L92 230" stroke="#6B4A2E" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+    <!-- loincloth / belt -->
+    <path d="M38 128 Q60 120 82 128 L86 158 Q76 168 60 170 Q44 168 34 158Z" fill="#5B3A26"/>
+    <path d="M38 128 Q60 120 82 128 L83 136 Q60 130 37 136Z" fill="#7A5133"/>
+    <path d="M40 158 L44 168 M48 162 L51 171 M72 162 L69 171 M80 158 L76 168" stroke="#3E2717" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    <rect x="42" y="128" width="36" height="7" rx="2" fill="#8B6A3E"/>
+    <circle cx="60" cy="131.5" r="3" fill="#C9A24A"/>
+    <!-- torso (back) -->
+    <path d="M33 64 Q60 52 87 64 L93 96 Q95 116 87 131 Q60 143 33 131 Q25 116 27 96Z" fill="url(#g-skin-fighter)"/>
+    <!-- spine groove + shoulder blade + lat shading -->
+    <path d="M60 68 L59 128" stroke="#00000028" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <path d="M40 74 Q48 86 46 102 Q44 92 36 84Z" fill="#00000018"/>
+    <path d="M80 74 Q72 86 74 102 Q76 92 84 84Z" fill="#00000018"/>
+    <path d="M33 100 Q28 114 33 128" stroke="#00000022" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M87 100 Q92 114 87 128" stroke="#00000022" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M44 66 Q60 60 76 66" stroke="#ffffff2e" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <!-- right arm raised, gripping sword hilt -->
+    <path d="M85 68 Q98 56 106 42 Q109 37 113 40 Q117 43 114 48 L102 68 Q98 76 90 80Z" fill="url(#g-skin-fighter)"/>
+    <path d="M92 56 Q100 50 106 44" stroke="#ffffff26" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <!-- hand + fingers wrapping hilt -->
+    <g fill="url(#g-skin-fighter)">
+      <ellipse cx="110" cy="40" rx="7" ry="6" transform="rotate(-40 110 40)"/>
+      <path d="M104 34 Q102 30 105 28 Q108 30 107 35Z" transform="rotate(-40 110 40)"/>
+      <path d="M109 30 Q107 25 110 23 Q113 25 112 31Z" transform="rotate(-40 110 40)"/>
+      <path d="M114 29 Q113 24 116 23 Q118 26 117 31Z" transform="rotate(-40 110 40)"/>
+    </g>
+    <path d="M103 4 L111 4 L109.5 30 L104.5 30Z" fill="#B8B8BE" transform="rotate(-40 107 38)"/>
+    <path d="M105.5 6 L105.5 28" stroke="#E4E4EA" stroke-width="1" opacity=".7" transform="rotate(-40 107 38)"/>
+    <rect x="104" y="30" width="6" height="16" rx="2.5" fill="#5C4A34" transform="rotate(-40 107 38)"/>
+    <rect x="99" y="28" width="16" height="4" rx="1.5" fill="#8B8B92" transform="rotate(-40 107 38)"/>
+    <!-- left arm out to the side -->
+    <path d="M33 68 Q20 82 14 96 Q11 101 15 104 Q19 107 23 102 L36 82Z" fill="url(#g-skin-fighter)"/>
+    <path d="M24 84 Q19 90 16 97" stroke="#ffffff26" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <g fill="url(#g-skin-fighter)">
+      <ellipse cx="15" cy="100" rx="6.5" ry="5.5" transform="rotate(30 15 100)"/>
+      <path d="M10 103 Q7 106 9 109 Q12 109 13 105Z"/>
+      <path d="M9 98 Q5 99 5 103 Q8 104 10 100Z"/>
+    </g>
+    <!-- neck -->
+    <rect x="50" y="53" width="20" height="13" fill="url(#g-skin-fighter)"/>
+    <path d="M50 58 L70 58" stroke="#00000020" stroke-width="2" fill="none"/>
+    <!-- helmet (galea) -->
+    <path d="M37 43c0-15 10-25 23-25s23 10 23 25v6H37Z" fill="#8A8A92"/>
+    <path d="M37 43c0-15 10-25 23-25s23 10 23 25" fill="none" stroke="#5C5C62" stroke-width="1.5" opacity=".6"/>
+    <path d="M46 22 Q60 15 74 22" stroke="#B5B5BC" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".8"/>
+    <rect x="35" y="47" width="50" height="9" rx="2.5" fill="#6A6A70"/>
+    <rect x="35" y="47" width="50" height="3" rx="1.5" fill="#9A9AA2"/>
+    <circle cx="42" cy="51" r="1.6" fill="#3A3A3E"/>
+    <circle cx="78" cy="51" r="1.6" fill="#3A3A3E"/>
+    <!-- cheek guard hinting at jaw, catching side light -->
+    <path d="M37 44 Q33 54 38 62 Q40 56 40 46Z" fill="#787880"/>
+    <path d="M83 44 Q87 54 82 62 Q80 56 80 46Z" fill="#787880"/>
+    <!-- crest holder + horsehair plume -->
+    <rect x="56" y="15" width="8" height="7" rx="1.5" fill="#6A6A70"/>
+    <path d="M60 17 Q56 6 58 -4 Q60 4 61 17Z" fill="#8E2A20"/>
+    <path d="M60 17 Q62 5 66 -3 Q63 5 62 17Z" fill="#B4453A"/>
+    <path d="M60 17 Q58 8 55 0 Q58 6 59 17Z" fill="#B4453A"/>
   </symbol>
 
   <!-- First-person weapon/shield viewmodels, one blade shape per sword type -->
@@ -670,6 +905,7 @@
   var ENEMY_POWER_MULT = 1.4, ENEMY_HESITATE_CHANCE = .12, ENEMY_POWER_CHANCE = .15;
   var ACTION_COOLDOWN_MS = 450;
   var ENEMY_TURN_MIN_MS = 1000, ENEMY_TURN_MAX_MS = 1700;
+  var ENEMY_MISS_CHANCE = .10, ENEMY_DODGE_BONUS = .18;
   var HEAL_SMALL_AMOUNT = 20, HEAL_SMALL_COST = 10, GOLD_PER_HP_FULL = 1;
   var ARMORER_LINES = [
     'Steel keeps you breathing, friend.',
@@ -752,6 +988,7 @@
     this.log = ['“'+opponent.taunt+'”']; this.defending = false; this.result = null;
     this.lastHit = null; this.lastAction = null; this.lastLine = this.log[0];
     this.lastMiss = false; this.lastCrit = false; this.lastHeadshot = false;
+    this.lastDodge = false;
     this.nextActionAt = 0;
   }
   Combat.prototype.isOver = function(){ return this.result !== null; };
@@ -792,12 +1029,16 @@
     this.lastLine = 'You flee the arena!';
     this.log.push(this.lastLine);
   };
-  Combat.prototype._enemyTurn = function(){
+  Combat.prototype._enemyTurn = function(isPlayerMoving){
     if (this.isOver()) return;
     this.lastHit = null;
+    this.lastDodge = false;
     var roll = Math.random();
     if (roll < ENEMY_HESITATE_CHANCE){
       this.log.push(this.opponent.name+' hesitates, catching their breath.');
+    } else if (Math.random() < ENEMY_MISS_CHANCE + (isPlayerMoving ? ENEMY_DODGE_BONUS : 0)){
+      this.lastDodge = true;
+      this.log.push(isPlayerMoving ? 'You dodge out of the way!' : this.opponent.name+' swings and misses!');
     } else {
       var power = roll > (1-ENEMY_POWER_CHANCE);
       var atk = power ? Math.floor(this.opponent.attack*ENEMY_POWER_MULT) : this.opponent.attack;
@@ -1101,7 +1342,7 @@
   var MOVE_KEYS = ['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'];
   document.addEventListener('keydown', function(e){
     var k = e.key.toLowerCase();
-    if (view === 'hub' && MOVE_KEYS.indexOf(k) !== -1){
+    if ((view === 'hub' || view === 'combat') && MOVE_KEYS.indexOf(k) !== -1){
       keysDown[k] = true;
       e.preventDefault();
     }
@@ -1170,6 +1411,7 @@
     clearEnemyTimer();
     keysDown = {};
     joystickEnd();
+    document.body.classList.remove('combat-fullscreen');
     combat = null; resultOverlay = null; confirmingReset = false; showStats = false;
     if (v === 'armorer') armorerSlot = 'Weapon';
     if (v === 'hub') resetCourtyard();
@@ -1240,8 +1482,8 @@
   function enemyTurnTick(){
     enemyTimer = null;
     if (!combat || combat.isOver()) return;
-    combat._enemyTurn();
-    playEnemyHitSfx();
+    combat._enemyTurn(isMoving());
+    playEnemyTurnSfx();
     render();
     updateCrosshair();
     if (combat.isOver()) setTimeout(finishCombat, 700);
@@ -1252,14 +1494,25 @@
     if (enemyTimer){ clearTimeout(enemyTimer); enemyTimer = null; }
   }
 
-  function playEnemyHitSfx(){
-    if (combat && combat.lastHit === 'player') sfx.playerHurt();
+  // Moving (WASD or the joystick, held right now) is what grants the
+  // player's chance to dodge an enemy attack -- see ENEMY_DODGE_BONUS.
+  function isMoving(){
+    return !!(keysDown.w || keysDown.a || keysDown.s || keysDown.d ||
+      keysDown.arrowup || keysDown.arrowdown || keysDown.arrowleft || keysDown.arrowright ||
+      joystick.active);
+  }
+
+  function playEnemyTurnSfx(){
+    if (!combat) return;
+    if (combat.lastHit === 'player') sfx.playerHurt();
+    else if (combat.lastDodge) sfx.swordMiss();
   }
 
   function startFight(){
     if (player.hp <= Math.max(1, player.maxHp*.15)){ toast('Too wounded to fight! See Vita the Healer first.'); return; }
     combat = new Combat(player, nextOpponent(player));
     view = 'combat';
+    document.body.classList.add('combat-fullscreen');
     render();
     enterAimMode();
     if (aiming) toast('Aim with your mouse — click to swing. Head shots crit!');
@@ -1286,6 +1539,9 @@
   function finishCombat(){
     clearEnemyTimer();
     exitAimMode();
+    keysDown = {};
+    joystickEnd();
+    document.body.classList.remove('combat-fullscreen');
     var opp = combat.opponent, overlay;
     if (combat.result === 'win'){
       var wasChampion = isChampion(player);
@@ -1440,12 +1696,18 @@
     var shieldClass = 'viewmodel shield' + (combat.lastAction==='defend' ? ' raise' : '');
     var bladeIcon = 'i-vm-sword-' + weaponBlade(player);
     var inner =
+      '<div class="combat-player-hud">' +
+        '<div class="hpbar"><div class="hpbar-fill player" style="width:'+pct(p.hp,p.maxHp)+'%"></div></div>' +
+        '<span>'+p.hp+'/'+p.maxHp+'</span>' +
+        '<span class="gold"><svg class="icon"><use href="#i-coin"/></svg>'+p.gold+'</span>' +
+      '</div>' +
       '<div class="'+fighterClass+'" style="transform:translateX(-50%) scale('+scale.toFixed(2)+')"><svg><use href="#i-person-fighter"/></svg></div>' +
       '<div class="combat-flash'+(combat.lastHit==='player'?' hit':'')+'"></div>' +
       (combat.lastLine ? '<div class="combat-callout">'+esc(combat.lastLine)+'</div>' : '') +
       '<div class="boss-bar"><div class="boss-name">'+esc(o.name)+'</div><div class="hpbar"><div class="hpbar-fill enemy" style="width:'+pct(combat.enemyHp,o.maxHp)+'%"></div></div></div>' +
       '<div class="'+shieldClass+'"><svg><use href="#i-vm-shield"/></svg></div>' +
-      '<div class="'+swordClass+'"><svg><use href="#'+bladeIcon+'"/></svg></div>';
+      '<div class="'+swordClass+'"><svg><use href="#'+bladeIcon+'"/></svg></div>' +
+      '<div class="joystick" id="joystick" aria-label="Move / dodge"><div class="joystick-knob" id="joystick-knob"></div></div>';
     return '' +
     '<section class="view combat-view">' +
       sceneShell({inner: inner, extraClass:'arena-scene'}) +
@@ -1526,7 +1788,7 @@
   // ------------------------------------------------------------------
   document.getElementById('root').addEventListener('click', function(e){
     var sceneEl = e.target.closest('.arena-scene');
-    if (aiming && sceneEl){ onAimClick(); return; }
+    if (aiming && sceneEl && !e.target.closest('#joystick')){ onAimClick(); return; }
 
     if (e.target.closest('[data-close-stats]')){ showStats = false; render(); return; }
     if (e.target.closest('[data-stats]')){ showStats = true; render(); return; }
