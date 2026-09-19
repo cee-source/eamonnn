@@ -198,6 +198,22 @@
   }
   .courtyard-prompt.show{opacity:1; transform:translate(-50%,0);}
 
+  .dpad{
+    position:absolute; left:10px; bottom:10px; z-index:5;
+    display:grid; grid-template-columns:repeat(3,30px); grid-template-rows:repeat(3,30px); gap:3px;
+  }
+  .dpad-btn{
+    display:flex; align-items:center; justify-content:center;
+    background:color-mix(in srgb, var(--bg) 55%, transparent); border:1px solid var(--border-soft);
+    border-radius:8px; color:var(--ink); font-size:.8rem; line-height:1; cursor:pointer;
+    touch-action:none; user-select:none; -webkit-user-select:none; padding:0;
+  }
+  .dpad-btn:active{background:var(--gold-dim); color:var(--gold-ink); border-color:var(--gold-dim);}
+  .dpad-up{grid-column:2;grid-row:1;}
+  .dpad-left{grid-column:1;grid-row:2;}
+  .dpad-right{grid-column:3;grid-row:2;}
+  .dpad-down{grid-column:2;grid-row:3;}
+
   /* ---------- NPC dialogue + sheet ---------- */
   .npc-line{
     font-style:italic;color:var(--ink);font-size:.92rem;margin:12px 2px 14px;padding-left:12px;
@@ -398,7 +414,7 @@
   }
 </style>
 
-<div id="root">
+<div id="root" tabindex="-1" style="outline:none">
   <header class="hud">
     <div class="hud-brand"><svg class="icon"><use href="#i-laurel"/></svg><span>Gladiator Arena</span></div>
     <div class="hud-stats">
@@ -650,6 +666,8 @@
   var STARTING_GOLD = 30, STARTING_MAX_HP = 50, STARTING_ATTACK = 8, STARTING_DEFENSE = 1;
   var MISS_CHANCE = .08, CRIT_CHANCE = .12, CRIT_MULT = 1.5, POWER_MULT = 1.5;
   var ENEMY_POWER_MULT = 1.4, ENEMY_HESITATE_CHANCE = .12, ENEMY_POWER_CHANCE = .15;
+  var ACTION_COOLDOWN_MS = 450;
+  var ENEMY_TURN_MIN_MS = 1000, ENEMY_TURN_MAX_MS = 1700;
   var HEAL_SMALL_AMOUNT = 20, HEAL_SMALL_COST = 10, GOLD_PER_HP_FULL = 1;
   var ARMORER_LINES = [
     'Steel keeps you breathing, friend.',
@@ -732,10 +750,12 @@
     this.log = ['“'+opponent.taunt+'”']; this.defending = false; this.result = null;
     this.lastHit = null; this.lastAction = null; this.lastLine = this.log[0];
     this.lastMiss = false; this.lastCrit = false; this.lastHeadshot = false;
+    this.nextActionAt = 0;
   }
   Combat.prototype.isOver = function(){ return this.result !== null; };
+  Combat.prototype.canAct = function(){ return !this.isOver() && Date.now() >= this.nextActionAt; };
   Combat.prototype.attack = function(power, forceCrit){
-    if (this.isOver()) return;
+    if (!this.canAct()) return;
     this.defending = false; this.lastHit = null; this.lastAction = power ? 'power' : 'attack';
     this.lastMiss = false; this.lastCrit = false; this.lastHeadshot = !!forceCrit;
     if (!forceCrit && Math.random() < MISS_CHANCE){
@@ -752,17 +772,17 @@
       this.lastLine = 'You '+verb+' for '+r.dmg+'!'+tag;
     }
     this.log.push(this.lastLine);
+    this.nextActionAt = Date.now() + ACTION_COOLDOWN_MS;
     this._checkEnd();
-    if (!this.isOver()) this._enemyTurn();
   };
   Combat.prototype.defend = function(){
-    if (this.isOver()) return;
+    if (!this.canAct()) return;
     this.defending = true; this.lastHit = null; this.lastAction = 'defend';
     this.lastMiss = false; this.lastCrit = false; this.lastHeadshot = false;
     var healed = healPlayer(this.player, 2);
     this.lastLine = 'You brace behind your shield.'+(healed?' (+'+healed+' HP)':'');
     this.log.push(this.lastLine);
-    this._enemyTurn();
+    this.nextActionAt = Date.now() + ACTION_COOLDOWN_MS;
   };
   Combat.prototype.flee = function(){
     if (this.isOver()) return;
@@ -772,6 +792,7 @@
   };
   Combat.prototype._enemyTurn = function(){
     if (this.isOver()) return;
+    this.lastHit = null;
     var roll = Math.random();
     if (roll < ENEMY_HESITATE_CHANCE){
       this.log.push(this.opponent.name+' hesitates, catching their breath.');
@@ -966,14 +987,17 @@
   }
 
   function onAimClick(){
-    if (!aiming || !combat || combat.isOver()) return;
+    if (!aiming || !combat || !combat.canAct()) return;
     var ch = document.getElementById('crosshair');
     var headshot = !!(ch && ch.classList.contains('locked-on'));
     combat.attack(false, headshot);
     playCombatSfx();
     render();
     updateCrosshair();
-    if (combat.isOver()) setTimeout(finishCombat, 700);
+    if (combat.isOver()){
+      clearEnemyTimer();
+      setTimeout(finishCombat, 700);
+    }
   }
 
   function playCombatSfx(){
@@ -1089,6 +1113,7 @@
   function navigate(v){
     exitAimMode();
     stopCourtyardLoop();
+    clearEnemyTimer();
     keysDown = {};
     combat = null; resultOverlay = null; confirmingReset = false; showStats = false;
     if (v === 'armorer') armorerSlot = 'Weapon';
@@ -1096,7 +1121,14 @@
     view = v;
     clearToast();
     render();
-    if (v === 'hub') startCourtyardLoop();
+    if (v === 'hub'){ startCourtyardLoop(); focusGame(); }
+  }
+
+  function focusGame(){
+    // Best-effort: grabs keyboard focus for WASD. If the page can't take
+    // focus (e.g. embedded without a prior click), the on-screen D-pad
+    // still works, since it's driven by pointer events, not key events.
+    try { document.getElementById('root').focus({preventScroll:true}); } catch(e){}
   }
 
   function buyArmor(name){
@@ -1139,6 +1171,36 @@
     render();
   }
 
+  // Enemy no longer counter-attacks inline off the player's own move — it
+  // acts on its own recurring timer, independent of what the player does.
+  var enemyTimer = null;
+
+  function scheduleEnemyTurn(){
+    clearEnemyTimer();
+    if (!combat || combat.isOver()) return;
+    var delay = ENEMY_TURN_MIN_MS + Math.random()*(ENEMY_TURN_MAX_MS-ENEMY_TURN_MIN_MS);
+    enemyTimer = setTimeout(enemyTurnTick, delay);
+  }
+
+  function enemyTurnTick(){
+    enemyTimer = null;
+    if (!combat || combat.isOver()) return;
+    combat._enemyTurn();
+    playEnemyHitSfx();
+    render();
+    updateCrosshair();
+    if (combat.isOver()) setTimeout(finishCombat, 700);
+    else scheduleEnemyTurn();
+  }
+
+  function clearEnemyTimer(){
+    if (enemyTimer){ clearTimeout(enemyTimer); enemyTimer = null; }
+  }
+
+  function playEnemyHitSfx(){
+    if (combat && combat.lastHit === 'player') sfx.playerHurt();
+  }
+
   function startFight(){
     if (player.hp <= Math.max(1, player.maxHp*.15)){ toast('Too wounded to fight! See Vita the Healer first.'); return; }
     combat = new Combat(player, nextOpponent(player));
@@ -1146,10 +1208,12 @@
     render();
     enterAimMode();
     if (aiming) toast('Aim with your mouse — click to swing. Head shots crit!');
+    scheduleEnemyTurn();
   }
 
   function doCombatAction(action){
     if (!combat || combat.isOver()) return;
+    if (action !== 'flee' && !combat.canAct()) return;
     if (action==='attack') combat.attack(false);
     else if (action==='power') combat.attack(true);
     else if (action==='defend') combat.defend();
@@ -1159,11 +1223,13 @@
     render();
     updateCrosshair();
     if (combat.isOver()){
+      clearEnemyTimer();
       setTimeout(finishCombat, action==='flee' ? 200 : 700);
     }
   }
 
   function finishCombat(){
+    clearEnemyTimer();
     exitAimMode();
     var opp = combat.opponent, overlay;
     if (combat.result === 'win'){
@@ -1212,8 +1278,14 @@
         '<div class="scene-figure" style="left:50%" data-nav="healer"><svg><use href="#i-person-vita"/></svg></div>' +
         '<div class="scene-figure" style="left:80%" data-nav="arenaMaster"><svg><use href="#i-person-dominus"/></svg></div>' +
       '</div>' +
-      (walkable ? '<div class="courtyard-hint">WASD to walk<br>E to talk</div>' : '') +
-      '<div class="courtyard-prompt" id="courtyard-prompt"></div>';
+      (walkable ? '<div class="courtyard-hint">WASD or ▲◀▼▶ to walk<br>E or tap ▲ to talk</div>' : '') +
+      '<div class="courtyard-prompt" id="courtyard-prompt"></div>' +
+      '<div class="dpad">' +
+        '<button type="button" class="dpad-btn dpad-up" data-move="w" aria-label="Walk forward">▲</button>' +
+        '<button type="button" class="dpad-btn dpad-left" data-move="a" aria-label="Strafe left">◀</button>' +
+        '<button type="button" class="dpad-btn dpad-right" data-move="d" aria-label="Strafe right">▶</button>' +
+        '<button type="button" class="dpad-btn dpad-down" data-move="s" aria-label="Walk back">▼</button>' +
+      '</div>';
     return '' +
     '<section class="view">' +
       sceneShell({title:'Ludus Magnus · Gladiator School', inner: inner}) +
@@ -1425,8 +1497,26 @@
     else if (t.dataset.resetConfirm !== undefined) doReset();
   });
 
+  // On-screen D-pad — press-and-hold, same keysDown flags WASD uses.
+  // This is the guaranteed-to-work control: it's pointer-driven, so it
+  // doesn't depend on the page having keyboard focus the way WASD does.
+  document.getElementById('root').addEventListener('pointerdown', function(e){
+    var btn = e.target.closest('[data-move]');
+    if (btn){ e.preventDefault(); keysDown[btn.dataset.move] = true; }
+  });
+  document.getElementById('root').addEventListener('pointerup', function(e){
+    var btn = e.target.closest('[data-move]');
+    if (btn) keysDown[btn.dataset.move] = false;
+  });
+  document.getElementById('root').addEventListener('pointerout', function(e){
+    var btn = e.target.closest('[data-move]');
+    if (btn && !btn.contains(e.relatedTarget)) keysDown[btn.dataset.move] = false;
+  });
+  document.addEventListener('pointerup', function(){ keysDown.w = keysDown.a = keysDown.s = keysDown.d = false; });
+  document.addEventListener('pointercancel', function(){ keysDown.w = keysDown.a = keysDown.s = keysDown.d = false; });
+
   updateSoundIcon();
   render();
-  if (view === 'hub') startCourtyardLoop();
+  if (view === 'hub'){ startCourtyardLoop(); focusGame(); }
 })();
 </script>
