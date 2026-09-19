@@ -114,6 +114,12 @@
     box-shadow:0 8px 24px var(--shadow);
   }
   .hud-brand{display:flex;align-items:center;gap:7px;font-family:var(--font-display);font-weight:700;font-size:.8rem;letter-spacing:.06em;color:var(--gold);white-space:nowrap;}
+  .hud-stats{flex-wrap:nowrap;}
+  @media (max-width:360px){
+    .hud-brand span{display:none;}
+    .hud-stats{gap:8px;}
+    .hpbar.mini{width:40px;}
+  }
   .hud-brand .icon{width:1.1em;height:1.1em;}
   .hud-stats{display:flex;align-items:center;gap:12px;}
   .hud-gold{display:flex;align-items:center;gap:5px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--gold);font-size:.86rem;}
@@ -401,6 +407,7 @@
         <span class="hud-hp-text" id="hud-hp-text">50/50</span>
       </div>
       <div class="hud-gold"><svg class="icon"><use href="#i-coin"/></svg><span id="hud-gold">30</span></div>
+      <button class="hud-stats-btn" data-sound title="Sound"><svg class="icon sm"><use id="sound-icon" href="#i-sound-on"/></svg></button>
       <button class="hud-stats-btn" data-stats title="Stats"><svg class="icon sm"><use href="#i-scroll"/></svg></button>
     </div>
   </header>
@@ -467,6 +474,14 @@
     <path d="M6 4a2 2 0 0 0 0 4M18 20a2 2 0 0 0 0-4"/>
     <path d="M6 8v9.8A2.2 2.2 0 0 0 8.2 20H18v-3H8.2"/>
     <path d="M9 11h6M9 14h6"/>
+  </symbol>
+  <symbol id="i-sound-on" viewBox="0 0 24 24">
+    <path d="M4 9v6h4l5 4V5L8 9H4Z" fill="currentColor"/>
+    <path d="M16.3 8.7a5 5 0 0 1 0 6.6M19 6a8.8 8.8 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-sound-off" viewBox="0 0 24 24">
+    <path d="M4 9v6h4l5 4V5L8 9H4Z" fill="currentColor"/>
+    <path d="M16 9.5l5 5M21 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
   </symbol>
   <symbol id="i-crosshair" viewBox="0 0 36 36">
     <circle cx="18" cy="18" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/>
@@ -716,18 +731,22 @@
     this.player = player; this.opponent = opponent; this.enemyHp = opponent.maxHp;
     this.log = ['“'+opponent.taunt+'”']; this.defending = false; this.result = null;
     this.lastHit = null; this.lastAction = null; this.lastLine = this.log[0];
+    this.lastMiss = false; this.lastCrit = false; this.lastHeadshot = false;
   }
   Combat.prototype.isOver = function(){ return this.result !== null; };
   Combat.prototype.attack = function(power, forceCrit){
     if (this.isOver()) return;
     this.defending = false; this.lastHit = null; this.lastAction = power ? 'power' : 'attack';
+    this.lastMiss = false; this.lastCrit = false; this.lastHeadshot = !!forceCrit;
     if (!forceCrit && Math.random() < MISS_CHANCE){
       this.lastLine = 'You swing and miss!';
+      this.lastMiss = true;
     } else {
       var atk = power ? Math.floor(pAttack(this.player)*POWER_MULT) : pAttack(this.player);
       var r = rollDamage(atk, this.opponent.defense, forceCrit);
       this.enemyHp = Math.max(0, this.enemyHp - r.dmg);
       this.lastHit = 'enemy';
+      this.lastCrit = r.crit;
       var verb = power ? 'smash' : (forceCrit ? 'skewer' : 'strike');
       var tag = forceCrit ? ' HEADSHOT!' : (r.crit ? ' CRITICAL!' : '');
       this.lastLine = 'You '+verb+' for '+r.dmg+'!'+tag;
@@ -739,6 +758,7 @@
   Combat.prototype.defend = function(){
     if (this.isOver()) return;
     this.defending = true; this.lastHit = null; this.lastAction = 'defend';
+    this.lastMiss = false; this.lastCrit = false; this.lastHeadshot = false;
     var healed = healPlayer(this.player, 2);
     this.lastLine = 'You brace behind your shield.'+(healed?' (+'+healed+' HP)':'');
     this.log.push(this.lastLine);
@@ -796,6 +816,89 @@
   function clearToast(){
     clearTimeout(toastTimer);
     document.getElementById('toast').classList.remove('show');
+  }
+
+  // ------------------------------------------------------------------
+  // Sound — procedural Web Audio, no external audio files
+  // ------------------------------------------------------------------
+  var SOUND_KEY = 'gladiator-arena-sound';
+  var soundOn = true;
+  try { soundOn = localStorage.getItem(SOUND_KEY) !== 'off'; } catch(e){}
+  var audioCtx = null;
+
+  function ensureAudio(){
+    if (!soundOn) return null;
+    if (!audioCtx){
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch(e){ audioCtx = null; }
+    }
+    if (audioCtx && audioCtx.state === 'suspended'){
+      try { audioCtx.resume(); } catch(e){}
+    }
+    return audioCtx;
+  }
+
+  function beep(freq, duration, type, gainPeak, delay){
+    var ctx = ensureAudio();
+    if (!ctx) return;
+    delay = delay || 0;
+    var t0 = ctx.currentTime + delay;
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(Math.max(gainPeak||0.2, 0.001), t0+0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0+duration);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(t0); osc.stop(t0+duration+0.03);
+  }
+
+  function noiseBurst(duration, gainPeak, freq){
+    var ctx = ensureAudio();
+    if (!ctx) return;
+    var t0 = ctx.currentTime;
+    var size = Math.max(1, Math.floor(ctx.sampleRate*duration));
+    var buffer = ctx.createBuffer(1, size, ctx.sampleRate);
+    var data = buffer.getChannelData(0);
+    for (var i=0;i<size;i++){ data[i] = (Math.random()*2-1) * (1 - i/size); }
+    var noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    var filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass'; filter.frequency.value = freq || 1600;
+    var gain = ctx.createGain();
+    gain.gain.setValueAtTime(gainPeak||0.3, t0);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0+duration);
+    noise.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+    noise.start(t0);
+  }
+
+  var sfx = {
+    swordHit:  function(){ noiseBurst(0.11, 0.35, 2200); beep(170, 0.1, 'square', 0.14); },
+    swordMiss: function(){ beep(700, 0.07, 'sine', 0.07); },
+    crit:      function(){ noiseBurst(0.16, 0.4, 2600); beep(280,0.16,'sawtooth',0.16); beep(560,0.13,'sawtooth',0.11,0.06); },
+    block:     function(){ noiseBurst(0.09, 0.22, 900); beep(150,0.12,'triangle',0.12); },
+    playerHurt:function(){ beep(120, 0.18, 'sawtooth', 0.18); },
+    coin:      function(){ beep(1200,0.06,'square',0.09); beep(1600,0.09,'square',0.09,0.05); },
+    equip:     function(){ beep(440,0.08,'triangle',0.14); beep(660,0.1,'triangle',0.11,0.06); },
+    heal:      function(){ beep(520,0.09,'sine',0.12); beep(780,0.13,'sine',0.09,0.07); },
+    deny:      function(){ beep(180,0.12,'square',0.1); },
+    victory:   function(){ [523,659,784,1046].forEach(function(f,i){ beep(f,0.22,'triangle',0.15,i*0.11); }); },
+    defeat:    function(){ beep(220,0.3,'sawtooth',0.14); beep(160,0.4,'sawtooth',0.14,0.18); },
+    flee:      function(){ beep(800,0.05,'sine',0.08); beep(500,0.08,'sine',0.06,0.05); },
+    step:      function(){ noiseBurst(0.045, 0.05, 500); }
+  };
+
+  function updateSoundIcon(){
+    var use = document.getElementById('sound-icon');
+    if (use) use.setAttribute('href', soundOn ? '#i-sound-on' : '#i-sound-off');
+  }
+
+  function toggleSound(){
+    soundOn = !soundOn;
+    try { localStorage.setItem(SOUND_KEY, soundOn ? 'on' : 'off'); } catch(e){}
+    updateSoundIcon();
+    if (soundOn) sfx.equip();
   }
 
   // ------------------------------------------------------------------
@@ -867,9 +970,26 @@
     var ch = document.getElementById('crosshair');
     var headshot = !!(ch && ch.classList.contains('locked-on'));
     combat.attack(false, headshot);
+    playCombatSfx();
     render();
     updateCrosshair();
     if (combat.isOver()) setTimeout(finishCombat, 700);
+  }
+
+  function playCombatSfx(){
+    if (!combat) return;
+    if (combat.lastAction === 'attack' || combat.lastAction === 'power'){
+      if (combat.lastMiss) sfx.swordMiss();
+      else if (combat.lastHeadshot || combat.lastCrit) sfx.crit();
+      else sfx.swordHit();
+    } else if (combat.lastAction === 'defend'){
+      sfx.block();
+    } else if (combat.lastAction === 'flee'){
+      sfx.flee();
+    }
+    if (combat.lastHit === 'player'){
+      setTimeout(function(){ sfx.playerHurt(); }, 160);
+    }
   }
 
   // ------------------------------------------------------------------
@@ -918,6 +1038,7 @@
     }
   }
 
+  var lastStepSfx = 0;
   function startCourtyardLoop(){
     stopCourtyardLoop();
     function tick(){
@@ -932,6 +1053,8 @@
           courtyard.x = Math.max(4, Math.min(96, courtyard.x + dx*COURTYARD_SPEED));
           courtyard.z = Math.max(0, Math.min(100, courtyard.z + dz*COURTYARD_SPEED));
           updateCourtyardVisual();
+          var now = (window.performance && performance.now) ? performance.now() : Date.now();
+          if (now - lastStepSfx > 250){ sfx.step(); lastStepSfx = now; }
         }
       }
       courtyardRAF = requestAnimationFrame(tick);
@@ -979,11 +1102,12 @@
   function buyArmor(name){
     var piece = findArmor(name);
     if (!piece) return;
-    if (player.armor[piece.slot] === piece.name){ toast('Already equipped.'); return; }
-    if (player.gold < piece.price){ toast('Not enough gold — need '+piece.price+'g, have '+player.gold+'g'); return; }
+    if (player.armor[piece.slot] === piece.name){ sfx.deny(); toast('Already equipped.'); return; }
+    if (player.gold < piece.price){ sfx.deny(); toast('Not enough gold — need '+piece.price+'g, have '+player.gold+'g'); return; }
     player.gold -= piece.price;
     player.armor[piece.slot] = piece.name;
     saveGame(player);
+    sfx.equip();
     toast('Equipped '+piece.name+'! Defense is now '+pDefense(player));
     render();
   }
@@ -991,24 +1115,26 @@
   function buyWeapon(name){
     var w = findWeapon(name);
     if (!w) return;
-    if (player.weapon === w.name){ toast('Already equipped.'); return; }
-    if (player.gold < w.price){ toast('Not enough gold — need '+w.price+'g, have '+player.gold+'g'); return; }
+    if (player.weapon === w.name){ sfx.deny(); toast('Already equipped.'); return; }
+    if (player.gold < w.price){ sfx.deny(); toast('Not enough gold — need '+w.price+'g, have '+player.gold+'g'); return; }
     player.gold -= w.price;
     player.weapon = w.name;
     saveGame(player);
+    sfx.equip();
     toast('Equipped '+w.name+'! Attack is now '+pAttack(player));
     render();
   }
 
   function doHeal(kind){
     var missing = player.maxHp - player.hp;
-    if (missing <= 0){ toast('Already at full HP!'); return; }
+    if (missing <= 0){ sfx.deny(); toast('Already at full HP!'); return; }
     var amount = kind==='small' ? HEAL_SMALL_AMOUNT : missing;
     var cost = kind==='small' ? HEAL_SMALL_COST : missing*GOLD_PER_HP_FULL;
-    if (player.gold < cost){ toast('Not enough gold — need '+cost+'g, have '+player.gold+'g'); return; }
+    if (player.gold < cost){ sfx.deny(); toast('Not enough gold — need '+cost+'g, have '+player.gold+'g'); return; }
     player.gold -= cost;
     var healed = healPlayer(player, amount);
     saveGame(player);
+    sfx.heal();
     toast('Healed '+healed+' HP! ('+player.hp+'/'+player.maxHp+')');
     render();
   }
@@ -1029,6 +1155,7 @@
     else if (action==='defend') combat.defend();
     else if (action==='flee') combat.flee();
 
+    playCombatSfx();
     render();
     updateCrosshair();
     if (combat.isOver()){
@@ -1044,9 +1171,12 @@
       recordWin(player, opp);
       overlay = { type:'win', title: (!wasChampion && isChampion(player)) ? 'Champion of the Arena!' : 'Victory!',
                   lines: ['+'+opp.gold+' gold', player.gold+'g total'] };
+      sfx.victory();
+      setTimeout(function(){ sfx.coin(); }, 500);
     } else if (combat.result === 'loss'){
       recordLoss(player);
       overlay = { type:'loss', title:'Defeated…', lines:['Carried from the sand.', 'HP restored to '+player.hp] };
+      sfx.defeat();
     } else {
       overlay = { type:'fled', title:'You Fled', lines:['No shame in living to fight on.'] };
     }
@@ -1279,6 +1409,7 @@
 
     if (e.target.closest('[data-close-stats]')){ showStats = false; render(); return; }
     if (e.target.closest('[data-stats]')){ showStats = true; render(); return; }
+    if (e.target.closest('[data-sound]')){ toggleSound(); return; }
     var t = e.target.closest('[data-nav],[data-back],[data-slot],[data-buy],[data-heal],[data-fight],[data-combat-action],[data-continue],[data-reset],[data-reset-confirm],[data-reset-cancel]');
     if (!t || t.hasAttribute('disabled')) return;
     if (t.dataset.nav){ if (t.dataset.nav==='armorer') npcLine = pick(ARMORER_LINES); navigate(t.dataset.nav); }
@@ -1294,6 +1425,7 @@
     else if (t.dataset.resetConfirm !== undefined) doReset();
   });
 
+  updateSoundIcon();
   render();
   if (view === 'hub') startCourtyardLoop();
 })();
