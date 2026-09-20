@@ -361,6 +361,42 @@
   .combat-flash.hit{animation:combatFlash .35s ease;}
   @keyframes combatFlash{0%{opacity:0;}25%{opacity:.35;}100%{opacity:0;}}
 
+  /* ---------- Impact juice: screen shake + particle burst on a landed hit ---------- */
+  .arena-scene.shake{animation:shakeSm .28s ease;}
+  .arena-scene.shake-strong{animation:shakeBig .38s ease;}
+  @keyframes shakeSm{
+    0%,100%{transform:translate(0,0);} 20%{transform:translate(-4px,2px);}
+    40%{transform:translate(3px,-3px);} 60%{transform:translate(-3px,1px);} 80%{transform:translate(2px,-1px);}
+  }
+  @keyframes shakeBig{
+    0%,100%{transform:translate(0,0) rotate(0);} 15%{transform:translate(-9px,5px) rotate(-.6deg);}
+    30%{transform:translate(8px,-6px) rotate(.6deg);} 45%{transform:translate(-7px,4px) rotate(-.4deg);}
+    60%{transform:translate(6px,-3px) rotate(.4deg);} 75%{transform:translate(-4px,2px) rotate(-.2deg);}
+    90%{transform:translate(2px,-1px) rotate(0);}
+  }
+  .impact-particles{position:fixed; top:26%; left:50%; width:0; height:0; pointer-events:none; z-index:150;}
+  .impact-particles .particle{
+    position:absolute; left:0; top:0; width:6px; height:6px; margin:-3px 0 0 -3px;
+    border-radius:50%; background:var(--pcolor,#D9A066); opacity:0;
+    transform:rotate(var(--a,0deg)) translateX(0);
+  }
+  .impact-particles.burst .particle{animation:particleFly .5s cubic-bezier(.15,.7,.3,1) both;}
+  @keyframes particleFly{
+    0%{opacity:1; transform:rotate(var(--a,0deg)) translateX(2px) scale(1);}
+    100%{opacity:0; transform:rotate(var(--a,0deg)) translateX(38px) scale(.4);}
+  }
+  .impact-particles .particle:nth-child(1){--a:0deg; --pcolor:#D9A066;}
+  .impact-particles .particle:nth-child(2){--a:40deg; --pcolor:#B4453A;}
+  .impact-particles .particle:nth-child(3){--a:80deg; --pcolor:#E8C48C;}
+  .impact-particles .particle:nth-child(4){--a:120deg; --pcolor:#8E3227;}
+  .impact-particles .particle:nth-child(5){--a:160deg; --pcolor:#D9A066;}
+  .impact-particles .particle:nth-child(6){--a:200deg; --pcolor:#B4453A;}
+  .impact-particles .particle:nth-child(7){--a:240deg; --pcolor:#E8C48C;}
+  .impact-particles .particle:nth-child(8){--a:280deg; --pcolor:#8E3227;}
+  .impact-particles .particle:nth-child(9){--a:320deg; --pcolor:#D9A066;}
+  .impact-particles .particle:nth-child(9),.impact-particles .particle:nth-child(3){width:4px;height:4px;margin:-2px 0 0 -2px;}
+  .impact-particles .particle:nth-child(2),.impact-particles .particle:nth-child(6){width:8px;height:8px;margin:-4px 0 0 -4px;}
+
   .combat-callout{
     position:absolute; left:50%; top:44%; transform:translate(-50%,-50%); z-index:5;
     font-family:var(--font-display); font-weight:700; font-size:1.1rem; color:var(--ink);
@@ -453,11 +489,23 @@
   .card-modal h2{font-size:1.4rem;margin-bottom:10px;}
   .card-modal p{color:var(--muted);font-size:.86rem;margin-bottom:4px;}
   .card-modal .btn{margin-top:16px;}
-  .stats-modal{text-align:left;}
-  .stats-modal h2{text-align:center;margin-bottom:14px;}
+  .stats-modal{text-align:left;max-height:82vh;display:flex;flex-direction:column;}
+  .stats-modal h2{text-align:center;margin-bottom:14px;flex-shrink:0;}
+  .stats-scroll{overflow-y:auto;flex:1 1 auto;min-height:0;}
   .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;font-size:.86rem;margin-bottom:16px;}
   .stats-grid dt{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;}
   .stats-grid dd{margin:0;font-weight:700;font-variant-numeric:tabular-nums;}
+  .achievements-heading{display:flex;align-items:center;justify-content:space-between;margin:18px 0 10px;flex-shrink:0;}
+  .achievements-heading h3{font-size:.86rem;text-transform:uppercase;letter-spacing:.05em;color:var(--gold);}
+  .achievements-heading span{font-size:.76rem;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .achievements-list{display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto;margin-bottom:4px;}
+  .achievement-item{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border-soft);opacity:.5;}
+  .achievement-item.unlocked{opacity:1;border-color:var(--gold-dim);background:color-mix(in srgb, var(--gold) 9%, var(--surface-2));}
+  .achievement-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--surface-3);color:var(--muted);flex-shrink:0;}
+  .achievement-icon .icon{width:.9em;height:.9em;}
+  .achievement-item.unlocked .achievement-icon{background:var(--gold-dim);color:var(--gold-ink);}
+  .achievement-name{font-weight:700;font-size:.8rem;}
+  .achievement-desc{font-size:.7rem;color:var(--muted);line-height:1.3;}
   .reset-link{
     display:block;margin:14px auto 0;background:none;border:none;color:var(--muted);
     font-size:.72rem;text-decoration:underline;text-underline-offset:3px;cursor:pointer;opacity:.7;
@@ -591,6 +639,12 @@
     <path d="M6 4a2 2 0 0 0 0 4M18 20a2 2 0 0 0 0-4"/>
     <path d="M6 8v9.8A2.2 2.2 0 0 0 8.2 20H18v-3H8.2"/>
     <path d="M9 11h6M9 14h6"/>
+  </symbol>
+  <symbol id="i-trophy" viewBox="0 0 24 24">
+    <path d="M7 3h10v6a5 5 0 0 1-10 0Z"/>
+    <path d="M7 4.5H4.5a1 1 0 0 0-1 1V7a4 4 0 0 0 4 4M17 4.5h2.5a1 1 0 0 1 1 1V7a4 4 0 0 1-4 4"/>
+    <path d="M12 13.5V16"/>
+    <path d="M9 20h6M9.3 17h5.4l.4 3H8.9Z"/>
   </symbol>
   <symbol id="i-sound-on" viewBox="0 0 24 24">
     <path d="M4 9v6h4l5 4V5L8 9H4Z" fill="currentColor"/>
@@ -797,8 +851,8 @@
     <path d="M27 226 L43 226 M28 230 L42 230" stroke="#6B4A2E" stroke-width="1.4" fill="none" stroke-linecap="round"/>
     <path d="M77 226 L93 226 M78 230 L92 230" stroke="#6B4A2E" stroke-width="1.4" fill="none" stroke-linecap="round"/>
     <!-- loincloth / belt -->
-    <path d="M38 128 Q60 120 82 128 L86 158 Q76 168 60 170 Q44 168 34 158Z" fill="#5B3A26"/>
-    <path d="M38 128 Q60 120 82 128 L83 136 Q60 130 37 136Z" fill="#7A5133"/>
+    <path d="M38 128 Q60 120 82 128 L86 158 Q76 168 60 170 Q44 168 34 158Z" fill="var(--gear-cloth,#5B3A26)"/>
+    <path d="M38 128 Q60 120 82 128 L83 136 Q60 130 37 136Z" fill="var(--gear-cloth-light,#7A5133)"/>
     <path d="M40 158 L44 168 M48 162 L51 171 M72 162 L69 171 M80 158 L76 168" stroke="#3E2717" stroke-width="1.6" fill="none" stroke-linecap="round"/>
     <rect x="42" y="128" width="36" height="7" rx="2" fill="#8B6A3E"/>
     <circle cx="60" cy="131.5" r="3" fill="#C9A24A"/>
@@ -836,22 +890,121 @@
     <!-- neck -->
     <rect x="50" y="53" width="20" height="13" fill="url(#g-skin-fighter)"/>
     <path d="M50 58 L70 58" stroke="#00000020" stroke-width="2" fill="none"/>
-    <!-- helmet (galea) -->
-    <path d="M37 43c0-15 10-25 23-25s23 10 23 25v6H37Z" fill="#8A8A92"/>
+    <!-- helmet (galea) -- colors driven by CSS custom properties so each
+         opponent can wear distinct gear off one shared symbol. -->
+    <path d="M37 43c0-15 10-25 23-25s23 10 23 25v6H37Z" fill="var(--gear-metal,#8A8A92)"/>
     <path d="M37 43c0-15 10-25 23-25s23 10 23 25" fill="none" stroke="#5C5C62" stroke-width="1.5" opacity=".6"/>
     <path d="M46 22 Q60 15 74 22" stroke="#B5B5BC" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".8"/>
-    <rect x="35" y="47" width="50" height="9" rx="2.5" fill="#6A6A70"/>
+    <rect x="35" y="47" width="50" height="9" rx="2.5" fill="var(--gear-metal-dark,#6A6A70)"/>
     <rect x="35" y="47" width="50" height="3" rx="1.5" fill="#9A9AA2"/>
     <circle cx="42" cy="51" r="1.6" fill="#3A3A3E"/>
     <circle cx="78" cy="51" r="1.6" fill="#3A3A3E"/>
     <!-- cheek guard hinting at jaw, catching side light -->
-    <path d="M37 44 Q33 54 38 62 Q40 56 40 46Z" fill="#787880"/>
-    <path d="M83 44 Q87 54 82 62 Q80 56 80 46Z" fill="#787880"/>
+    <path d="M37 44 Q33 54 38 62 Q40 56 40 46Z" fill="var(--gear-metal-dark,#787880)"/>
+    <path d="M83 44 Q87 54 82 62 Q80 56 80 46Z" fill="var(--gear-metal-dark,#787880)"/>
     <!-- crest holder + horsehair plume -->
-    <rect x="56" y="15" width="8" height="7" rx="1.5" fill="#6A6A70"/>
-    <path d="M60 17 Q56 6 58 -4 Q60 4 61 17Z" fill="#8E2A20"/>
-    <path d="M60 17 Q62 5 66 -3 Q63 5 62 17Z" fill="#B4453A"/>
-    <path d="M60 17 Q58 8 55 0 Q58 6 59 17Z" fill="#B4453A"/>
+    <rect x="56" y="15" width="8" height="7" rx="1.5" fill="var(--gear-metal-dark,#6A6A70)"/>
+    <path d="M60 17 Q56 6 58 -4 Q60 4 61 17Z" fill="var(--gear-plume-dark,#8E2A20)"/>
+    <path d="M60 17 Q62 5 66 -3 Q63 5 62 17Z" fill="var(--gear-plume,#B4453A)"/>
+    <path d="M60 17 Q58 8 55 0 Q58 6 59 17Z" fill="var(--gear-plume,#B4453A)"/>
+  </symbol>
+
+  <!-- ============ STRAW DUMMY (training post, not a person) ============ -->
+  <symbol id="i-person-dummy" viewBox="0 0 120 240">
+    <!-- ground mound + post -->
+    <ellipse cx="60" cy="232" rx="26" ry="7" fill="#6B5030"/>
+    <rect x="53" y="150" width="14" height="86" rx="2" fill="#7A5A36"/>
+    <path d="M53 150 L53 236 M67 150 L67 236" stroke="#5A4024" stroke-width="1" opacity=".5"/>
+    <path d="M56 160 L56 226 M60 158 L60 228 M64 160 L64 226" stroke="#5A4024" stroke-width="1.4" opacity=".4"/>
+    <!-- crossbar arms (rough-hewn wood, twine-lashed) -->
+    <rect x="14" y="94" width="92" height="11" rx="4" fill="#8B6A3E"/>
+    <rect x="14" y="94" width="92" height="4" rx="2" fill="#A5824E"/>
+    <path d="M40 92 L40 107 M44 91 L44 108" stroke="#5A4024" stroke-width="1.6" opacity=".6"/>
+    <path d="M76 92 L76 107 M80 91 L80 108" stroke="#5A4024" stroke-width="1.6" opacity=".6"/>
+    <!-- burlap torso: sack shape lashed to the post -->
+    <path d="M36 78 Q60 66 84 78 L90 150 Q90 166 60 168 Q30 166 30 150Z" fill="#C4A876"/>
+    <path d="M36 78 Q60 66 84 78 L85 88 Q60 78 35 88Z" fill="#AC9264"/>
+    <!-- burlap weave hatching -->
+    <path d="M38 96 L82 96 M38 110 L82 110 M38 124 L82 124 M38 138 L82 138" stroke="#9C824E" stroke-width="1" opacity=".45"/>
+    <path d="M45 84 L45 158 M60 82 L60 160 M75 84 L75 158" stroke="#9C824E" stroke-width="1" opacity=".4"/>
+    <!-- lashing rope around the "waist" tying it to the post -->
+    <path d="M32 128 Q60 138 88 128" stroke="#6B4A2E" stroke-width="4" fill="none"/>
+    <path d="M32 128 Q60 138 88 128" stroke="#8B6A3E" stroke-width="1.4" fill="none"/>
+    <!-- mended patch (large X stitch) -->
+    <path d="M42 108 L58 122 M58 108 L42 122" stroke="#7A5A32" stroke-width="2.4" stroke-linecap="round"/>
+    <rect x="40" y="106" width="20" height="18" rx="2" fill="none" stroke="#7A5A32" stroke-width="1.6" opacity=".7"/>
+    <!-- straw tufts poking out at the torn shoulder seam -->
+    <path d="M76 82 L82 70 M79 84 L87 74 M82 86 L91 78" stroke="#D9B65A" stroke-width="2" stroke-linecap="round"/>
+    <!-- head: smaller burlap sack, corded neck -->
+    <path d="M42 40 Q42 20 60 18 Q78 20 78 40 Q78 54 60 56 Q42 54 42 40Z" fill="#CBB07E"/>
+    <path d="M44 56 Q60 62 76 56 L74 68 Q60 72 46 68Z" fill="#8B6A3E"/>
+    <rect x="50" y="58" width="20" height="9" fill="#B89860"/>
+    <!-- straw poking out the top of the head -->
+    <path d="M50 20 L46 4 M56 16 L53 -2 M64 16 L67 -2 M70 20 L74 4" stroke="#D9B65A" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M60 18 L60 0" stroke="#E8CC7A" stroke-width="2.2" stroke-linecap="round"/>
+    <!-- painted-on face: X eyes, stitched frown -->
+    <path d="M48 36 L54 42 M54 36 L48 42" stroke="#5A4024" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M66 36 L72 42 M72 36 L66 42" stroke="#5A4024" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M50 48 Q60 44 70 48" stroke="#5A4024" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M46 46 L48 50 M52 45 L52 49 M68 45 L68 49 M74 46 L72 50" stroke="#5A4024" stroke-width="1" opacity=".6"/>
+  </symbol>
+
+  <!-- ============ RETIARIUS variant: trident instead of sword, no helmet ============ -->
+  <symbol id="i-person-fighter-trident" viewBox="0 0 120 240">
+    <path d="M40 148 Q34 178 30 202 Q27 218 26 227 Q25 234 32 234 L41 234 Q44 234 44 229 L46 200 Q49 172 53 152Z" fill="url(#g-skin-fighter)"/>
+    <path d="M80 148 Q86 178 90 202 Q93 218 94 227 Q95 234 88 234 L79 234 Q76 234 76 229 L74 200 Q71 172 67 152Z" fill="url(#g-skin-fighter)"/>
+    <path d="M35 182 Q31 192 32 203 Q38 200 41 194 Q40 186 38 180Z" fill="#0000001c"/>
+    <path d="M85 182 Q89 192 88 203 Q82 200 79 194 Q80 186 82 180Z" fill="#0000001c"/>
+    <path d="M25 227 Q24 233 30 234 L42 234 Q45 234 45 231 L44 224 Q35 221 25 227Z" fill="#3C2A1C"/>
+    <path d="M75 227 Q76 233 90 234 L95 233 Q96 232 95 227 Q85 221 76 224Z" fill="#3C2A1C"/>
+    <path d="M27 226 L43 226 M28 230 L42 230" stroke="#6B4A2E" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+    <path d="M77 226 L93 226 M78 230 L92 230" stroke="#6B4A2E" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+    <path d="M38 128 Q60 120 82 128 L86 158 Q76 168 60 170 Q44 168 34 158Z" fill="var(--gear-cloth,#5B3A26)"/>
+    <path d="M38 128 Q60 120 82 128 L83 136 Q60 130 37 136Z" fill="var(--gear-cloth-light,#7A5133)"/>
+    <path d="M40 158 L44 168 M48 162 L51 171 M72 162 L69 171 M80 158 L76 168" stroke="#3E2717" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    <rect x="42" y="128" width="36" height="7" rx="2" fill="#8B6A3E"/>
+    <circle cx="60" cy="131.5" r="3" fill="#C9A24A"/>
+    <path d="M33 64 Q60 52 87 64 L93 96 Q95 116 87 131 Q60 143 33 131 Q25 116 27 96Z" fill="url(#g-skin-fighter)"/>
+    <!-- net slung across the back on a shoulder strap -->
+    <path d="M35 70 L88 118" stroke="var(--gear-cloth,#5B3A26)" stroke-width="6" opacity=".85"/>
+    <path d="M40 100 Q52 112 44 128 Q60 122 56 106 Q68 116 62 130 Q78 122 72 108" fill="none" stroke="#C9BFA0" stroke-width="1.4" opacity=".6"/>
+    <path d="M60 68 L59 128" stroke="#00000028" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <path d="M40 74 Q48 86 46 102 Q44 92 36 84Z" fill="#00000018"/>
+    <path d="M80 74 Q72 86 74 102 Q76 92 84 84Z" fill="#00000018"/>
+    <path d="M33 100 Q28 114 33 128" stroke="#00000022" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M87 100 Q92 114 87 128" stroke="#00000022" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M44 66 Q60 60 76 66" stroke="#ffffff2e" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <!-- right arm raised, gripping the trident -->
+    <path d="M85 68 Q98 56 106 42 Q109 37 113 40 Q117 43 114 48 L102 68 Q98 76 90 80Z" fill="url(#g-skin-fighter)"/>
+    <path d="M92 56 Q100 50 106 44" stroke="#ffffff26" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <g fill="url(#g-skin-fighter)">
+      <ellipse cx="110" cy="40" rx="7" ry="6" transform="rotate(-40 110 40)"/>
+      <path d="M104 34 Q102 30 105 28 Q108 30 107 35Z" transform="rotate(-40 110 40)"/>
+      <path d="M109 30 Q107 25 110 23 Q113 25 112 31Z" transform="rotate(-40 110 40)"/>
+      <path d="M114 29 Q113 24 116 23 Q118 26 117 31Z" transform="rotate(-40 110 40)"/>
+    </g>
+    <!-- trident: long shaft + three clearly fanned prongs -->
+    <rect x="105.5" y="-26" width="3" height="56" rx="1.5" fill="#9A9AA0" transform="rotate(-40 107 38)"/>
+    <rect x="97" y="-9" width="20" height="6" rx="2" fill="var(--gear-metal-dark,#6A6A70)" transform="rotate(-40 107 38)"/>
+    <path d="M100 -9 L92 -32 L98 -25 L101.5 -9Z" fill="#CACAD0" transform="rotate(-40 107 38)"/>
+    <path d="M105.5 -9 L103.5 -40 L109.5 -40 L107.5 -9Z" fill="#E2E2E8" transform="rotate(-40 107 38)"/>
+    <path d="M114 -9 L122 -32 L116 -25 L112.5 -9Z" fill="#CACAD0" transform="rotate(-40 107 38)"/>
+    <rect x="104" y="30" width="6" height="16" rx="2.5" fill="#5C4A34" transform="rotate(-40 107 38)"/>
+    <!-- left arm out to the side, gripping the net -->
+    <path d="M33 68 Q20 82 14 96 Q11 101 15 104 Q19 107 23 102 L36 82Z" fill="url(#g-skin-fighter)"/>
+    <path d="M24 84 Q19 90 16 97" stroke="#ffffff26" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <g fill="url(#g-skin-fighter)">
+      <ellipse cx="15" cy="100" rx="6.5" ry="5.5" transform="rotate(30 15 100)"/>
+      <path d="M10 103 Q7 106 9 109 Q12 109 13 105Z"/>
+      <path d="M9 98 Q5 99 5 103 Q8 104 10 100Z"/>
+    </g>
+    <path d="M8 96 Q2 90 6 82 Q10 90 14 94Z" fill="none" stroke="#C9BFA0" stroke-width="1.2" opacity=".6"/>
+    <rect x="50" y="53" width="20" height="13" fill="url(#g-skin-fighter)"/>
+    <path d="M50 58 L70 58" stroke="#00000020" stroke-width="2" fill="none"/>
+    <!-- bare head, no helmet -- Retiarii fought unarmored above the neck -->
+    <path d="M40 38 Q39 16 60 15 Q81 16 80 38 Q80 50 71 57 Q60 62 49 57 Q40 50 40 38Z" fill="url(#g-skin-fighter)"/>
+    <path d="M41 30 Q39 20 46 13 Q56 6 68 9 Q78 13 80 26 Q76 18 65 15 Q52 13 44 20 Q41 25 41 30Z" fill="#3A2E22"/>
+    <path d="M40 34 Q37 38 39 43" stroke="#ffffff26" stroke-width="1.6" fill="none" stroke-linecap="round"/>
   </symbol>
 
   <!-- First-person weapon/shield viewmodels, one blade shape per sword type -->
@@ -921,14 +1074,21 @@
   ];
 
   var OPPONENTS = [
-    {name:'Straw Dummy',             maxHp:20,  attack:3,  defense:0,  gold:10,  taunt:'It does not move.'},
-    {name:'Rusty Marcus',            maxHp:28,  attack:6,  defense:1,  gold:22,  taunt:'Fresh meat for the sand!'},
-    {name:'Titus the Bull',          maxHp:40,  attack:9,  defense:3,  gold:38,  taunt:"I'll crush you like a grape!"},
-    {name:'Flavia Ironfist',         maxHp:50,  attack:12, defense:5,  gold:58,  taunt:'Show me your worst, weakling.'},
-    {name:'Brutus Maximus',          maxHp:65,  attack:15, defense:6,  gold:85,  taunt:'None have survived me.'},
-    {name:'The Retiarius',           maxHp:78,  attack:18, defense:8,  gold:120, taunt:'Net or trident — pick your death.'},
-    {name:'Crixus the Undefeated',   maxHp:95,  attack:22, defense:10, gold:170, taunt:'I am undefeated. You are next.'},
-    {name:"The Emperor's Champion",  maxHp:125, attack:27, defense:13, gold:260, taunt:'For glory and the Emperor!'}
+    {name:'Straw Dummy',             maxHp:20,  attack:3,  defense:0,  gold:10,  taunt:'It does not move.', dummy:true},
+    {name:'Rusty Marcus',            maxHp:28,  attack:6,  defense:1,  gold:22,  taunt:'Fresh meat for the sand!',
+      gear:{metal:'#9C7A5A',metalDark:'#7A5C42',plume:'#7A6840',plumeDark:'#5C4E2E',cloth:'#5B4A32',clothLight:'#7A6248'}},
+    {name:'Titus the Bull',          maxHp:40,  attack:9,  defense:3,  gold:38,  taunt:"I'll crush you like a grape!",
+      gear:{metal:'#4A4A50',metalDark:'#34343A',plume:'#3A2E22',plumeDark:'#241C14',cloth:'#4A3524',clothLight:'#6B4A2E'}},
+    {name:'Flavia Ironfist',         maxHp:50,  attack:12, defense:5,  gold:58,  taunt:'Show me your worst, weakling.',
+      gear:{metal:'#8A8A92',metalDark:'#6A6A70',plume:'#4A7A6E',plumeDark:'#345850',cloth:'#5B3A5E',clothLight:'#7A5178'}},
+    {name:'Brutus Maximus',          maxHp:65,  attack:15, defense:6,  gold:85,  taunt:'None have survived me.',
+      gear:{metal:'#38383E',metalDark:'#242428',plume:'#241A1A',plumeDark:'#140E0E',cloth:'#2A2018',clothLight:'#3E2E20'}},
+    {name:'The Retiarius',           maxHp:78,  attack:18, defense:8,  gold:120, taunt:'Net or trident — pick your death.', trident:true,
+      gear:{metal:'#B08858',metalDark:'#8A6840',plume:'#8A8060',plumeDark:'#6A6248',cloth:'#7A6A54',clothLight:'#9A8868'}},
+    {name:'Crixus the Undefeated',   maxHp:95,  attack:22, defense:10, gold:170, taunt:'I am undefeated. You are next.',
+      gear:{metal:'#9A8258',metalDark:'#7A6840',plume:'#C9A24A',plumeDark:'#9C7A32',cloth:'#5B3A26',clothLight:'#7A5133'}},
+    {name:"The Emperor's Champion",  maxHp:125, attack:27, defense:13, gold:260, taunt:'For glory and the Emperor!',
+      gear:{metal:'#A08858',metalDark:'#7E6A42',plume:'#7A3E8E',plumeDark:'#5A2C6E',cloth:'#4A2E5B',clothLight:'#6B4478'}}
   ];
 
   var STARTING_GOLD = 30, STARTING_MAX_HP = 50, STARTING_ATTACK = 8, STARTING_DEFENSE = 1;
@@ -937,6 +1097,7 @@
   var ACTION_COOLDOWN_MS = 450;
   var ENEMY_TURN_MIN_MS = 1000, ENEMY_TURN_MAX_MS = 1700;
   var ENEMY_MISS_CHANCE = .10, ENEMY_DODGE_BONUS = .18;
+  var COMBO_MAX_BONUS = 10;
   var HEAL_SMALL_AMOUNT = 20, HEAL_SMALL_COST = 10, GOLD_PER_HP_FULL = 1;
   var ARMORER_LINES = [
     'Steel keeps you breathing, friend.',
@@ -1006,6 +1167,77 @@
   function saveGame(p){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(p)); } catch(e){} }
 
   // ------------------------------------------------------------------
+  // Lifetime stats + achievements
+  // ------------------------------------------------------------------
+  var STATS_KEY = 'gladiator-arena-stats-v1';
+  function freshStats(){
+    return {
+      totalDamageDealt: 0, totalHeadshots: 0, totalCrits: 0,
+      bestCombo: 0, bestHeadshotsInFight: 0, flawlessWins: 0,
+      totalGoldEarned: 0, winStreak: 0, bestWinStreak: 0, lowHpWins: 0
+    };
+  }
+  function loadStats(){
+    try {
+      var raw = localStorage.getItem(STATS_KEY);
+      var s = freshStats();
+      if (!raw) return s;
+      var d = JSON.parse(raw);
+      Object.keys(s).forEach(function(k){ if (typeof d[k] === 'number') s[k] = d[k]; });
+      return s;
+    } catch(e){ return freshStats(); }
+  }
+  function saveStats(){ try{ localStorage.setItem(STATS_KEY, JSON.stringify(stats)); } catch(e){} }
+  var stats = loadStats();
+
+  var ACH_KEY = 'gladiator-arena-achievements-v1';
+  function loadUnlocked(){
+    try { var raw = localStorage.getItem(ACH_KEY); return raw ? JSON.parse(raw) : {}; }
+    catch(e){ return {}; }
+  }
+  function saveUnlocked(){ try{ localStorage.setItem(ACH_KEY, JSON.stringify(unlocked)); } catch(e){} }
+  var unlocked = loadUnlocked();
+
+  var ACHIEVEMENTS = [
+    {id:'first-blood', name:'First Blood', desc:'Win your first bout in the arena.',
+      check:function(s,p){ return p.wins >= 1; }},
+    {id:'flawless', name:'Flawless Victory', desc:'Win a fight without taking a single hit.',
+      check:function(s,p){ return s.flawlessWins >= 1; }},
+    {id:'executioner', name:'Executioner', desc:'Land 3 head shots in one fight.',
+      check:function(s,p){ return s.bestHeadshotsInFight >= 3; }},
+    {id:'combo-master', name:'Combo Master', desc:'Reach a x5 combo in a single fight.',
+      check:function(s,p){ return s.bestCombo >= 5; }},
+    {id:'iron-wallet', name:'Iron Wallet', desc:'Earn 500 gold over your career.',
+      check:function(s,p){ return s.totalGoldEarned >= 500; }},
+    {id:'fully-armored', name:'Fully Armored', desc:'Equip a Helmet, Chest piece, and Shield.',
+      check:function(s,p){ return !!(p.armor.Helmet && p.armor.Chest && p.armor.Shield); }},
+    {id:'master-at-arms', name:'Master at Arms', desc:'Wield the Rhomphaia, deadliest of blades.',
+      check:function(s,p){ return p.weapon === 'Rhomphaia'; }},
+    {id:'win-streak', name:'On a Roll', desc:'Win 5 bouts in a row without a loss.',
+      check:function(s,p){ return s.bestWinStreak >= 5; }},
+    {id:'close-call', name:'Close Call', desc:'Win a fight after dropping below 15% HP.',
+      check:function(s,p){ return s.lowHpWins >= 1; }},
+    {id:'champion', name:'Champion of the Arena', desc:"Defeat the Emperor's Champion.",
+      check:function(s,p){ return isChampion(p); }}
+  ];
+
+  function checkAchievements(){
+    var justUnlocked = [];
+    ACHIEVEMENTS.forEach(function(a){
+      if (unlocked[a.id]) return;
+      if (a.check(stats, player)){
+        unlocked[a.id] = Date.now();
+        justUnlocked.push(a);
+      }
+    });
+    if (justUnlocked.length){
+      saveUnlocked();
+      sfx.achievement();
+      toast((justUnlocked.length>1 ? justUnlocked.length+' achievements unlocked!' : 'Achievement unlocked: '+justUnlocked[0].name));
+    }
+  }
+
+  // ------------------------------------------------------------------
   // Combat
   // ------------------------------------------------------------------
   function rollDamage(atk, dfn, forceCrit){
@@ -1020,7 +1252,10 @@
     this.lastHit = null; this.lastAction = null; this.lastLine = this.log[0];
     this.lastMiss = false; this.lastCrit = false; this.lastHeadshot = false;
     this.lastDodge = false;
+    this.combo = 0;
     this.nextActionAt = 0;
+    this.totalDamageDealt = 0; this.headshots = 0; this.crits = 0;
+    this.maxCombo = 0; this.tookDamage = false; this.minHpSeen = player.hp;
   }
   Combat.prototype.isOver = function(){ return this.result !== null; };
   Combat.prototype.canAct = function(){ return !this.isOver() && Date.now() >= this.nextActionAt; };
@@ -1031,15 +1266,24 @@
     if (!forceCrit && Math.random() < MISS_CHANCE){
       this.lastLine = 'You swing and miss!';
       this.lastMiss = true;
+      this.combo = 0;
     } else {
+      var comboBonus = Math.min(this.combo, COMBO_MAX_BONUS);
       var atk = power ? Math.floor(pAttack(this.player)*POWER_MULT) : pAttack(this.player);
       var r = rollDamage(atk, this.opponent.defense, forceCrit);
-      this.enemyHp = Math.max(0, this.enemyHp - r.dmg);
+      var dmg = r.dmg + comboBonus;
+      this.enemyHp = Math.max(0, this.enemyHp - dmg);
       this.lastHit = 'enemy';
       this.lastCrit = r.crit;
+      this.combo += 1;
+      this.totalDamageDealt += dmg;
+      if (forceCrit) this.headshots += 1;
+      if (r.crit) this.crits += 1;
+      this.maxCombo = Math.max(this.maxCombo, this.combo);
       var verb = power ? 'smash' : (forceCrit ? 'skewer' : 'strike');
       var tag = forceCrit ? ' HEADSHOT!' : (r.crit ? ' CRITICAL!' : '');
-      this.lastLine = 'You '+verb+' for '+r.dmg+'!'+tag;
+      var comboTag = comboBonus > 0 ? ' [combo x'+this.combo+', +'+comboBonus+']' : '';
+      this.lastLine = 'You '+verb+' for '+dmg+'!'+tag+comboTag;
     }
     this.log.push(this.lastLine);
     this.nextActionAt = Date.now() + ACTION_COOLDOWN_MS;
@@ -1077,6 +1321,9 @@
       var dmg = this.defending ? Math.max(1, Math.floor(r.dmg/2)) : r.dmg;
       this.player.hp = Math.max(0, this.player.hp - dmg);
       this.lastHit = 'player';
+      this.combo = 0;
+      this.tookDamage = true;
+      this.minHpSeen = Math.min(this.minHpSeen, this.player.hp);
       this.log.push(this.opponent.name+' '+(power?'crushes':'hits')+' you for '+dmg+'!'+(r.crit?' CRITICAL!':''));
     }
     this.defending = false;
@@ -1181,7 +1428,8 @@
     victory:   function(){ [523,659,784,1046].forEach(function(f,i){ beep(f,0.22,'triangle',0.15,i*0.11); }); },
     defeat:    function(){ beep(220,0.3,'sawtooth',0.14); beep(160,0.4,'sawtooth',0.14,0.18); },
     flee:      function(){ beep(800,0.05,'sine',0.08); beep(500,0.08,'sine',0.06,0.05); },
-    step:      function(){ noiseBurst(0.045, 0.05, 500); }
+    step:      function(){ noiseBurst(0.045, 0.05, 500); },
+    achievement:function(){ [660,880,1108,1320].forEach(function(f,i){ beep(f,0.18,'triangle',0.13,i*0.09); }); }
   };
 
   function updateSoundIcon(){
@@ -1239,6 +1487,30 @@
     ch.classList.toggle('locked-on', lockedOn);
   }
 
+  // Impact juice: a brief screen shake + a burst of dust/spark particles
+  // at the fixed crosshair point whenever a hit actually lands, in either
+  // direction. Re-triggerable mid-animation via the remove/reflow/re-add
+  // pattern, since hits can land in quick succession.
+  function shakeScreen(strong){
+    var el = document.querySelector('.arena-scene');
+    if (!el) return;
+    el.classList.remove('shake','shake-strong');
+    void el.offsetWidth;
+    el.classList.add(strong ? 'shake-strong' : 'shake');
+  }
+  function burstParticles(){
+    var el = document.getElementById('impact-particles');
+    if (!el) return;
+    el.classList.remove('burst');
+    void el.offsetWidth;
+    el.classList.add('burst');
+  }
+  function playImpactFx(){
+    if (!combat || !combat.lastHit) return;
+    shakeScreen(!!(combat.lastCrit || combat.lastHeadshot));
+    burstParticles();
+  }
+
   function onAimClick(){
     if (!aiming || !combat || !combat.canAct()) return;
     var ch = document.getElementById('crosshair');
@@ -1247,6 +1519,7 @@
     playCombatSfx();
     render();
     updateCrosshair();
+    playImpactFx();
     if (combat.isOver()){
       clearEnemyTimer();
       setTimeout(finishCombat, 700);
@@ -1449,6 +1722,7 @@
     sfx.equip();
     toast('Equipped '+piece.name+'! Defense is now '+pDefense(player));
     render();
+    setTimeout(checkAchievements, 1500);
   }
 
   function buyWeapon(name){
@@ -1462,6 +1736,7 @@
     sfx.equip();
     toast('Equipped '+w.name+'! Attack is now '+pAttack(player));
     render();
+    setTimeout(checkAchievements, 1500);
   }
 
   function doHeal(kind){
@@ -1496,6 +1771,7 @@
     playEnemyTurnSfx();
     render();
     updateCrosshair();
+    playImpactFx();
     if (combat.isOver()) setTimeout(finishCombat, 700);
     else scheduleEnemyTurn();
   }
@@ -1540,6 +1816,7 @@
     playCombatSfx();
     render();
     updateCrosshair();
+    playImpactFx();
     if (combat.isOver()){
       clearEnemyTimer();
       setTimeout(finishCombat, action==='flee' ? 200 : 700);
@@ -1553,6 +1830,11 @@
     joystickEnd();
     document.body.classList.remove('combat-fullscreen');
     var opp = combat.opponent, overlay;
+    stats.totalDamageDealt += combat.totalDamageDealt;
+    stats.totalHeadshots += combat.headshots;
+    stats.totalCrits += combat.crits;
+    stats.bestCombo = Math.max(stats.bestCombo, combat.maxCombo);
+    stats.bestHeadshotsInFight = Math.max(stats.bestHeadshotsInFight, combat.headshots);
     if (combat.result === 'win'){
       var wasChampion = isChampion(player);
       recordWin(player, opp);
@@ -1560,19 +1842,29 @@
                   lines: ['+'+opp.gold+' gold', player.gold+'g total'] };
       sfx.victory();
       setTimeout(function(){ sfx.coin(); }, 500);
+      if (!combat.tookDamage) stats.flawlessWins += 1;
+      if (combat.minHpSeen <= Math.max(1, player.maxHp*.15)) stats.lowHpWins += 1;
+      stats.totalGoldEarned += opp.gold;
+      stats.winStreak += 1;
+      stats.bestWinStreak = Math.max(stats.bestWinStreak, stats.winStreak);
     } else if (combat.result === 'loss'){
       recordLoss(player);
       overlay = { type:'loss', title:'Defeated…', lines:['Carried from the sand.', 'HP restored to '+player.hp] };
       sfx.defeat();
+      stats.winStreak = 0;
     } else {
       overlay = { type:'fled', title:'You Fled', lines:['No shame in living to fight on.'] };
     }
     saveGame(player);
+    saveStats();
     resultOverlay = overlay;
     render();
   }
 
-  function dismissResult(){ resultOverlay = null; combat = null; view = 'arenaMaster'; render(); }
+  function dismissResult(){
+    resultOverlay = null; combat = null; view = 'arenaMaster'; render();
+    checkAchievements(); // after the result modal clears, so the toast is visible
+  }
 
   function doReset(){ player = freshPlayer(); saveGame(player); confirmingReset = false; view = 'hub'; render(); }
 
@@ -1708,14 +2000,26 @@
     var swordClass = 'viewmodel sword' + (combat.lastAction==='attack' ? ' swing' : combat.lastAction==='power' ? ' swing power' : '');
     var shieldClass = 'viewmodel shield' + (combat.lastAction==='defend' ? ' raise' : '');
     var bladeIcon = 'i-vm-sword-' + weaponBlade(player);
+    var fighterIcon = o.dummy ? 'i-person-dummy' : (o.trident ? 'i-person-fighter-trident' : 'i-person-fighter');
+    var gearStyle = '';
+    if (o.gear){
+      gearStyle = ';--gear-metal:'+o.gear.metal+';--gear-metal-dark:'+o.gear.metalDark+
+        ';--gear-plume:'+o.gear.plume+';--gear-plume-dark:'+o.gear.plumeDark+
+        ';--gear-cloth:'+o.gear.cloth+';--gear-cloth-light:'+o.gear.clothLight;
+    }
     var inner =
       '<div class="combat-player-hud">' +
         '<div class="hpbar"><div class="hpbar-fill player" style="width:'+pct(p.hp,p.maxHp)+'%"></div></div>' +
         '<span>'+p.hp+'/'+p.maxHp+'</span>' +
         '<span class="gold"><svg class="icon"><use href="#i-coin"/></svg>'+p.gold+'</span>' +
       '</div>' +
-      '<div class="'+fighterClass+'" style="transform:translateX(-50%) scale('+scale.toFixed(2)+')"><svg><use href="#i-person-fighter"/></svg></div>' +
+      '<div class="'+fighterClass+'" style="transform:translateX(-50%) scale('+scale.toFixed(2)+')'+gearStyle+'"><svg><use href="#'+fighterIcon+'"/></svg></div>' +
       '<div class="combat-flash'+(combat.lastHit==='player'?' hit':'')+'"></div>' +
+      '<div class="impact-particles" id="impact-particles">' +
+        '<span class="particle"></span><span class="particle"></span><span class="particle"></span>' +
+        '<span class="particle"></span><span class="particle"></span><span class="particle"></span>' +
+        '<span class="particle"></span><span class="particle"></span><span class="particle"></span>' +
+      '</div>' +
       (combat.lastLine ? '<div class="combat-callout">'+esc(combat.lastLine)+'</div>' : '') +
       '<div class="boss-bar"><div class="boss-name">'+esc(o.name)+'</div><div class="hpbar"><div class="hpbar-fill enemy" style="width:'+pct(combat.enemyHp,o.maxHp)+'%"></div></div></div>' +
       '<div class="'+shieldClass+'"><svg><use href="#i-vm-shield"/></svg></div>' +
@@ -1757,25 +2061,38 @@
 
   function renderStatsOverlay(){
     var w = player.weapon ? findWeapon(player.weapon) : null;
+    var unlockedCount = ACHIEVEMENTS.filter(function(a){ return !!unlocked[a.id]; }).length;
+    var achievementsHtml = ACHIEVEMENTS.map(function(a){
+      var isUnlocked = !!unlocked[a.id];
+      return '<div class="achievement-item'+(isUnlocked?' unlocked':'')+'">' +
+        '<div class="achievement-icon"><svg class="icon"><use href="#i-trophy"/></svg></div>' +
+        '<div><div class="achievement-name">'+esc(a.name)+'</div>' +
+        '<div class="achievement-desc">'+esc(isUnlocked ? a.desc : '???')+'</div></div>' +
+      '</div>';
+    }).join('');
     return '' +
     '<div class="overlay" data-close-stats>' +
-      '<div class="card-modal stats-modal" onclick="event.stopPropagation()">' +
+      '<div class="card-modal stats-modal" onclick="if(!event.target.closest(\'button[data-close-stats]\'))event.stopPropagation()">' +
         '<h2>Your Record</h2>' +
-        '<dl class="stats-grid">' +
-          '<dt>Gold</dt><dd>'+player.gold+'g</dd>' +
-          '<dt>HP</dt><dd>'+player.hp+'/'+player.maxHp+'</dd>' +
-          '<dt>Attack</dt><dd>'+pAttack(player)+'</dd>' +
-          '<dt>Defense</dt><dd>'+pDefense(player)+'</dd>' +
-          '<dt>Wins</dt><dd>'+player.wins+'</dd>' +
-          '<dt>Losses</dt><dd>'+player.losses+'</dd>' +
-        '</dl>' +
-        '<div class="stats-grid" style="grid-template-columns:1fr">' +
-          '<div><dt>Weapon</dt><dd style="font-size:.86rem">'+(w ? w.name+' (+'+w.attack+' ATK)' : 'Bare hands')+'</dd></div>' +
-          '<div><dt>Helmet</dt><dd style="font-size:.86rem">'+ownedLabel('Helmet')+'</dd></div>' +
-          '<div><dt>Chest</dt><dd style="font-size:.86rem">'+ownedLabel('Chest')+'</dd></div>' +
-          '<div><dt>Shield</dt><dd style="font-size:.86rem">'+ownedLabel('Shield')+'</dd></div>' +
+        '<div class="stats-scroll">' +
+          '<dl class="stats-grid">' +
+            '<dt>Gold</dt><dd>'+player.gold+'g</dd>' +
+            '<dt>HP</dt><dd>'+player.hp+'/'+player.maxHp+'</dd>' +
+            '<dt>Attack</dt><dd>'+pAttack(player)+'</dd>' +
+            '<dt>Defense</dt><dd>'+pDefense(player)+'</dd>' +
+            '<dt>Wins</dt><dd>'+player.wins+'</dd>' +
+            '<dt>Losses</dt><dd>'+player.losses+'</dd>' +
+          '</dl>' +
+          '<div class="stats-grid" style="grid-template-columns:1fr">' +
+            '<div><dt>Weapon</dt><dd style="font-size:.86rem">'+(w ? w.name+' (+'+w.attack+' ATK)' : 'Bare hands')+'</dd></div>' +
+            '<div><dt>Helmet</dt><dd style="font-size:.86rem">'+ownedLabel('Helmet')+'</dd></div>' +
+            '<div><dt>Chest</dt><dd style="font-size:.86rem">'+ownedLabel('Chest')+'</dd></div>' +
+            '<div><dt>Shield</dt><dd style="font-size:.86rem">'+ownedLabel('Shield')+'</dd></div>' +
+          '</div>' +
+          '<div class="achievements-heading"><h3>Achievements</h3><span>'+unlockedCount+'/'+ACHIEVEMENTS.length+'</span></div>' +
+          '<div class="achievements-list">'+achievementsHtml+'</div>' +
         '</div>' +
-        '<button class="btn btn-primary btn-block" data-close-stats>Close</button>' +
+        '<button class="btn btn-primary btn-block" style="margin-top:14px;flex-shrink:0" data-close-stats>Close</button>' +
       '</div>' +
     '</div>';
   }
