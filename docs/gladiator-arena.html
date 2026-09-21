@@ -178,13 +178,29 @@
   .scene-glow{position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 30%, color-mix(in srgb, var(--gold) 22%, transparent), transparent 70%);mix-blend-mode:screen;}
   .scene-floor{
     position:absolute; left:0; right:0; bottom:0; height:42%;
-    background:linear-gradient(180deg,var(--sand-far) 0%,var(--sand-near) 100%);
+    background:
+      radial-gradient(ellipse 34% 26% at 20% 26%, color-mix(in srgb, var(--sand-near) 55%, transparent), transparent 70%),
+      radial-gradient(ellipse 30% 22% at 82% 48%, color-mix(in srgb, var(--sand-far) 45%, transparent), transparent 70%),
+      radial-gradient(ellipse 28% 20% at 46% 78%, color-mix(in srgb, var(--sand-near) 50%, transparent), transparent 70%),
+      linear-gradient(180deg,var(--sand-far) 0%,var(--sand-near) 100%);
     clip-path:polygon(38% 0%, 62% 0%, 100% 100%, 0% 100%);
   }
   .scene-floor::before{
     content:'';position:absolute;inset:0;
-    background:repeating-linear-gradient(0deg, transparent 0 14%, rgba(0,0,0,.12) 14% 15%);
+    /* rake marks converging on the vanishing point implied by the floor's
+       own trapezoid (~32% above it, centered) instead of flat horizontal
+       planking -- reads as a raked sand arena floor, not floorboards. */
+    background-image:
+      repeating-conic-gradient(from 0deg at 50% -32%, rgba(0,0,0,.13) 0deg .55deg, transparent .55deg 3.6deg),
+      radial-gradient(circle, rgba(0,0,0,.55) 42%, transparent 46%);
+    background-size: auto, 3px 3px;
+    background-repeat: no-repeat, repeat;
     mix-blend-mode:multiply;
+    opacity:.85;
+  }
+  .scene-floor::after{
+    content:''; position:absolute; left:38%; right:38%; top:0; height:2px;
+    background:rgba(0,0,0,.35); filter:blur(1.5px);
   }
   .scene-vignette{position:absolute;inset:0;box-shadow:inset 0 0 70px 20px rgba(0,0,0,.55);pointer-events:none;}
   .scene-title{
