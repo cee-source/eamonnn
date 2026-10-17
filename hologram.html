@@ -1,0 +1,624 @@
+<title>Blue Fish Hologram</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap">
+
+<style>
+/* -------------------------------------------------------
+   Layout: 3x3 fullscreen cross grid — single dark theme
+   Palette: jet black / bright cyan / deep blue / ghost white
+   Type: Orbitron display + Courier data
+------------------------------------------------------- */
+:root {
+  color-scheme: dark;
+  --bg:     #000000;
+  --glow:   #00e5ff;
+  --glow2:  #0055dd;
+  --glow3:  #002244;
+  --panel:  #000d1a;
+  --border: #003355;
+  --text:   #88ccee;
+  --dim:    #001e33;
+  --green:  #00ff88;
+  --white:  #ddf4ff;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  font-family: 'Orbitron', 'Courier New', monospace;
+}
+
+/* Full-page scanlines */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    transparent 0px, transparent 3px,
+    rgba(0,229,255,0.013) 3px, rgba(0,229,255,0.013) 4px
+  );
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ---- Grid ---- */
+.grid {
+  width: 100vw; height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+}
+
+.cell {
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+
+.cell-mid { grid-column: 2; grid-row: 2; }
+
+.center-ring {
+  width: 28%; height: 28%;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  opacity: 0.2;
+  box-shadow: 0 0 12px rgba(0,229,255,0.06) inset;
+}
+
+/* 4 hologram positions — feet toward center */
+.c-top    { grid-column: 2; grid-row: 1; transform: rotate(180deg); }
+.c-left   { grid-column: 1; grid-row: 2; transform: rotate(90deg); }
+.c-right  { grid-column: 3; grid-row: 2; transform: rotate(-90deg); }
+.c-bottom { grid-column: 2; grid-row: 3; }
+
+/* ---- Character container ---- */
+.fish {
+  position: relative;
+  width:  min(27vw, 27vh);
+  height: min(48vw, 48vh);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2%;
+  animation: floatup 3.2s ease-in-out infinite, flicker 14s ease-in-out infinite;
+}
+
+@keyframes floatup {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6%); }
+}
+
+@keyframes flicker {
+  0%,85%,89%,93%,100% { opacity: 1; }
+  87%   { opacity: 0.5; }
+  88%   { opacity: 0.95; }
+  91%   { opacity: 0.4; }
+  92%   { opacity: 0.9; }
+}
+
+.fish-svg {
+  width: 88%; height: auto;
+  filter:
+    drop-shadow(0 0 4px var(--glow))
+    drop-shadow(0 0 14px var(--glow2));
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+/* Character scanline overlay */
+.fish::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    transparent 0px, transparent 2px,
+    rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px
+  );
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ---- Orbit rings ---- */
+.orbit-a, .orbit-b {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.orbit-a {
+  width: 142%; height: 142%;
+  top: -21%; left: -21%;
+  border: 1px solid rgba(0,229,255,0.18);
+  animation: spin 14s linear infinite;
+}
+.orbit-a::before {
+  content: '';
+  position: absolute;
+  top: -5px; left: calc(50% - 5px);
+  width: 10px; height: 10px;
+  background: var(--glow);
+  border-radius: 50%;
+  box-shadow: 0 0 12px var(--glow), 0 0 24px var(--glow2);
+}
+
+.orbit-b {
+  width: 116%; height: 50%;
+  top: 25%; left: -8%;
+  border: 1px solid rgba(0,85,221,0.28);
+  animation: spin 9s linear infinite reverse;
+}
+.orbit-b::before {
+  content: '';
+  position: absolute;
+  top: -4px; left: calc(50% - 4px);
+  width: 7px; height: 7px;
+  background: var(--glow2);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--glow2), 0 0 20px var(--glow2);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ---- Scan sweep ---- */
+.scanswipe {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 4px;
+  background: linear-gradient(to right,
+    transparent, rgba(0,229,255,0.55) 30%, rgba(0,229,255,0.8) 50%,
+    rgba(0,229,255,0.55) 70%, transparent);
+  animation: sweep 5s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 4;
+  border-radius: 2px;
+}
+
+@keyframes sweep {
+  0%   { top: 0%;   opacity: 0; }
+  4%   { opacity: 1; }
+  96%  { opacity: 0.6; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/* ---- Particles ---- */
+.pt {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--glow);
+  box-shadow: 0 0 5px var(--glow);
+  pointer-events: none;
+  z-index: 4;
+}
+.pt1 { width:4px; height:4px; left:4%; top:18%; animation: pf 3.5s ease-in-out infinite; opacity:0.6; }
+.pt2 { width:3px; height:3px; right:7%; top:32%; animation: pf 5s ease-in-out infinite 1.3s; opacity:0.5; }
+.pt3 { width:3px; height:3px; left:10%; bottom:28%; animation: pf 4.3s ease-in-out infinite 0.7s; opacity:0.5; }
+.pt4 { width:4px; height:4px; right:5%; bottom:38%; animation: pf 6.2s ease-in-out infinite 2.1s; opacity:0.6; }
+.pt5 { width:2px; height:2px; left:22%; top:8%; animation: pf 4.8s ease-in-out infinite 0.4s; opacity:0.4; }
+.pt6 { width:2px; height:2px; right:20%; bottom:18%; animation: pf 5.5s ease-in-out infinite 1.8s; opacity:0.4; }
+
+@keyframes pf {
+  0%, 100% { transform: translate(0, 0) scale(1);   opacity: inherit; }
+  50%       { transform: translate(4px,-16px) scale(0.3); opacity: 0.08; }
+}
+
+/* ---- Eye blink ---- */
+@keyframes blink {
+  0%, 84%, 90%, 100% { transform: scaleY(1); }
+  86%, 88%            { transform: scaleY(0.06); }
+}
+
+.eye-l, .eye-r {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: blink 6s ease-in-out infinite;
+}
+.eye-r { animation-delay: 0.07s; }
+
+/* ---- Labels ---- */
+.fish-label {
+  text-align: center;
+  letter-spacing: 0.24em;
+  font-size: clamp(5px, 1.35vmin, 10px);
+  font-weight: 900;
+  color: var(--glow);
+  text-shadow: 0 0 12px var(--glow), 0 0 24px var(--glow2);
+  white-space: nowrap;
+  z-index: 5;
+  position: relative;
+}
+
+.fish-status {
+  display: flex; align-items: center; gap: 0.5em;
+  font-size: clamp(4px, 1.05vmin, 8px);
+  letter-spacing: 0.16em;
+  color: var(--green);
+  text-shadow: 0 0 8px var(--green);
+  white-space: nowrap;
+  z-index: 5;
+  position: relative;
+}
+
+.status-dot {
+  width: 0.7em; height: 0.7em;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 7px var(--green);
+  flex-shrink: 0;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.3; transform: scale(0.6); }
+}
+
+/* ---- UI ---- */
+.controls {
+  position: fixed;
+  bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  right:  max(14px, env(safe-area-inset-right, 0px));
+  display: flex; gap: 8px;
+  z-index: 50;
+}
+
+.ctrl-btn {
+  background: rgba(0,13,26,0.85);
+  border: 1px solid var(--border);
+  color: var(--glow);
+  font-family: 'Orbitron', monospace;
+  font-size: 9px; letter-spacing: 0.12em;
+  padding: 8px 12px;
+  cursor: pointer; border-radius: 3px;
+  text-shadow: 0 0 6px var(--glow);
+  box-shadow: 0 0 10px rgba(0,229,255,0.08);
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.ctrl-btn:hover, .ctrl-btn:focus {
+  background: var(--dim);
+  box-shadow: 0 0 18px rgba(0,229,255,0.28);
+  outline: none;
+}
+
+/* ---- Modal ---- */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.9);
+  z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  padding:
+    max(20px, env(safe-area-inset-top, 0px))
+    max(20px, env(safe-area-inset-right, 0px))
+    max(20px, env(safe-area-inset-bottom, 0px))
+    max(20px, env(safe-area-inset-left, 0px));
+}
+
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 0 50px rgba(0,229,255,0.12);
+  border-radius: 6px;
+  padding: 28px;
+  max-width: 420px; width: 100%;
+  max-height: 82vh; overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+
+.modal h2 {
+  font-size: 13px; font-weight: 900; letter-spacing: 0.25em;
+  color: var(--glow); text-shadow: 0 0 10px var(--glow);
+  margin-bottom: 22px;
+}
+.modal h3 {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.18em;
+  color: var(--white); margin: 18px 0 8px;
+  border-left: 2px solid var(--glow2); padding-left: 10px;
+}
+.modal p, .modal li {
+  color: var(--text); font-family: 'Courier New', monospace;
+  font-size: 12px; letter-spacing: 0.03em; line-height: 1.65;
+}
+.modal ol, .modal ul { padding-left: 1.4em; display: flex; flex-direction: column; gap: 5px; }
+
+.sizes-table {
+  width: 100%; border-collapse: collapse;
+  font-family: 'Courier New', monospace; font-size: 12px;
+  margin: 10px 0 4px; font-variant-numeric: tabular-nums;
+}
+.sizes-table th {
+  color: var(--glow); text-align: left; padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  font-family: 'Orbitron', monospace; font-size: 9px; letter-spacing: 0.12em;
+}
+.sizes-table td { padding: 5px 10px; color: var(--text); border-bottom: 1px solid var(--dim); }
+
+.tip-box {
+  margin-top: 16px; padding: 12px 14px;
+  background: rgba(0,229,255,0.04);
+  border: 1px solid var(--dim); border-radius: 4px;
+  color: var(--text); font-family: 'Courier New', monospace;
+  font-size: 11px; line-height: 1.6;
+}
+.tip-box strong { color: var(--glow); font-family: 'Orbitron', monospace; font-size: 9px; letter-spacing: 0.15em; }
+
+.close-btn {
+  display: block; width: 100%; margin-top: 22px;
+  background: transparent; border: 1px solid var(--glow);
+  color: var(--glow); font-family: 'Orbitron', monospace;
+  font-size: 10px; letter-spacing: 0.2em; padding: 11px;
+  cursor: pointer; border-radius: 3px;
+  text-shadow: 0 0 6px var(--glow); transition: background 0.2s;
+}
+.close-btn:hover { background: rgba(0,229,255,0.08); }
+</style>
+
+<!-- Shared SVG gradients and filters (referenced by ID from all 4 fish SVGs) -->
+<svg style="display:none" width="0" height="0" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="g-iris" cx="42%" cy="38%" r="62%">
+      <stop offset="0%"   stop-color="#00e5ff" stop-opacity="1"/>
+      <stop offset="55%"  stop-color="#0066cc" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#002255" stop-opacity="0.8"/>
+    </radialGradient>
+    <radialGradient id="g-head" cx="38%" cy="30%" r="70%">
+      <stop offset="0%"   stop-color="#00e5ff" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#00e5ff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="g-glow" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur"/>
+      <feFlood flood-color="#00e5ff" flood-opacity="0.7" result="col"/>
+      <feComposite in="col" in2="blur" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="g-soft" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5"/>
+    </filter>
+  </defs>
+</svg>
+
+<!-- Grid -->
+<div class="grid">
+  <div id="c-top"    class="cell c-top"></div>
+  <div id="c-left"   class="cell c-left"></div>
+  <div class="cell cell-mid"><div class="center-ring"></div></div>
+  <div id="c-right"  class="cell c-right"></div>
+  <div id="c-bottom" class="cell c-bottom"></div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <button class="ctrl-btn" id="info-btn">HOW TO BUILD</button>
+  <button class="ctrl-btn" id="fs-btn">FULLSCREEN</button>
+</div>
+
+<!-- Instructions modal -->
+<div class="modal-overlay" id="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-label="Pyramid build instructions">
+    <h2>BUILD THE PYRAMID</h2>
+    <h3>WHAT YOU NEED</h3>
+    <ul>
+      <li>Clear plastic sheet — overhead transparency, clear folder, or CD jewel case lid</li>
+      <li>Scissors or craft knife</li>
+      <li>Clear tape or super glue</li>
+      <li>Phone or tablet (laid flat, screen up)</li>
+    </ul>
+    <h3>CUT 4 IDENTICAL TRAPEZOIDS</h3>
+    <p>Each piece is wider at the bottom, narrower at the top:</p>
+    <div style="overflow-x:auto;margin:10px 0">
+      <table class="sizes-table">
+        <thead><tr><th>DEVICE</th><th>BOTTOM</th><th>TOP</th><th>HEIGHT</th></tr></thead>
+        <tbody>
+          <tr><td>Phone (5–6 in)</td><td>6 cm</td><td>1 cm</td><td>3.5 cm</td></tr>
+          <tr><td>Tablet (10 in)</td><td>10 cm</td><td>1.5 cm</td><td>6 cm</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>ASSEMBLE</h3>
+    <ol>
+      <li>Cut 4 identical trapezoid pieces</li>
+      <li>Tape the 4 diagonal edges together to form a pyramid shape</li>
+      <li>Narrow tip points UP into the air</li>
+      <li>Wide bottom sits flat on the screen</li>
+    </ol>
+    <h3>USE IT</h3>
+    <ol>
+      <li>Lay phone/tablet FLAT, screen facing UP</li>
+      <li>Open this page — turn screen brightness to MAX</li>
+      <li>Place pyramid over the small circle in the CENTER of the screen</li>
+      <li>Turn off the lights</li>
+      <li>Look at the pyramid from eye level — the figure floats inside!</li>
+    </ol>
+    <div class="tip-box">
+      <strong>TIPS</strong><br>
+      Darker room = better effect. Thinner plastic (overhead transparency) works best.
+      The hologram is most visible when you look straight at a pyramid face at eye level.
+    </div>
+    <button class="close-btn" id="close-btn">CLOSE</button>
+  </div>
+</div>
+
+<script>
+var fishHTML = `
+  <div class="fish">
+    <div class="orbit-a"></div>
+    <div class="orbit-b"></div>
+    <div class="scanswipe"></div>
+    <div class="pt pt1"></div>
+    <div class="pt pt2"></div>
+    <div class="pt pt3"></div>
+    <div class="pt pt4"></div>
+    <div class="pt pt5"></div>
+    <div class="pt pt6"></div>
+    <svg class="fish-svg" viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg">
+
+      <!-- === HAIR BACK LAYER (behind head) === -->
+      <path d="M24,44 Q22,12 50,8 Q78,12 76,44 Q72,22 55,16 Q44,14 28,22 Q24,32 24,44Z"
+            fill="#001828"/>
+
+      <!-- === NECK + SUIT (rendered before head so head overlaps) === -->
+      <path d="M43,84 L42,96 L58,96 L57,84" fill="#000d1a" stroke="#00e5ff" stroke-width="1"/>
+      <path d="M8,130 Q16,104 42,98 L42,96 L58,96 L58,98 Q84,104 92,130Z"
+            fill="#000d1a" stroke="#00e5ff" stroke-width="1.5"/>
+      <!-- Collar V -->
+      <path d="M42,96 Q50,104 58,96" fill="none" stroke="#00e5ff" stroke-width="1.1" opacity="0.75"/>
+
+      <!-- Web lines (radiating from chest, very faint) -->
+      <line x1="50" y1="98" x2="30" y2="118" stroke="#00e5ff" stroke-width="0.5" opacity="0.18"/>
+      <line x1="50" y1="98" x2="15" y2="130" stroke="#00e5ff" stroke-width="0.5" opacity="0.18"/>
+      <line x1="50" y1="98" x2="50" y2="130" stroke="#00e5ff" stroke-width="0.5" opacity="0.18"/>
+      <line x1="50" y1="98" x2="70" y2="118" stroke="#00e5ff" stroke-width="0.5" opacity="0.18"/>
+      <line x1="50" y1="98" x2="85" y2="130" stroke="#00e5ff" stroke-width="0.5" opacity="0.18"/>
+      <path d="M22,112 Q50,105 78,112" fill="none" stroke="#00e5ff" stroke-width="0.5" opacity="0.18"/>
+      <path d="M10,124 Q50,115 90,124" fill="none" stroke="#00e5ff" stroke-width="0.5" opacity="0.18"/>
+
+      <!-- === SPIDER EMBLEM (chest) === -->
+      <!-- Soft glow halo -->
+      <circle cx="50" cy="114" r="9" fill="none" stroke="#00e5ff" stroke-width="5" opacity="0.06" filter="url(#g-soft)"/>
+      <!-- Thorax -->
+      <ellipse cx="50" cy="110.5" rx="4.2" ry="3.2" fill="#00e5ff" opacity="0.92"/>
+      <!-- Abdomen -->
+      <ellipse cx="50" cy="117.5" rx="3.5" ry="5" fill="#00e5ff" opacity="0.92"/>
+      <!-- Legs — left -->
+      <path d="M46,109 Q40,103 35,99" fill="none" stroke="#00e5ff" stroke-width="1.1" stroke-linecap="round"/>
+      <path d="M46,111.5 Q39,111 34,109" fill="none" stroke="#00e5ff" stroke-width="1.1" stroke-linecap="round"/>
+      <path d="M46.5,114.5 Q40,117.5 36,122" fill="none" stroke="#00e5ff" stroke-width="1.1" stroke-linecap="round"/>
+      <path d="M47,118 Q41,122.5 38,128" fill="none" stroke="#00e5ff" stroke-width="1.1" stroke-linecap="round"/>
+      <!-- Legs — right -->
+      <path d="M54,109 Q60,103 65,99" fill="none" stroke="#00e5ff" stroke-width="1.1" stroke-linecap="round"/>
+      <path d="M54,111.5 Q61,111 66,109" fill="none" stroke="#00e5ff" stroke-width="1.1" stroke-linecap="round"/>
+      <path d="M53.5,114.5 Q60,117.5 64,122" fill="none" stroke="#00e5ff" stroke-width="1.1" stroke-linecap="round"/>
+      <path d="M53,118 Q59,122.5 62,128" fill="none" stroke="#00e5ff" stroke-width="1.1" stroke-linecap="round"/>
+
+      <!-- === HEAD (face shape — slightly wider at cheeks) === -->
+      <path d="M50,22 C70,22 76,38 76,52 C76,66 68,76 50,84 C32,76 24,66 24,52 C24,38 30,22 50,22Z"
+            fill="#000d1a" stroke="#00e5ff" stroke-width="1.7"/>
+      <!-- Lighting highlight (top-left) -->
+      <path d="M50,22 C70,22 76,38 76,52 C76,66 68,76 50,84 C32,76 24,66 24,52 C24,38 30,22 50,22Z"
+            fill="url(#g-head)" opacity="0.8"/>
+
+      <!-- === HAIR FRONT (layered over head top) === -->
+      <path d="M24,42 Q22,12 50,8 Q78,12 76,42 Q72,20 56,14 Q42,12 28,20 Q24,30 24,42Z"
+            fill="#001e33" stroke="#00e5ff" stroke-width="1.1" opacity="0.95"/>
+      <!-- Main hair sweep (Peter Parker wave, right side) -->
+      <path d="M28,24 Q38,14 52,12 Q64,12 72,22 Q75,28 74,36"
+            fill="none" stroke="#00e5ff" stroke-width="1.1" opacity="0.55" stroke-linecap="round"/>
+      <!-- Secondary hair texture -->
+      <path d="M30,18 Q44,11 60,14 Q68,17 72,26"
+            fill="none" stroke="#00e5ff" stroke-width="0.65" opacity="0.35" stroke-linecap="round"/>
+      <!-- Wispy strands at forehead -->
+      <path d="M38,18 Q37,26 35,36" fill="none" stroke="#00e5ff" stroke-width="0.7" opacity="0.28" stroke-linecap="round"/>
+      <path d="M44,15 Q43,24 41,34" fill="none" stroke="#00e5ff" stroke-width="0.6" opacity="0.22" stroke-linecap="round"/>
+
+      <!-- === EARS === -->
+      <!-- Left ear -->
+      <path d="M24,49 Q19,49 18,54 Q17,60 21,63 L24,61" fill="#000d1a" stroke="#00e5ff" stroke-width="0.9" opacity="0.8"/>
+      <path d="M20,52 Q19.5,56 21,59" fill="none" stroke="#00e5ff" stroke-width="0.5" opacity="0.45"/>
+      <!-- Right ear -->
+      <path d="M76,49 Q81,49 82,54 Q83,60 79,63 L76,61" fill="#000d1a" stroke="#00e5ff" stroke-width="0.9" opacity="0.8"/>
+      <path d="M80,52 Q80.5,56 79,59" fill="none" stroke="#00e5ff" stroke-width="0.5" opacity="0.45"/>
+
+      <!-- === EYEBROWS === -->
+      <path d="M26,43 Q32,37 40,41" stroke="#00e5ff" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <path d="M60,41 Q68,37 74,43" stroke="#00e5ff" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+      <!-- === LEFT EYE === -->
+      <g class="eye-l">
+        <!-- Socket shadow -->
+        <ellipse cx="33" cy="50" rx="8.5" ry="6.2" fill="#001020" opacity="0.55"/>
+        <!-- Sclera -->
+        <ellipse cx="33" cy="50" rx="7" ry="5" fill="#001420" stroke="#00e5ff" stroke-width="0.9"/>
+        <!-- Iris gradient fill -->
+        <circle cx="33" cy="50" r="3.8" fill="url(#g-iris)"/>
+        <!-- Iris ring -->
+        <circle cx="33" cy="50" r="3.8" fill="none" stroke="#00e5ff" stroke-width="0.5" opacity="0.65"/>
+        <!-- Pupil -->
+        <circle cx="33" cy="50" r="1.9" fill="#000a18"/>
+        <!-- Primary catch light -->
+        <circle cx="35" cy="48.2" r="1.05" fill="white" opacity="0.88"/>
+        <!-- Secondary catch light -->
+        <circle cx="31.5" cy="51.8" r="0.45" fill="white" opacity="0.45"/>
+        <!-- Upper eyelid -->
+        <path d="M26,50 Q33,43.5 40,50" fill="none" stroke="#00e5ff" stroke-width="1.3" stroke-linecap="round"/>
+        <!-- Lower eyelid -->
+        <path d="M27,51.5 Q33,56 39,51.5" fill="none" stroke="#00e5ff" stroke-width="0.7" stroke-linecap="round" opacity="0.5"/>
+      </g>
+
+      <!-- === RIGHT EYE === -->
+      <g class="eye-r">
+        <ellipse cx="67" cy="50" rx="8.5" ry="6.2" fill="#001020" opacity="0.55"/>
+        <ellipse cx="67" cy="50" rx="7" ry="5" fill="#001420" stroke="#00e5ff" stroke-width="0.9"/>
+        <circle cx="67" cy="50" r="3.8" fill="url(#g-iris)"/>
+        <circle cx="67" cy="50" r="3.8" fill="none" stroke="#00e5ff" stroke-width="0.5" opacity="0.65"/>
+        <circle cx="67" cy="50" r="1.9" fill="#000a18"/>
+        <circle cx="69" cy="48.2" r="1.05" fill="white" opacity="0.88"/>
+        <circle cx="65.5" cy="51.8" r="0.45" fill="white" opacity="0.45"/>
+        <path d="M60,50 Q67,43.5 74,50" fill="none" stroke="#00e5ff" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M61,51.5 Q67,56 73,51.5" fill="none" stroke="#00e5ff" stroke-width="0.7" stroke-linecap="round" opacity="0.5"/>
+      </g>
+
+      <!-- === NOSE === -->
+      <!-- Bridge (barely visible) -->
+      <line x1="50" y1="55" x2="50" y2="62" stroke="#00e5ff" stroke-width="0.5" opacity="0.18"/>
+      <!-- Nose tip shadow -->
+      <path d="M46,63 Q50,66 54,63" fill="none" stroke="#00e5ff" stroke-width="1" opacity="0.45" stroke-linecap="round"/>
+      <!-- Nostrils -->
+      <path d="M43,65 Q46.5,69 50,67 Q53.5,69 57,65" fill="none" stroke="#00e5ff" stroke-width="1" opacity="0.42" stroke-linecap="round"/>
+
+      <!-- === LIPS === -->
+      <!-- Philtrum (groove above lip) -->
+      <path d="M47,68 Q50,70.5 53,68" fill="none" stroke="#00e5ff" stroke-width="0.55" opacity="0.3"/>
+      <!-- Upper lip (cupid's bow) -->
+      <path d="M38,73 Q44,68 50,70.5 Q56,68 62,73" fill="none" stroke="#00e5ff" stroke-width="1.6" stroke-linecap="round"/>
+      <!-- Mouth crease -->
+      <path d="M38,73 Q50,74.5 62,73" fill="none" stroke="#00e5ff" stroke-width="0.8" opacity="0.45"/>
+      <!-- Lower lip -->
+      <path d="M38,73 Q50,81 62,73" fill="none" stroke="#00e5ff" stroke-width="1.7" stroke-linecap="round"/>
+      <!-- Mouth corner shadows -->
+      <circle cx="38" cy="73" r="1.2" fill="#000d1a" opacity="0.65"/>
+      <circle cx="62" cy="73" r="1.2" fill="#000d1a" opacity="0.65"/>
+
+      <!-- === CHIN CREASE === -->
+      <path d="M43,81 Q50,84 57,81" fill="none" stroke="#00e5ff" stroke-width="0.55" opacity="0.28"/>
+
+      <!-- === NECK DETAIL === -->
+      <!-- Adam's apple hint -->
+      <path d="M47,89 Q50,87 53,89" fill="none" stroke="#00e5ff" stroke-width="0.6" opacity="0.3"/>
+
+    </svg>
+    <div class="fish-label">PETER P.</div>
+    <div class="fish-status"><span class="status-dot"></span>HERO MODE</div>
+  </div>
+`;
+
+  ['c-top','c-left','c-right','c-bottom'].forEach(function(id, i) {
+    var el = document.getElementById(id);
+    el.innerHTML = fishHTML;
+    var fish = el.querySelector('.fish');
+    fish.style.animationDelay = (i * 0.45) + 's, ' + (i * 2.2) + 's';
+  });
+
+  // Instructions
+  var overlay = document.getElementById('modal-overlay');
+  document.getElementById('info-btn').addEventListener('click', function() { overlay.hidden = false; });
+  document.getElementById('close-btn').addEventListener('click', function() { overlay.hidden = true; });
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.hidden = true; });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') overlay.hidden = true; });
+
+  // Fullscreen
+  var fsBtn = document.getElementById('fs-btn');
+  fsBtn.addEventListener('click', function() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(function(){});
+    } else {
+      document.exitFullscreen().catch(function(){});
+    }
+  });
+  document.addEventListener('fullscreenchange', function() {
+    fsBtn.textContent = document.fullscreenElement ? 'EXIT FULL' : 'FULLSCREEN';
+  });
+</script>
