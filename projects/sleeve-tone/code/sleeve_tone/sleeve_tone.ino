@@ -16,7 +16,7 @@ void setup() {
 
 void loop() {
   if (digitalRead(buttonPin) == LOW) {
-    tone(speakerPin, 17500);   // 17,500 Hz — hard to locate
+    tone(speakerPin, 8000);    // 8,000 Hz — loud, piercing, hard to locate
   } else {
     noTone(speakerPin);
   }
