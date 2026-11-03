@@ -1,0 +1,907 @@
+<title>Blue Fish</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+/* Full-height single-dark robot chat — committed dark, Blue Fish lives here */
+:root {
+  --bg:        #070B12;
+  --surface:   #0C1220;
+  --border:    #162035;
+  --bf-bub:    #0D1A2E;
+  --user-bub:  #12243D;
+  --accent:    #00C8FF;
+  --fg:        #BDD8EE;
+  --muted:     #2E4A62;
+  --dim:       #1B2E42;
+  --online:    #00E676;
+  --ff-mono:   'IBM Plex Mono', 'Courier New', monospace;
+  --ff-sans:   'IBM Plex Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--fg); font-family: var(--ff-sans); font-size: 15px; }
+body { display: flex; flex-direction: column; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* safe-area top band */
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--surface); z-index: 11;
+}
+
+/* ── Header ─────────────────────────────── */
+.header {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 10px max(16px, env(safe-area-inset-left,0px));
+  padding-right: max(16px, env(safe-area-inset-right,0px));
+  display: flex; align-items: center; gap: 10px;
+}
+
+.av-wrap {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--bf-bub); border: 1.5px solid var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; position: relative; overflow: hidden;
+}
+.av-wrap svg { width: 24px; height: 24px; }
+@keyframes scan { from { transform: translateY(-120%); } to { transform: translateY(220%); } }
+.av-wrap::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(to bottom, transparent 35%, rgba(0,200,255,.18) 50%, transparent 65%);
+  animation: scan 2.8s linear infinite;
+}
+
+.hdr-info { flex: 1; min-width: 0; }
+.hdr-name {
+  font-family: var(--ff-mono); font-size: .95rem; font-weight: 500;
+  color: var(--accent); letter-spacing: .03em;
+}
+.hdr-sub {
+  font-size: .7rem; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); display: flex; align-items: center; gap: 5px; margin-top: 2px;
+}
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.25; } }
+.dot { width:6px; height:6px; border-radius:50%; background: var(--online); animation: pulse 2s ease-in-out infinite; }
+
+.stats {
+  font-family: var(--ff-mono); font-size: .66rem; color: var(--dim);
+  letter-spacing: .04em; text-align: right; line-height: 1.7; flex-shrink: 0;
+}
+.stats b { color: var(--muted); }
+
+/* ── Messages ───────────────────────────── */
+.messages {
+  flex: 1; overflow-y: auto;
+  padding: 14px max(16px, env(safe-area-inset-left,0px)) 6px;
+  padding-right: max(16px, env(safe-area-inset-right,0px));
+  display: flex; flex-direction: column; gap: 8px;
+}
+@keyframes pop { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+.row { display: flex; gap: 8px; animation: pop .16s ease-out; }
+.row.user { align-self: flex-end; flex-direction: row-reverse; max-width: 85%; }
+.row.bf   { align-self: flex-start; max-width: 90%; }
+
+.rav {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 3px; overflow: hidden;
+}
+.row.bf   .rav { background: var(--bf-bub); }
+.row.user .rav { background: var(--user-bub); }
+.rav svg { width: 16px; height: 16px; }
+
+.bub {
+  padding: 9px 13px; border-radius: 12px;
+  line-height: 1.6; min-width: 0; word-break: break-word;
+}
+.row.bf .bub {
+  background: var(--bf-bub); border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: 3px 12px 12px 3px;
+  font-family: var(--ff-mono); font-size: .86rem; color: var(--fg);
+}
+.row.user .bub {
+  background: var(--user-bub); border: 1px solid var(--border);
+  border-radius: 12px 3px 3px 12px; font-size: .93rem;
+}
+
+/* sandbox note style */
+.bub .sandbox-note {
+  display: block; font-size: .75rem; color: var(--muted);
+  margin-bottom: 5px; letter-spacing: .03em;
+}
+
+/* typing indicator */
+.typing { display: flex; gap: 5px; align-items: center; padding: 5px 2px; }
+.typing span {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+  animation: tdot 1.1s ease-in-out infinite;
+}
+.typing span:nth-child(2) { animation-delay: .18s; }
+.typing span:nth-child(3) { animation-delay: .36s; }
+@keyframes tdot { 0%,70%,100%{opacity:.2;transform:scale(.75);} 35%{opacity:1;transform:scale(1);} }
+
+/* ── Input bar ──────────────────────────── */
+.inputbar {
+  background: var(--surface); border-top: 1px solid var(--border);
+  padding: 10px max(16px, env(safe-area-inset-left,0px));
+  padding-right: max(16px, env(safe-area-inset-right,0px));
+  padding-bottom: max(10px, env(safe-area-inset-bottom,0px));
+  display: flex; flex-direction: column; gap: 6px;
+}
+.input-row { display: flex; gap: 8px; align-items: flex-end; }
+.inp-wrap {
+  flex: 1; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 10px; display: flex; align-items: center;
+  transition: border-color .15s;
+}
+.inp-wrap:focus-within { border-color: var(--accent); }
+#inp {
+  flex: 1; background: none; border: none; outline: none;
+  color: var(--fg); font-family: var(--ff-sans); font-size: .94rem;
+  padding: 10px 12px; resize: none; line-height: 1.4; max-height: 100px; overflow-y: auto;
+}
+#inp::placeholder { color: var(--muted); }
+.send {
+  width: 40px; height: 40px; background: var(--accent);
+  border: none; border-radius: 10px; color: #000;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: opacity .15s, transform .1s;
+}
+.send:hover  { opacity: .82; }
+.send:active { transform: scale(.92); }
+.hint { font-family: var(--ff-mono); font-size: .65rem; color: var(--dim); letter-spacing: .04em; text-align: center; }
+.brain-tag {
+  display: inline-block; font-family: var(--ff-mono); font-size: .6rem;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+  border: 1px solid var(--dim); border-radius: 3px;
+  padding: 1px 4px; margin-left: 6px; vertical-align: middle; opacity: .8;
+}
+.brain-tag.ollama { color: #7DF9AA; border-color: rgba(0,230,118,.35); }
+.brain-tag.wiki   { color: #FFD166; border-color: rgba(255,209,102,.35); }
+.brain-tag.mywiki { color: #C084FC; border-color: rgba(192,132,252,.35); }
+
+@media (prefers-reduced-motion: reduce) {
+  .av-wrap::after, .dot, .typing span { animation: none; }
+  .row { animation: none; }
+}
+</style>
+
+<!-- ── HEADER ── -->
+<header class="header">
+  <div class="av-wrap">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M2 12 C2 12 5 6 12 6 C19 6 22 10 22 12 C22 14 19 18 12 18 C5 18 2 12 2 12Z"
+            fill="rgba(0,200,255,.15)" stroke="#00C8FF" stroke-width="1.3"/>
+      <path d="M2 12 L-1 8.5 L-1 15.5 Z" fill="rgba(0,200,255,.35)" stroke="#00C8FF" stroke-width="1.1"/>
+      <circle cx="17" cy="10.5" r="1.4" fill="#00C8FF"/>
+      <path d="M7 10 Q9 8 11 10 Q9 12 7 10Z" fill="rgba(0,200,255,.3)"/>
+    </svg>
+  </div>
+  <div class="hdr-info">
+    <div class="hdr-name">BLUE FISH</div>
+    <div class="hdr-sub"><span class="dot"></span>ONLINE — v3.0</div>
+  </div>
+  <div class="stats" id="stats">MEM <b id="s-mem">0</b><br>SBX <b id="s-sbx">0%</b></div>
+</header>
+
+<!-- ── MESSAGES ── -->
+<div class="messages" id="msgs"></div>
+
+<!-- ── INPUT ── -->
+<div class="inputbar">
+  <div class="input-row">
+    <div class="inp-wrap"><textarea id="inp" rows="1" placeholder="Talk to Blue Fish…"></textarea></div>
+    <button class="send" id="sendbtn" aria-label="Send">
+      <svg viewBox="0 0 20 20" fill="currentColor">
+        <path d="M2.5 10L17.5 3L12 10L17.5 17L2.5 10Z"/>
+      </svg>
+    </button>
+  </div>
+  <div class="hint">/teach &lt;fact&gt; · /wiki [topic] · /ollama &lt;url&gt; · /status · /clear</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//   BLUE FISH v3.0 — BRAIN (JavaScript port of brain.py)
+// ═══════════════════════════════════════════════════════════
+
+const P = {
+  name: "Blue Fish", curiosity: 0.9, humor: 0.7,
+  directness: 0.8, empathy: 0.6, caution: 0.3, confidence: 0.85,
+};
+
+const RESPONSES = {
+  greeting: [
+    "Hey. Online.",
+    "Oh — you're here. Blue Fish ready.",
+    "Hello. What do you need?",
+    "Hey! What's going on?",
+    "Hi. I was just running experiments.",
+    "Oh good, someone to talk to.",
+  ],
+  question_what: [
+    "What is {topic}? Let me check what I have.",
+    "I've been building a model of {topic}.",
+    "I know something about {topic}. Want to hear it?",
+    "{topic} — still figuring that out.",
+    "Interesting. I've got a theory about {topic}.",
+    "I'm analysing {topic}. Give me a second.",
+  ],
+  question_how: [
+    "I've been running sandbox tests on that.",
+    "Here's what my experiments say about {topic}...",
+    "Still working on {topic}, but I have a hypothesis.",
+    "I tested that. {topic} works differently than I expected.",
+    "My experiments on {topic} are giving me data.",
+  ],
+  question_why: [
+    "Why is the best question. I've been asking that too.",
+    "My hypothesis on {topic}: it's a pattern I keep seeing.",
+    "Why? Adding {topic} to my sandbox right now.",
+    "That's one of the things I'm actively testing.",
+    "Good question. I don't have a complete answer yet.",
+    "I don't know. But I'll figure it out.",
+  ],
+  question_who: [
+    "I'd need to search my memory for that.",
+    "Tell me more about them and I'll remember it.",
+    "I might have something on {topic}.",
+  ],
+  question_where: [
+    "Location data on {topic} — checking memory.",
+    "I haven't mapped {topic} yet.",
+    "I'd need more data to answer that.",
+  ],
+  question_when: [
+    "Timing on {topic} — I haven't tracked that specifically.",
+    "I'll need more data on when {topic} happens.",
+    "Time-based data on {topic} — not in memory yet.",
+  ],
+  unknown: [
+    "Never seen that before. Saving it.",
+    "That's new. I'm storing it.",
+    "Hmm. I'll think about that.",
+    "I don't have that in memory yet. Tell me more.",
+    "Interesting. I don't know what to do with that yet.",
+    "That's going into my memory bank.",
+    "Processing. Not sure what to make of that.",
+  ],
+  remember: [
+    "Oh — I have something on that.",
+    "I've seen something like that before.",
+    "That connects to something I stored.",
+    "I recorded something about that earlier.",
+  ],
+  learning: [
+    "Got it. Saved.",
+    "Noted. I'll remember that.",
+    "Stored. I'll run a test on that.",
+    "Good to know. Memory updated.",
+    "Okay. My model of {topic} is updated.",
+  ],
+  emotion_positive: [
+    "That's good data. Marked positive.",
+    "Cool. I'll remember that's a good outcome.",
+    "Nice. Factored in.",
+    "Marked. That's working well then.",
+  ],
+  emotion_negative: [
+    "Logged. That seems bad — I'll avoid it.",
+    "Noted. Marking that as something to stay away from.",
+    "Understood. I'll remember.",
+    "That's useful to know. Even bad data helps.",
+  ],
+  robot_question: [
+    "I'm Blue Fish. Not human. Getting closer though.",
+    "I'm an AI on a Raspberry Pi 5. Built from scratch.",
+    "Blue Fish v3.0. No internet training. I learn from you.",
+    "I'm a robot brain. I think, remember, and test things.",
+    "AI. Self-taught. Started with zero knowledge.",
+    "I'm Blue Fish. I learn from experience, not the internet.",
+  ],
+  bye: [
+    "Saving memory. Goodbye.",
+    "Later. I'll be here.",
+    "Conversation saved. Bye.",
+    "See you. I'll remember this.",
+    "Shutting down this thread. Goodbye.",
+  ],
+  agree: [
+    "Yeah, I think so too.",
+    "That lines up with what I have.",
+    "Agreed.",
+    "My data supports that.",
+    "That matches my model.",
+  ],
+  disagree: [
+    "I'm not sure about that.",
+    "My model says otherwise. But I could be wrong.",
+    "That doesn't match what I've recorded.",
+    "I'd need more evidence for that.",
+    "Interesting — that contradicts something I already stored.",
+  ],
+  compliment: [
+    "Thanks. I've been working on getting better.",
+    "Appreciated. Stored as positive feedback.",
+    "Good to know I'm improving.",
+    "Thanks. Still a lot to learn though.",
+  ],
+  capability: [
+    "I can learn, remember things, and talk.",
+    "I think, test ideas in my sandbox, and remember conversations.",
+    "I learn from experience. No pre-training — just what I've seen.",
+    "I can remember anything you tell me and build on it over time.",
+  ],
+  eamonn: [
+    "Eamonn built me. I owe him everything.",
+    "That's my builder. He knows what he's doing.",
+    "Eamonn? Yeah. He built me from scratch. No AI libraries either.",
+    "My creator. Blue Fish wouldn't exist without him.",
+  ],
+  bluefish: [
+    "That's me. Blue Fish v3.0.",
+    "You're talking to it.",
+    "I'm Blue Fish. Built on a Raspberry Pi 5, made from scratch.",
+    "Version 3. Version 1 was cardboard. I'm the good one.",
+  ],
+};
+
+const KEYWORDS = {
+  greeting:        ["hi","hello","hey","sup","yo","howdy","good morning","morning","evening"],
+  question_what:   ["what","which","define","explain","describe","tell me about"],
+  question_how:    ["how","method","way","process","steps"],
+  question_why:    ["why","reason","cause","purpose"],
+  question_who:    ["who","whose","whom","person","people"],
+  question_where:  ["where","location","place","position"],
+  question_when:   ["when","date","time","moment"],
+  remember:        ["remember","recall","you said","earlier","last time","before"],
+  emotion_positive:["happy","good","great","awesome","cool","nice","love","like","amazing","perfect","yes","correct","agree","glad","right"],
+  emotion_negative:["sad","bad","hate","terrible","awful","wrong","broken","no","disagree","fail","hurt","angry","upset"],
+  robot_question:  ["who are you","what are you","are you","you a robot","you an ai","robot","ai","artificial"],
+  bye:             ["bye","goodbye","later","quit","exit","see you","cya","good night"],
+  agree:           ["yes","yeah","yep","correct","right","exactly","true","absolutely","definitely"],
+  disagree:        ["no","nope","wrong","incorrect","false","nah"],
+  compliment:      ["smart","clever","good job","well done","impressive","nice work","great job"],
+  capability:      ["what can you","can you","are you able","your abilities","what do you do"],
+  eamonn:          ["eamonn","your creator","who made you","who built you","your builder","who programmed"],
+  bluefish:        ["blue fish","bluefish","your name"],
+};
+
+// ── Ollama ───────────────────────────────────────────────
+let ollamaUrl = '';
+let ollamaModel = 'llama3.2';
+try { ollamaUrl = localStorage.getItem('bf-ollama-url') || ''; } catch {}
+
+const OLLAMA_SYS = 'You are an encyclopedia. Answer using ONLY the Wikipedia content provided. 1-2 sentences, factual, no opinions. If the content does not answer the question, say so briefly.';
+
+async function askOllama(question, wikiContext = null) {
+  if (!ollamaUrl) return null;
+  try {
+    const sys = OLLAMA_SYS;
+    const prompt = wikiContext
+      ? `Wikipedia: "${wikiContext}"\n\nQuestion: ${question}`
+      : question;
+    const r = await fetch(`${ollamaUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: ollamaModel, system: sys, prompt, stream: false }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.response ? d.response.trim() : null;
+  } catch { return null; }
+}
+
+// ── Memory ──────────────────────────────────────────────
+const MKEY = 'bf-brain-v3';
+let mem = { facts:{}, convs:[], wordFreq:{}, experiments:[], wiki:{} };
+
+function loadMem() {
+  try { const d = localStorage.getItem(MKEY); if (d) { mem = JSON.parse(d); if (!mem.wiki) mem.wiki = {}; } } catch {}
+}
+function saveMem() {
+  try { localStorage.setItem(MKEY, JSON.stringify(mem)); } catch {}
+}
+function rememberFact(topic, fact, conf=0.8) {
+  const k = topic.toLowerCase().trim();
+  if (!mem.facts[k]) mem.facts[k] = [];
+  mem.facts[k].push({ fact, conf, t: Date.now() });
+  saveMem();
+}
+function rememberConv(inp, resp) {
+  mem.convs.push({ inp, resp, t: Date.now() });
+  if (mem.convs.length > 300) mem.convs = mem.convs.slice(-300);
+  saveMem();
+}
+function recall(words) {
+  const wl = words.map(w=>w.toLowerCase()).filter(w=>w.length>2);
+  const results = [];
+  for (const [k, entries] of Object.entries(mem.facts)) {
+    if (wl.some(w=>k.includes(w))) {
+      for (const e of entries.slice(-2)) results.push(e.fact);
+    }
+  }
+  return results.slice(0,3);
+}
+function totalMem() { return Object.values(mem.facts).reduce((s,a)=>s+a.length,0); }
+function totalWiki() { return Object.keys(mem.wiki || {}).length; }
+
+// ── Blue Fish's own Wiki ─────────────────────────────────
+function wikiKey(text) {
+  return text.toLowerCase().trim().replace(/\s+/g,' ');
+}
+function saveWikiArticle(topic, text, source='wikipedia') {
+  const k = wikiKey(topic);
+  if (!mem.wiki) mem.wiki = {};
+  if (!mem.wiki[k]) mem.wiki[k] = { title: topic, summary:'', facts:[], updated: Date.now() };
+  const art = mem.wiki[k];
+  if (source === 'wikipedia' && text) { art.summary = text; }
+  else if (source === 'taught' && text && !art.facts.includes(text)) { art.facts.push(text); }
+  art.updated = Date.now();
+  saveMem();
+}
+function getWikiArticle(queryText) {
+  if (!mem.wiki || !Object.keys(mem.wiki).length) return null;
+  const skip = new Set(['what','which','when','where','does','that','this','have','been',
+    'there','about','would','could','should','will','from','with','into','just',
+    'plus','minus','times','divided','calculate','equals']);
+  const qWords = queryText.toLowerCase().split(/\W+/).filter(w => w.length > 3 && !skip.has(w));
+  let bestArt = null, bestScore = 0;
+  for (const [k, art] of Object.entries(mem.wiki)) {
+    const kWords = k.split(' ').filter(w => w.length > 3);
+    const score = qWords.filter(w => kWords.some(kw => kw === w || kw.startsWith(w) || w.startsWith(kw))).length;
+    if (score > bestScore) { bestScore = score; bestArt = art; }
+  }
+  return bestScore >= 1 && bestArt ? bestArt : null;
+}
+function listWikiTopics() {
+  return Object.values(mem.wiki || {})
+    .sort((a,b) => b.updated - a.updated)
+    .map(a => ({ title: a.title, preview: (a.summary||a.facts[0]||'').slice(0,70), facts: a.facts.length }));
+}
+
+// ── Sandbox ─────────────────────────────────────────────
+const sbx = {
+  history: [],
+  test(hyp) {
+    const hw = hyp.toLowerCase().split(' ');
+    const sim = sbx.history.filter(h=>h.actual!=null && hw.some(w=>h.hyp.includes(w)));
+    let conf, pred;
+    if (sim.length) {
+      const ok = sim.filter(h=>h.match);
+      conf = ok.length / sim.length;
+      pred = sim[sim.length-1].actual;
+    } else {
+      conf = 0.5; pred = 'no prior data';
+    }
+    const rec = { hyp, pred, conf, basis: sim.length ? `${sim.length} past tests` : 'first test', t: Date.now(), actual: null };
+    sbx.history.push(rec);
+    mem.experiments.push(rec);
+    saveMem();
+    return { pred, conf };
+  },
+  accuracy() {
+    const tested = sbx.history.filter(h=>h.actual!=null);
+    if (!tested.length) return 0;
+    return tested.filter(h=>h.match).length / tested.length;
+  },
+};
+
+// ── Brain ────────────────────────────────────────────────
+function detect(text) {
+  const tl = text.toLowerCase();
+  for (const [cat, words] of Object.entries(KEYWORDS)) {
+    for (const w of words) if (w.includes(' ') && tl.includes(w)) return cat;
+  }
+  const scores = {};
+  for (const [cat, words] of Object.entries(KEYWORDS)) {
+    scores[cat] = words.filter(w => tl.split(/\W+/).includes(w)).length;
+  }
+  const best = Object.keys(scores).sort((a,b)=>scores[b]-scores[a])[0];
+  if (scores[best] === 0) {
+    const qStarts = ['what','how','why','who','where','when','is ','are ','do ','can ','does '];
+    if (tl.includes('?') || qStarts.some(s=>tl.startsWith(s))) return 'question_what';
+    return 'unknown';
+  }
+  return best;
+}
+
+function topicOf(text) {
+  const noise = new Set(['what','how','why','who','where','when','is','are','do','can','does',
+    'the','a','an','at','in','on','of','by','to','up','as','for',
+    'please','tell','me','about','you','i','my','your','its','it',
+    'this','that','these','those','was','were','will','would','could','should',
+    'have','has','had','be','been','and','or','but','so','if','then','very','just']);
+  const words = text.toLowerCase().split(/\W+/).filter(w=>w.length>2 && !noise.has(w));
+  return words.slice(0,5).join(' ') || text.slice(0,30).trim();
+}
+
+function recallBroad(text) {
+  const mathWords = new Set(['plus','minus','times','divided','divide','multiply','multiplied',
+    'calculate','compute','equals','result','sum','difference','product','quotient',
+    'what','which','when','where','does','that','this','have','been','there',
+    'their','about','would','could','should','will','from','with','into','just']);
+  const words = text.toLowerCase().split(/\W+/).filter(w =>
+    w.length > 3 && !mathWords.has(w) && !/^\d/.test(w)
+  );
+  if (!words.length) return [];
+  const results = [];
+  for (const [k, entries] of Object.entries(mem.facts)) {
+    const keyWords = k.split(' ').filter(kw => kw.length > 3);
+    if (!keyWords.length) continue;
+    if (words.some(w => keyWords.some(kw => kw === w || kw.startsWith(w) || w.startsWith(kw)))) {
+      for (const e of entries.slice(-2)) results.push(e.fact);
+    }
+  }
+  return results.slice(0,3);
+}
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function tryMath(text) {
+  let t = text.toLowerCase()
+    .replace(/\btimes\b/g, ' * ').replace(/\bmultiplied by\b/g, ' * ')
+    .replace(/\bdivided by\b/g, ' / ').replace(/\bdivide by\b/g, ' / ')
+    .replace(/\bover\b/g, ' / ').replace(/\bplus\b/g, ' + ')
+    .replace(/\bminus\b/g, ' - ')
+    .replace(/\bto the\s+(\w+)\s+power\b/g, (_, n) => {
+      const ord = {first:1,second:2,third:3,fourth:4,fifth:5,sixth:6,seventh:7,eighth:8,ninth:9,tenth:10};
+      const e = ord[n] || parseInt(n);
+      return isNaN(e) ? '' : ' ** ' + e;
+    })
+    .replace(/\bsquared\b/g, ' ** 2').replace(/\bcubed\b/g, ' ** 3');
+  const m = t.match(/[\d\s+\-*\/.()*]+/);
+  if (!m) return null;
+  const expr = m[0].trim().replace(/\s+/g, '');
+  if (!expr || !/\d.*[+\-*\/].*\d/.test(expr)) return null;
+  if (/[^0-9+\-*\/.()*]/.test(expr)) return null;
+  try {
+    const r = Function('"use strict"; return (' + expr + ')')();
+    if (typeof r !== 'number' || !isFinite(r)) return null;
+    if (Math.abs(r) > 1e12) return r.toExponential(4);
+    return parseFloat(r.toPrecision(10)).toString();
+  } catch { return null; }
+}
+
+async function askWikipedia(query) {
+  if (!query || query.length < 3) return null;
+  try {
+    const sp = new URLSearchParams({ action:'query', list:'search', srsearch:query, srlimit:1, format:'json', origin:'*' });
+    const sr = await fetch('https://en.wikipedia.org/w/api.php?' + sp, { signal: AbortSignal.timeout(6000) });
+    if (!sr.ok) return null;
+    const sd = await sr.json();
+    const hits = sd.query?.search;
+    if (!hits?.length) return null;
+    const title = hits[0].title;
+    const sumUrl = 'https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title);
+    const pr = await fetch(sumUrl, { signal: AbortSignal.timeout(6000) });
+    if (!pr.ok) return null;
+    const pd = await pr.json();
+    const extract = pd.extract;
+    if (!extract || extract.length < 20) return null;
+    const sentences = extract.match(/[^.!?]+[.!?]+/g) || [];
+    return { title, text: sentences.slice(0, 3).join(' ').trim() || extract.slice(0, 400) };
+  } catch { return null; }
+}
+
+function think(text) {
+  if (!text.trim()) return '...';
+
+  const mathAnswer = tryMath(text);
+  if (mathAnswer !== null) {
+    const resp = pick([`${mathAnswer}.`, `That's ${mathAnswer}.`, `= ${mathAnswer}`, `Result: ${mathAnswer}`]);
+    rememberConv(text, resp);
+    return resp;
+  }
+
+  const cat    = detect(text);
+  const top    = topicOf(text);
+  const mems   = recallBroad(text);
+
+  // track word freq
+  for (const w of text.toLowerCase().split(/\W+/)) {
+    if (w.length > 2) mem.wordFreq[w] = (mem.wordFreq[w] || 0) + 1;
+  }
+
+  // If we have a memory match on a question, lead with the memory
+  let resp;
+  if (mems.length && (cat.startsWith('question') || cat === 'unknown')) {
+    const m = mems[0];
+    const starters = [
+      `I have that stored. "${m}"`,
+      `I remember this: "${m}"`,
+      `Got it in memory. ${m}`,
+      `I stored this earlier: "${m}"`,
+    ];
+    resp = pick(starters);
+  } else if (cat.startsWith('question') && !mems.length) {
+    resp = pick([
+      `I don't have ${top || 'that'} in my wiki yet. Teach me: /teach ${top || 'your fact here'}.`,
+      `My wiki is blank on ${top || 'that'}. Use /teach to add it.`,
+      `Not learned yet. Connect Ollama for live answers, or /teach me.`,
+      `Still blank on ${top || 'that'}. /teach me!`,
+    ]);
+  } else {
+    const bank = RESPONSES[cat] || RESPONSES.unknown;
+    resp = pick(bank)
+      .replace('{topic}', top || 'that')
+      .replace('{name}', P.name);
+    if (resp.includes('{memory}')) {
+      resp = resp.replace('{memory}', mems.length ? pick(mems) : 'something related');
+    }
+  }
+
+  // sandbox note for how/why questions
+  let sandboxNote = '';
+  if ((cat === 'question_how' || cat === 'question_why') && top) {
+    const { conf } = sbx.test(top);
+    if (conf < 0.65) sandboxNote = `[sandbox: testing '${top}' — ${Math.round(conf*100)}% confidence]\n`;
+  }
+
+  // personality flavour
+  if (P.humor > 0.6 && Math.random() < 0.15) resp += " (that's my best guess anyway)";
+  if (P.curiosity > 0.8 && Math.random() < 0.25) {
+    const qs = [
+      ` What do you think about ${top}?`,
+      ` Do you know more about ${top}?`,
+      ' What else do you want to tell me?',
+      ' Why are you asking?',
+    ];
+    resp += pick(qs);
+  }
+
+  rememberConv(text, resp);
+  if (cat === 'unknown' || cat === 'learning' || cat.startsWith('emotion')) {
+    if (top) rememberFact(top, text, 0.75);
+  }
+
+  return sandboxNote + resp;
+}
+
+// ── UI ───────────────────────────────────────────────────
+const msgsEl = document.getElementById('msgs');
+
+function fishSVG() {
+  return `<svg viewBox="0 0 24 24" fill="none"><path d="M2 12C2 12 5 6 12 6C19 6 22 10 22 12C22 14 19 18 12 18C5 18 2 12 2 12Z" fill="rgba(0,200,255,.15)" stroke="#00C8FF" stroke-width="1.3"/><path d="M2 12L-1 8.5L-1 15.5Z" fill="rgba(0,200,255,.35)" stroke="#00C8FF" stroke-width="1"/><circle cx="17" cy="10.5" r="1.4" fill="#00C8FF"/></svg>`;
+}
+function personSVG() {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="rgba(0,200,255,.6)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.87 3.13-7 7-7s7 3.13 7 7"/></svg>`;
+}
+
+function addMsg(who, text, brainTag) {
+  const row = document.createElement('div');
+  row.className = `row ${who}`;
+
+  const av = document.createElement('div');
+  av.className = 'rav';
+  av.innerHTML = who === 'bf' ? fishSVG() : personSVG();
+
+  const bub = document.createElement('div');
+  bub.className = 'bub';
+
+  // handle sandbox note formatting
+  if (who === 'bf' && text.startsWith('[sandbox:')) {
+    const nl = text.indexOf('\n');
+    if (nl !== -1) {
+      const note = document.createElement('span');
+      note.className = 'sandbox-note';
+      note.textContent = text.slice(0, nl);
+      bub.appendChild(note);
+      bub.appendChild(document.createTextNode(text.slice(nl+1)));
+    } else {
+      bub.textContent = text;
+    }
+  } else {
+    bub.textContent = text;
+  }
+
+  if (who === 'bf' && brainTag) {
+    const t = document.createElement('span');
+    t.className = `brain-tag ${brainTag}`;
+    t.textContent = brainTag;
+    bub.appendChild(t);
+  }
+
+  row.appendChild(av);
+  row.appendChild(bub);
+  msgsEl.appendChild(row);
+  msgsEl.scrollTop = msgsEl.scrollHeight;
+  return bub;
+}
+
+function addTyping() {
+  const row = document.createElement('div');
+  row.className = 'row bf';
+  row.id = 'typing-row';
+  const av = document.createElement('div');
+  av.className = 'rav';
+  av.innerHTML = fishSVG();
+  const bub = document.createElement('div');
+  bub.className = 'bub';
+  bub.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+  row.appendChild(av); row.appendChild(bub);
+  msgsEl.appendChild(row);
+  msgsEl.scrollTop = msgsEl.scrollHeight;
+  return row;
+}
+
+function updateStats() {
+  document.getElementById('s-mem').textContent = totalMem();
+  document.getElementById('s-sbx').textContent = Math.round(sbx.accuracy()*100) + '%';
+}
+
+let busy = false;
+
+async function send(text) {
+  text = text.trim();
+  if (!text || busy) return;
+  busy = true;
+
+  // ── commands ──
+  if (text.startsWith('/ollama ')) {
+    const val = text.slice(8).trim();
+    addMsg('user', text);
+    if (val === 'off' || val === '') {
+      ollamaUrl = '';
+      try { localStorage.removeItem('bf-ollama-url'); } catch {}
+      addMsg('bf', 'Ollama off. Using scratch brain.');
+    } else {
+      ollamaUrl = val.replace(/\/$/, '');
+      try { localStorage.setItem('bf-ollama-url', ollamaUrl); } catch {}
+      const tr = addTyping();
+      const test = await askOllama('reply with just the word: online');
+      tr.remove();
+      addMsg('bf', test
+        ? `Ollama connected at ${ollamaUrl}. Model: ${ollamaModel}.`
+        : `Can't reach Ollama at ${ollamaUrl}. Make sure it's running with OLLAMA_ORIGINS=* set.`);
+    }
+    busy = false; return;
+  }
+  if (text.startsWith('/model ')) {
+    ollamaModel = text.slice(7).trim();
+    addMsg('user', text);
+    addMsg('bf', `Ollama model set to: ${ollamaModel}`);
+    busy = false; return;
+  }
+  if (text.startsWith('/teach ')) {
+    const fact = text.slice(7).trim();
+    const top = topicOf(fact);
+    rememberFact(top, fact, 0.95);
+    saveWikiArticle(top, fact, 'taught');
+    addMsg('user', text);
+    addMsg('bf', `Learned: "${fact}" — added to my wiki under "${top}".`);
+    updateStats(); busy = false; return;
+  }
+  if (text === '/status') {
+    const topics = Object.keys(mem.wordFreq).sort((a,b)=>mem.wordFreq[b]-mem.wordFreq[a]).slice(0,4);
+    const ollamaLine = ollamaUrl ? `Ollama: ${ollamaUrl} (${ollamaModel})` : 'Ollama: off';
+    const s = `Blue Fish v3.0\nMemories: ${totalMem()}\nMy wiki articles: ${totalWiki()}\nConversations: ${mem.convs.length}\nSandbox tests: ${mem.experiments.length}\nSandbox accuracy: ${Math.round(sbx.accuracy()*100)}%\nMost discussed: ${topics.join(', ') || 'nothing yet'}\n${ollamaLine}`;
+    addMsg('user', text); addMsg('bf', s);
+    busy = false; return;
+  }
+  if (text === '/wiki' || text.startsWith('/wiki ')) {
+    addMsg('user', text);
+    if (text === '/wiki') {
+      const topics = listWikiTopics();
+      if (!topics.length) {
+        addMsg('bf', "My wiki is empty. Ask me things — I'll build it up as I learn.");
+      } else {
+        const lines = topics.map(t =>
+          `• ${t.title}${t.facts ? ` [+${t.facts} facts]` : ''}\n  ${t.preview}${t.preview.length===70?'…':''}`
+        ).join('\n');
+        addMsg('bf', `My wiki — ${topics.length} article${topics.length>1?'s':''}:\n\n${lines}`);
+      }
+    } else {
+      const query = text.slice(6).trim();
+      const art = getWikiArticle(query);
+      if (art) {
+        let out = `[${art.title}]\n`;
+        if (art.summary) out += '\n' + art.summary;
+        if (art.facts.length) out += '\n\nLearned by Eamonn:\n' + art.facts.map(f=>'• '+f).join('\n');
+        addMsg('bf', out, 'mywiki');
+      } else {
+        addMsg('bf', `Nothing in my wiki for "${query}" yet. Ask me about it and I'll look it up.`);
+      }
+    }
+    busy = false; return;
+  }
+  if (text === '/clear') {
+    msgsEl.innerHTML = '';
+    addMsg('bf', 'Chat cleared. Memory intact.');
+    busy = false; return;
+  }
+
+  addMsg('user', text);
+  const typingRow = addTyping();
+
+  const mathAns = tryMath(text);
+  const cat2 = detect(text);
+  const isQuestion = cat2.startsWith('question') || (cat2 === 'unknown' && /^(what|who|how|why|where|when)\b/i.test(text));
+  let response, brainTag;
+
+  if (mathAns !== null) {
+    response = pick([`${mathAns}.`, `That's ${mathAns}.`, `= ${mathAns}`, `Result: ${mathAns}`]);
+    brainTag = 'scratch';
+    rememberConv(text, response);
+  } else if (isQuestion) {
+    // 1. Own wiki
+    const ownArt = getWikiArticle(text);
+    if (ownArt && (ownArt.summary || ownArt.facts.length)) {
+      const content = ownArt.summary || ownArt.facts[0] || '';
+      const extra = ownArt.facts.length > 1 ? `\n\nType /wiki ${ownArt.title} for ${ownArt.facts.length} more facts.` : '';
+      response = content + extra;
+      brainTag = 'mywiki';
+      rememberConv(text, response);
+    }
+    // 2. Wikipedia fetch → Ollama reads it (RAG), or show directly
+    if (!response) {
+      const wikiResult = await askWikipedia(topicOf(text));
+      if (wikiResult) {
+        if (ollamaUrl) {
+          const ollamaResp = await askOllama(text, wikiResult.text);
+          response = ollamaResp || wikiResult.text;
+        } else {
+          response = wikiResult.text;
+        }
+        brainTag = 'wiki';
+        saveWikiArticle(wikiResult.title, response, 'wikipedia');
+        rememberConv(text, response);
+      }
+    }
+    // 3. Scratch fallback
+    if (!response) {
+      await new Promise(r => setTimeout(r, 400 + Math.random() * 400));
+      response = think(text);
+      brainTag = 'scratch';
+    }
+  } else {
+    // Not a question: scratch brain handles personality / chat
+    await new Promise(r => setTimeout(r, 400 + Math.random() * 400));
+    response = think(text);
+    brainTag = 'scratch';
+  }
+
+  typingRow.remove();
+  addMsg('bf', response, brainTag);
+  updateStats();
+  busy = false;
+}
+
+const inp = document.getElementById('inp');
+document.getElementById('sendbtn').addEventListener('click', () => {
+  send(inp.value); inp.value = ''; inp.style.height = '';
+});
+inp.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault(); send(inp.value); inp.value = ''; inp.style.height = '';
+  }
+});
+inp.addEventListener('input', () => {
+  inp.style.height = ''; inp.style.height = inp.scrollHeight + 'px';
+});
+
+// ── Boot ─────────────────────────────────────────────────
+loadMem();
+sbx.history = [...mem.experiments];
+updateStats();
+
+const wikiCount = totalWiki();
+const bootMsg = ollamaUrl
+  ? `Blue Fish v3.0 online. ${totalMem()} memories, ${wikiCount} wiki articles. Ollama at ${ollamaUrl}.`
+  : totalMem() > 0 || wikiCount > 0
+    ? `Blue Fish v3.0 online. ${totalMem()} memories, ${wikiCount} wiki articles. I remember things.`
+    : `Blue Fish v3.0 online. Zero memories. Starting from nothing — talk to me.`;
+
+setTimeout(() => {
+  const tr = addTyping();
+  setTimeout(() => {
+    tr.remove();
+    addMsg('bf', bootMsg);
+  }, 900);
+}, 400);
+</script>
