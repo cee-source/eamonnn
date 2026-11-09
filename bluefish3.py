@@ -156,8 +156,9 @@ def route_query(text):
         summary = wiki_lookup(text)
         if summary:
             augmented = (
-                f"Use this Wikipedia information to answer accurately:\n{summary}\n\n"
-                f"Question: {text}"
+                f"Wikipedia says: {summary}\n\n"
+                f"Using only that information, answer this question directly and confidently "
+                f"without saying 'that's correct' or 'you're right': {text}"
             )
             return ask_ollama_raw(augmented, user_text=text)
 
