@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Blue Fish v3.0 — Stage 1: Brain"""
 
-import os, sys, json, time, threading, subprocess, queue, secrets
+import os, sys, json, time, threading, subprocess, queue, secrets, re
 sys.stdout.reconfigure(line_buffering=True)
 
 import numpy as np
@@ -72,7 +72,120 @@ def speak(text):
     finally:
         speaking = False
 
+# ── Calculator ───────────────────────────────────────────────────────────────
+def try_math(text):
+    """Detect and solve math expressions. Returns answer string or None."""
+    t = text.lower().strip().rstrip("?").strip()
+    for phrase in ["what is", "what's", "whats", "calculate", "compute", "solve", "equals"]:
+        t = t.replace(phrase, "")
+    t = (t.replace("times", "*").replace("multiplied by", "*")
+          .replace("divided by", "/").replace("plus", "+")
+          .replace("minus", "-").replace("squared", "**2")
+          .replace("cubed", "**3").replace("^", "**").strip())
+    if not re.search(r'\d', t):
+        return None
+    if not re.search(r'[+\-*/]', t):
+        return None
+    try:
+        import sympy
+        result = float(sympy.sympify(t))
+        return str(int(result)) if result == int(result) else f"{result:.8g}"
+    except Exception:
+        return None
+
+# ── Wikipedia ─────────────────────────────────────────────────────────────────
+WIKI_CACHE_FILE = f"{os.path.expanduser('~')}/wiki_cache.json"
+_wiki_cache = {}
+
+def _load_wiki_cache():
+    global _wiki_cache
+    if os.path.exists(WIKI_CACHE_FILE):
+        try:
+            with open(WIKI_CACHE_FILE) as f:
+                _wiki_cache = json.load(f)
+        except Exception:
+            _wiki_cache = {}
+
+def _save_wiki_cache():
+    with open(WIKI_CACHE_FILE, "w") as f:
+        json.dump(_wiki_cache, f)
+
+def wiki_lookup(query):
+    """Search Wikipedia and return a 3-sentence summary. Caches locally."""
+    key = query.lower().strip()
+    if key in _wiki_cache:
+        print(f"[Wiki] cache hit: {query}")
+        return _wiki_cache[key]
+    try:
+        import wikipedia
+        results = wikipedia.search(query, results=1)
+        if not results:
+            return None
+        summary = wikipedia.summary(results[0], sentences=3, auto_suggest=False)
+        _wiki_cache[key] = summary
+        _save_wiki_cache()
+        print(f"[Wiki] fetched: {results[0]}")
+        return summary
+    except Exception as e:
+        print(f"[Wiki] {e}")
+        return None
+
+FACTUAL_WORDS = [
+    "what is", "what are", "who is", "who was", "when was", "when did",
+    "where is", "where was", "how does", "how do", "why does", "why do",
+    "tell me about", "explain", "define", "definition", "history of",
+    "what happened", "invented", "discovered", "capital of",
+]
+
+def is_factual(text):
+    t = text.lower()
+    return any(w in t for w in FACTUAL_WORDS)
+
+def route_query(text):
+    """Route to calculator, Wikipedia, or Ollama. Returns reply string."""
+    # 1. Try math first
+    math_result = try_math(text)
+    if math_result:
+        reply = f"The answer is {math_result}."
+        conversation.append({"role": "user", "content": text})
+        conversation.append({"role": "assistant", "content": reply})
+        return reply
+
+    # 2. Try Wikipedia for factual questions
+    if is_factual(text):
+        summary = wiki_lookup(text)
+        if summary:
+            augmented = (
+                f"Use this Wikipedia information to answer accurately:\n{summary}\n\n"
+                f"Question: {text}"
+            )
+            return ask_ollama_raw(augmented, user_text=text)
+
+    # 3. Everything else goes straight to Ollama
+    return ask_ollama(text)
+
 # ── Ollama ────────────────────────────────────────────────────────────────────
+def ask_ollama_raw(prompt, user_text=None):
+    """Send a custom prompt to Ollama but log user_text in conversation."""
+    if user_text:
+        conversation.append({"role": "user", "content": user_text})
+    msgs = conversation[:-1] + [{"role": "user", "content": prompt}] if user_text else conversation + [{"role": "user", "content": prompt}]
+    payload = json.dumps({"model": OLLAMA_MODEL, "messages": msgs, "stream": False}).encode()
+    try:
+        req = urllib.request.Request(
+            "http://localhost:11434/api/chat", data=payload,
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=120) as r:
+            reply = json.loads(r.read())["message"]["content"].strip()
+    except Exception as e:
+        print(f"[Ollama] {e}"); reply = "I'm thinking..."
+    try:
+        reply = json.loads(reply).get("reply", reply)
+    except (json.JSONDecodeError, KeyError, TypeError):
+        pass
+    conversation.append({"role": "assistant", "content": reply})
+    return reply
+
 def ask_ollama(user_text):
     conversation.append({"role": "user", "content": user_text})
     payload = json.dumps({
@@ -151,7 +264,7 @@ def listen_loop():
                             text = transcribe(a)
                             if text and len(text) > 2:
                                 print(f"You: {text}")
-                                reply = ask_ollama(text)
+                                reply = route_query(text)
                                 speak(reply)
                         threading.Thread(target=_process, daemon=True).start()
 
@@ -251,7 +364,7 @@ button{{width:100%;background:#38bdf8;color:#0d1117;border:none;
             msg = params.get("msg", [""])[0].strip()
             if msg:
                 def _reply():
-                    reply = ask_ollama(msg)
+                    reply = route_query(msg)
                     speak(reply)
                 threading.Thread(target=_reply, daemon=True).start()
             self._send_json({"ok": True})
@@ -346,6 +459,7 @@ def start_web():
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
+    _load_wiki_cache()
     threading.Thread(target=start_web, daemon=True).start()
     time.sleep(1)
     speak("Blue Fish version 3 online. I am ready!")
