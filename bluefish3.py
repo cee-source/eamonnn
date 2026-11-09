@@ -91,6 +91,12 @@ def ask_ollama(user_text):
     except Exception as e:
         print(f"[Ollama] {e}")
         reply = "I'm thinking..."
+    # Parse JSON response from Modelfile format and extract just the spoken reply
+    try:
+        parsed = json.loads(reply)
+        reply = parsed.get("reply", reply)
+    except (json.JSONDecodeError, KeyError, TypeError):
+        pass
     conversation.append({"role": "assistant", "content": reply})
     return reply
 
