@@ -17,8 +17,8 @@ HOME         = os.path.expanduser("~")
 PIPER        = f"{HOME}/.local/bin/piper"
 VOICE_MODEL  = f"{HOME}/piper_voices/en_US-ryan-high.onnx"
 OLLAMA_MODEL = "bluefish"
-OWNER_EMAIL  = "cee@ceemcdermott.com"
-OWNER_PASS   = "bluefish3"           # change this to whatever you want
+OWNER_EMAIL  = "ehmcdermott77@gmail.com"
+OWNER_PASS   = "7807809"
 WEB_PORT     = 8080
 
 # ── Audio config ──────────────────────────────────────────────────────────────
