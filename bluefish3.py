@@ -86,7 +86,7 @@ def ask_ollama(user_text):
             data=payload,
             headers={"Content-Type": "application/json"}
         )
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with urllib.request.urlopen(req, timeout=120) as r:
             reply = json.loads(r.read())["message"]["content"].strip()
     except Exception as e:
         print(f"[Ollama] {e}")
@@ -180,7 +180,7 @@ class ChatHandler(BaseHTTPRequestHandler):
 
     def _login_page(self, error=False):
         err = '<p style="color:#f55;margin-bottom:12px;">Wrong email or password.</p>' if error else ""
-        self._send_html(f"""<!DOCTYPE html><html><head><title>Blue Fish</title>
+        self._send_html(f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Blue Fish</title>
 <style>*{{box-sizing:border-box;margin:0;padding:0;}}
 body{{background:#0d1117;display:flex;align-items:center;
   justify-content:center;min-height:100dvh;font-family:monospace;}}
@@ -254,7 +254,7 @@ button{{width:100%;background:#38bdf8;color:#0d1117;border:none;
 
     def _chat_page(self):
         self._send_html("""<!DOCTYPE html><html><head>
-<title>Blue Fish v3</title>
+<meta charset="UTF-8"><title>Blue Fish v3</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
