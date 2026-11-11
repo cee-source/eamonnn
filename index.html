@@ -106,7 +106,7 @@
     }
 
     /* Color grade the WebGL canvas: desaturate 28%, cool tint, slight contrast */
-    #game-canvas { filter: saturate(0.72) contrast(1.07) hue-rotate(-8deg); display: block; }
+    #game-canvas { filter: saturate(0.72) contrast(1.07) hue-rotate(-8deg); display: block; cursor: none; }
 
     /* ── Radio Commander HUD ─────────────────────────────────────── */
     #radio-hud {
@@ -3522,6 +3522,8 @@ function tickPossess(dt){
 let _lockTime = 0; // timestamp of last pointer-lock acquire
 // ─── Fullscreen + pointer-lock helpers ───────────────────────────────────────
 function _requestLock(){
+  // Clear no-lock flag so a fresh attempt (e.g. after going fullscreen) can succeed
+  _noLock = false;
   // Lock the canvas element — more reliable than document.body in iframes
   (renderer.domElement.requestPointerLock?.() || Promise.resolve())
     .catch?.(()=>{});
@@ -5368,6 +5370,7 @@ function _doStartPlaying(){
     // Try pointer lock; if the browser blocks it (sandboxed iframe / artifact),
     // pointerlockerror fires and sets _noLock + ghostLocked automatically.
     // As a belt-and-suspenders fallback, also enable after 400 ms if still not locked.
+    document.getElementById('crosshair').style.display = 'block';
     _requestLock();
     setTimeout(()=>{ if(!document.pointerLockElement && !ghostLocked){ _noLock=true; ghostLocked=true; } }, 400);
     setHUD('WASD move  |  Right-drag: look  |  Click unit/fort: possess  |  F: exit');
