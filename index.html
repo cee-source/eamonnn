@@ -14,6 +14,14 @@
       letter-spacing: 1px;
     }
 
+    #fullscreen-btn {
+      position: fixed; top: 10px; right: 10px; z-index: 600;
+      background: rgba(0,0,0,0.60); border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 7px; color: #ccc; font-size: 17px; padding: 5px 9px;
+      cursor: pointer; line-height: 1; transition: background 0.15s;
+    }
+    #fullscreen-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
     #crosshair {
       display: none; position: fixed; top: 50%; left: 50%;
       transform: translate(-50%,-50%); pointer-events: none;
@@ -542,6 +550,7 @@
 <canvas id="grain-overlay" width="256" height="256"></canvas>
 
 <div id="hud">⚔ GAME OF WAR — Click or press F to enter | WASD move | Mouse look</div>
+<button id="fullscreen-btn" title="Fullscreen">⛶</button>
 <div id="crosshair"></div>
 <div id="radio-hud">
   <span class="r-label">RADIO COMMANDER</span>
@@ -3511,6 +3520,30 @@ function tickPossess(dt){
 
 // ─── Pointer lock ─────────────────────────────────────────────
 let _lockTime = 0; // timestamp of last pointer-lock acquire
+// ─── Fullscreen + pointer-lock helpers ───────────────────────────────────────
+function _requestLock(){
+  // Lock the canvas element — more reliable than document.body in iframes
+  (renderer.domElement.requestPointerLock?.() || Promise.resolve())
+    .catch?.(()=>{});
+}
+
+(function _initFullscreenBtn(){
+  const btn = document.getElementById('fullscreen-btn');
+  btn.addEventListener('click', ()=>{
+    if(!document.fullscreenElement){
+      (document.documentElement.requestFullscreen?.() || Promise.resolve())
+        .then(()=>{ setTimeout(_requestLock, 120); })
+        .catch?.(()=>{});
+    } else {
+      document.exitFullscreen?.();
+    }
+  });
+  document.addEventListener('fullscreenchange', ()=>{
+    btn.textContent = document.fullscreenElement ? '✕' : '⛶';
+    btn.title       = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
+  });
+})();
+
 // _noLock = true when pointer lock is unavailable (sandboxed iframe / artifact panel)
 let _noLock = false;
 
@@ -3583,7 +3616,7 @@ document.addEventListener('keydown', e=>{
   }
 
   if(e.code==='KeyF'){
-    if(!ghostLocked){ document.body.requestPointerLock(); }
+    if(!ghostLocked){ _requestLock(); }
     else if(cameraMode==='possess') exitPossession();
     else if(cameraMode==='fort')    exitFortPossession();
     else if(!_noLock)               document.exitPointerLock();
@@ -3816,7 +3849,7 @@ const raycaster = new THREE.Raycaster();
 const screenCentre = new THREE.Vector2(0,0);   // pointer-locked = always screen centre
 
 renderer.domElement.addEventListener('click', e=>{
-  if(!ghostLocked){ document.body.requestPointerLock(); return; }
+  if(!ghostLocked){ _requestLock(); return; }
 
   // Ghost mode: try click-to-possess first (uses mouse pos in no-lock mode),
   // then fall back to firing a projectile
@@ -5335,7 +5368,7 @@ function _doStartPlaying(){
     // Try pointer lock; if the browser blocks it (sandboxed iframe / artifact),
     // pointerlockerror fires and sets _noLock + ghostLocked automatically.
     // As a belt-and-suspenders fallback, also enable after 400 ms if still not locked.
-    document.body.requestPointerLock?.();
+    _requestLock();
     setTimeout(()=>{ if(!document.pointerLockElement && !ghostLocked){ _noLock=true; ghostLocked=true; } }, 400);
     setHUD('WASD move  |  Right-drag: look  |  Click unit/fort: possess  |  F: exit');
   }
