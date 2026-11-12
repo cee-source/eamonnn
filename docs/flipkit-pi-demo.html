@@ -1,0 +1,440 @@
+<title>FlipKit Pi</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* single dark world — deliberate, not default */
+:root {
+  --bg: #07090F;
+  --surf: #0F1520;
+  --card: #141D2E;
+  --brd: #1E2B3F;
+  --txt: #E2E8F0;
+  --dim: #6B7A99;
+  --acc: #1FCC7C;
+  --blu: #2DA8FF;
+  --warn: #FF8C42;
+  --red: #FF4757;
+  --purp: #7A5AFF;
+  --teal: #34E8FF;
+  --pi: #C0392B;
+  color-scheme: dark;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;}
+body{
+  background:var(--bg);color:var(--txt);
+  font-family:'Space Grotesk',system-ui,sans-serif;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:0 60px;
+  overflow-x:hidden;
+}
+
+/* header */
+.hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 0;border-bottom:1px solid var(--brd);margin-bottom:0;
+}
+.logo{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;letter-spacing:-1px;background:linear-gradient(120deg,#1FCC7C,#2DA8FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.hdr-tag{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--dim);letter-spacing:.5px;}
+
+/* hero */
+.hero{display:flex;flex-direction:column;align-items:center;gap:0;padding:28px 0 20px;}
+.hero-title{font-size:clamp(28px,8vw,42px);font-weight:700;text-align:center;line-height:1.1;letter-spacing:-.5px;text-wrap:balance;}
+.hero-title span{background:linear-gradient(120deg,#1FCC7C,#34E8FF,#2DA8FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.hero-sub{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);letter-spacing:.5px;text-align:center;margin-top:8px;}
+
+/* device mockup area */
+.device-wrap{display:flex;flex-direction:column;align-items:center;gap:20px;margin:20px 0 24px;}
+
+/* feature pills */
+.pills{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:420px;}
+.pill{
+  font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;
+  letter-spacing:.4px;padding:5px 12px;border-radius:20px;cursor:pointer;
+  border:1px solid var(--brd);background:var(--card);color:var(--dim);
+  transition:all .15s;user-select:none;
+}
+.pill:hover{border-color:var(--blu);color:var(--txt);}
+.pill.active{color:#fff;border-color:transparent;}
+.pill[data-app="rfid"].active{background:rgba(45,168,255,.25);border-color:#2DA8FF;color:#2DA8FF;}
+.pill[data-app="nfc"].active{background:rgba(31,204,124,.25);border-color:#1FCC7C;color:#1FCC7C;}
+.pill[data-app="subghz"].active{background:rgba(122,90,255,.25);border-color:#7A5AFF;color:#7A5AFF;}
+.pill[data-app="ir"].active{background:rgba(255,71,87,.25);border-color:#FF4757;color:#FF4757;}
+.pill[data-app="badusb"].active{background:rgba(255,214,10,.2);border-color:#FFD60A;color:#FFD60A;}
+.pill[data-app="camera"].active{background:rgba(255,140,66,.25);border-color:#FF8C42;color:#FF8C42;}
+.pill[data-app="wifi"].active{background:rgba(52,232,255,.2);border-color:#34E8FF;color:#34E8FF;}
+
+/* SVG device */
+#device-svg{width:100%;max-width:260px;height:auto;filter:drop-shadow(0 20px 60px rgba(0,0,0,.7));}
+
+/* specs strip */
+.specs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:0 0 24px;}
+.spec{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:var(--card);border:1px solid var(--brd);border-radius:8px;
+  padding:8px 12px;min-width:70px;
+}
+.spec-val{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--acc);}
+.spec-lbl{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--dim);letter-spacing:.4px;text-transform:uppercase;}
+
+/* docs section */
+.sec-title{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--dim);letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;}
+.docs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:24px;}
+.doc-card{
+  background:var(--card);border:1px solid var(--brd);border-radius:12px;
+  padding:14px;text-decoration:none;color:var(--txt);
+  transition:border-color .15s,background .15s;cursor:pointer;
+}
+.doc-card:hover{border-color:var(--acc);background:rgba(31,204,124,.05);}
+.doc-icon{font-size:22px;margin-bottom:8px;}
+.doc-name{font-size:13px;font-weight:600;margin-bottom:3px;}
+.doc-desc{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--dim);line-height:1.5;}
+
+/* feature detail card */
+.detail{
+  background:var(--card);border:1px solid var(--brd);border-radius:12px;
+  padding:16px;margin-bottom:24px;min-height:80px;
+  transition:border-color .2s;
+}
+.detail-title{font-size:14px;font-weight:700;margin-bottom:4px;}
+.detail-body{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);line-height:1.7;}
+.detail-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;}
+.dtag{font-family:'JetBrains Mono',monospace;font-size:8px;padding:2px 7px;border-radius:4px;border:1px solid var(--brd);color:var(--dim);}
+
+.hint{text-align:center;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,.08);margin-top:12px;}
+</style>
+
+<div class="hdr">
+  <div class="logo">FlipKit</div>
+  <div class="hdr-tag">Pi Zero 2W · Linux · v0.1</div>
+</div>
+
+<div class="hero">
+  <div class="hero-title">A <span>hacking tool</span><br>you build yourself.</div>
+  <div class="hero-sub">RFID · NFC · Sub-GHz · IR · BadUSB · Camera · WiFi · BLE_</div>
+</div>
+
+<div class="device-wrap">
+
+  <div class="pills">
+    <div class="pill active" data-app="rfid">RFID 125kHz</div>
+    <div class="pill" data-app="nfc">NFC 13.56</div>
+    <div class="pill" data-app="subghz">Sub-GHz</div>
+    <div class="pill" data-app="ir">IR Remote</div>
+    <div class="pill" data-app="badusb">BadUSB</div>
+    <div class="pill" data-app="camera">Camera</div>
+    <div class="pill" data-app="wifi">WiFi Scan</div>
+  </div>
+
+  <svg id="device-svg" viewBox="0 0 200 320" xmlns="http://www.w3.org/2000/svg">
+    <rect x="10" y="4" width="180" height="312" rx="22" fill="#0F1520" stroke="#1E2B3F" stroke-width="1.5"/>
+    <rect x="13" y="7" width="174" height="306" rx="20" fill="none" stroke="#1A2535" stroke-width="1"/>
+    <rect x="10" y="80" width="4" height="40" rx="2" fill="#C0392B" opacity=".8"/>
+    <rect x="20" y="18" width="160" height="190" rx="10" fill="#07090F" stroke="#1A2535" stroke-width="1"/>
+    <rect x="24" y="22" width="152" height="182" rx="8" fill="#0A1420" id="screen-bg"/>
+    <g id="screen-content">
+      <rect x="24" y="22" width="152" height="14" rx="0" fill="#0D1830"/>
+      <text x="30" y="32" fill="#6B7A99" font-family="JetBrains Mono" font-size="6" font-weight="600">FLIPKIT</text>
+      <text x="162" y="32" fill="#1FCC7C" font-family="JetBrains Mono" font-size="6" text-anchor="end">●  87%</text>
+      <rect x="24" y="36" width="152" height="18" fill="#0F1E38"/>
+      <text x="100" y="48" fill="#2DA8FF" font-family="JetBrains Mono" font-size="8" font-weight="700" text-anchor="middle">RFID Reader</text>
+      <rect x="30" y="60" width="140" height="90" rx="6" fill="#0A1520" stroke="#1E2B3F" stroke-width="1"/>
+      <rect x="62" y="68" width="76" height="52" rx="5" fill="#0F2040" stroke="#2DA8FF" stroke-width="1" opacity=".8"/>
+      <rect x="66" y="78" width="30" height="4" rx="2" fill="#2DA8FF" opacity=".5"/>
+      <rect x="66" y="85" width="50" height="3" rx="1.5" fill="#1E2B3F"/>
+      <rect x="66" y="91" width="40" height="3" rx="1.5" fill="#1E2B3F"/>
+      <circle cx="112" cy="84" r="12" fill="none" stroke="#2DA8FF" stroke-width="1" opacity=".3"/>
+      <text x="100" y="128" fill="#2DA8FF" font-family="JetBrains Mono" font-size="7" font-weight="700" text-anchor="middle">CARD DETECTED</text>
+      <text x="100" y="139" fill="#8B95A5" font-family="JetBrains Mono" font-size="6" text-anchor="middle">UID: A3 F2 09 1C</text>
+      <text x="100" y="148" fill="#8B95A5" font-family="JetBrains Mono" font-size="6" text-anchor="middle">EM4100 · 125kHz · HID</text>
+      <rect x="30" y="158" width="65" height="20" rx="4" fill="#0F2040" stroke="#2DA8FF" stroke-width="1"/>
+      <text x="62" y="171" fill="#2DA8FF" font-family="JetBrains Mono" font-size="6.5" font-weight="700" text-anchor="middle">READ CARD</text>
+      <rect x="105" y="158" width="65" height="20" rx="4" fill="#0A1A0F" stroke="#1FCC7C" stroke-width="1"/>
+      <text x="137" y="171" fill="#1FCC7C" font-family="JetBrains Mono" font-size="6.5" font-weight="700" text-anchor="middle">EMULATE</text>
+      <text x="30" y="192" fill="#6B7A99" font-family="JetBrains Mono" font-size="6" font-weight="700">SAVED — 3 CARDS</text>
+      <rect x="30" y="196" width="140" height="1" fill="#1E2B3F"/>
+    </g>
+    <circle cx="100" cy="230" r="10" fill="#0F1520" stroke="#1E2B3F" stroke-width="1.5"/>
+    <rect x="94" y="228" width="12" height="4" rx="2" fill="#2DA8FF" opacity=".4"/>
+    <rect x="38" y="248" width="14" height="14" rx="3" fill="#141D2E" stroke="#1E2B3F" stroke-width="1"/>
+    <text x="45" y="258" fill="#6B7A99" font-family="JetBrains Mono" font-size="8" text-anchor="middle">▲</text>
+    <rect x="38" y="276" width="14" height="14" rx="3" fill="#141D2E" stroke="#1E2B3F" stroke-width="1"/>
+    <text x="45" y="286" fill="#6B7A99" font-family="JetBrains Mono" font-size="8" text-anchor="middle">▼</text>
+    <rect x="22" y="262" width="14" height="14" rx="3" fill="#141D2E" stroke="#1E2B3F" stroke-width="1"/>
+    <text x="29" y="272" fill="#6B7A99" font-family="JetBrains Mono" font-size="8" text-anchor="middle">◀</text>
+    <rect x="54" y="262" width="14" height="14" rx="3" fill="#141D2E" stroke="#1E2B3F" stroke-width="1"/>
+    <text x="61" y="272" fill="#6B7A99" font-family="JetBrains Mono" font-size="8" text-anchor="middle">▶</text>
+    <circle cx="148" cy="270" r="9" fill="#0A1A0F" stroke="#1FCC7C" stroke-width="1.2"/>
+    <text x="148" y="274" fill="#1FCC7C" font-family="JetBrains Mono" font-size="8" font-weight="700" text-anchor="middle">A</text>
+    <circle cx="166" cy="258" r="9" fill="#0F1A30" stroke="#2DA8FF" stroke-width="1.2"/>
+    <text x="166" y="262" fill="#2DA8FF" font-family="JetBrains Mono" font-size="8" font-weight="700" text-anchor="middle">B</text>
+    <rect x="128" y="248" width="12" height="8" rx="2" fill="#141D2E" stroke="#1E2B3F" stroke-width="1"/>
+    <text x="134" y="255" fill="#6B7A99" font-family="JetBrains Mono" font-size="5" text-anchor="middle">MENU</text>
+    <rect x="148" y="248" width="12" height="8" rx="2" fill="#141D2E" stroke="#1E2B3F" stroke-width="1"/>
+    <text x="154" y="255" fill="#6B7A99" font-family="JetBrains Mono" font-size="5" text-anchor="middle">BACK</text>
+    <circle cx="175" cy="30" r="5" fill="#0A0F1A" stroke="#1E2B3F" stroke-width="1"/>
+    <circle cx="175" cy="30" r="2.5" fill="#0D1520" stroke="#2DA8FF" stroke-width=".5" opacity=".5"/>
+    <rect x="84" y="310" width="32" height="6" rx="3" fill="#141D2E" stroke="#1E2B3F" stroke-width="1"/>
+    <text x="30" y="303" fill="#C0392B" font-family="JetBrains Mono" font-size="7" opacity=".6">π</text>
+    <text x="38" y="303" fill="#1E2B3F" font-family="JetBrains Mono" font-size="6">Zero 2W</text>
+  </svg>
+</div>
+
+<div class="detail" id="detail-card">
+  <div class="detail-title" id="detail-title" style="color:#2DA8FF">RFID 125kHz Reader / Writer</div>
+  <div class="detail-body" id="detail-body">Read and clone building access cards (EM4100, HID Prox). The RDM6300 module outputs card data over UART to GPIO 15. Use Python + pyserial to capture UIDs, save them, and replay with a T5577 blank card.</div>
+  <div class="detail-tags" id="detail-tags">
+    <div class="dtag">RDM6300</div><div class="dtag">GPIO 15</div><div class="dtag">UART</div><div class="dtag">pyserial</div><div class="dtag">T5577</div>
+  </div>
+</div>
+
+<div class="sec-title">Specs</div>
+<div class="specs">
+  <div class="spec"><div class="spec-val">4-core</div><div class="spec-lbl">64-bit CPU</div></div>
+  <div class="spec"><div class="spec-val">512MB</div><div class="spec-lbl">RAM</div></div>
+  <div class="spec"><div class="spec-val">2.4"</div><div class="spec-lbl">Touchscreen</div></div>
+  <div class="spec"><div class="spec-val">8MP</div><div class="spec-lbl">Camera</div></div>
+  <div class="spec"><div class="spec-val">1200mAh</div><div class="spec-lbl">Battery</div></div>
+  <div class="spec"><div class="spec-val">Linux</div><div class="spec-lbl">OS</div></div>
+  <div class="spec"><div class="spec-val">~$95</div><div class="spec-lbl">Total Cost</div></div>
+  <div class="spec"><div class="spec-val">7</div><div class="spec-lbl">Radios</div></div>
+</div>
+
+<div class="sec-title">Hardware Docs</div>
+<div class="docs-grid">
+  <div class="doc-card">
+    <div class="doc-icon">🛒</div>
+    <div class="doc-name">Bill of Materials</div>
+    <div class="doc-desc">Every part, price, and where to buy · Pi Zero 2W build · ~$92–100</div>
+  </div>
+  <div class="doc-card">
+    <div class="doc-icon">🔌</div>
+    <div class="doc-name">GPIO Schematic</div>
+    <div class="doc-desc">BCM pin assignments for all peripherals · J1 display · J2 CSI camera</div>
+  </div>
+  <div class="doc-card">
+    <div class="doc-icon">📋</div>
+    <div class="doc-name">Build Stages</div>
+    <div class="doc-desc">7 stages from ordering to finished device · ~2–3 weeks · ~10 hrs work</div>
+  </div>
+</div>
+
+<div class="hint">flipkit · pi zero 2w · open source hardware · tap a feature above_</div>
+
+<script>
+const apps = {
+  rfid: {
+    color: '#2DA8FF',
+    title: 'RFID 125kHz Reader / Writer',
+    body: 'Read and clone building access cards (EM4100, HID Prox). The RDM6300 module outputs card data over UART to GPIO 15. Use Python + pyserial to capture UIDs, save them, and replay with a T5577 blank card.',
+    tags: ['RDM6300','GPIO 15','UART','pyserial','T5577'],
+    screen: `
+      <rect x="24" y="22" width="152" height="14" rx="0" fill="#0D1830"/>
+      <text x="30" y="32" fill="#6B7A99" font-family="JetBrains Mono" font-size="6" font-weight="600">FLIPKIT</text>
+      <text x="162" y="32" fill="#1FCC7C" font-family="JetBrains Mono" font-size="6" text-anchor="end">●  87%</text>
+      <rect x="24" y="36" width="152" height="18" fill="#0F1E38"/>
+      <text x="100" y="48" fill="#2DA8FF" font-family="JetBrains Mono" font-size="8" font-weight="700" text-anchor="middle">RFID Reader</text>
+      <rect x="30" y="60" width="140" height="90" rx="6" fill="#0A1520" stroke="#1E2B3F" stroke-width="1"/>
+      <rect x="62" y="68" width="76" height="52" rx="5" fill="#0F2040" stroke="#2DA8FF" stroke-width="1" opacity=".8"/>
+      <rect x="66" y="78" width="30" height="4" rx="2" fill="#2DA8FF" opacity=".5"/>
+      <rect x="66" y="85" width="50" height="3" rx="1.5" fill="#1E2B3F"/>
+      <rect x="66" y="91" width="40" height="3" rx="1.5" fill="#1E2B3F"/>
+      <circle cx="112" cy="84" r="12" fill="none" stroke="#2DA8FF" stroke-width="1" opacity=".3"/>
+      <text x="100" y="128" fill="#2DA8FF" font-family="JetBrains Mono" font-size="7" font-weight="700" text-anchor="middle">CARD DETECTED</text>
+      <text x="100" y="139" fill="#8B95A5" font-family="JetBrains Mono" font-size="6" text-anchor="middle">UID: A3 F2 09 1C</text>
+      <text x="100" y="148" fill="#8B95A5" font-family="JetBrains Mono" font-size="6" text-anchor="middle">EM4100 · 125kHz · HID</text>
+      <rect x="30" y="158" width="65" height="20" rx="4" fill="#0F2040" stroke="#2DA8FF" stroke-width="1"/>
+      <text x="62" y="171" fill="#2DA8FF" font-family="JetBrains Mono" font-size="6.5" font-weight="700" text-anchor="middle">READ CARD</text>
+      <rect x="105" y="158" width="65" height="20" rx="4" fill="#0A1A0F" stroke="#1FCC7C" stroke-width="1"/>
+      <text x="137" y="171" fill="#1FCC7C" font-family="JetBrains Mono" font-size="6.5" font-weight="700" text-anchor="middle">EMULATE</text>
+      <text x="30" y="192" fill="#6B7A99" font-family="JetBrains Mono" font-size="6" font-weight="700">SAVED — 3 CARDS</text>
+      <rect x="30" y="196" width="140" height="1" fill="#1E2B3F"/>
+    `
+  },
+  nfc: {
+    color: '#1FCC7C',
+    title: 'NFC 13.56MHz Reader / Writer',
+    body: 'Read Mifare Classic and NTAG215 cards with the PN532 over I2C (GPIO 2/3). Use nfcpy to dump card sectors, write data, and clone. Works on transit cards, hotel keys, and payment fobs.',
+    tags: ['PN532','GPIO 2/3','I2C','nfcpy','Mifare','NTAG215'],
+    screen: `
+      <rect x="24" y="22" width="152" height="14" rx="0" fill="#0D1830"/>
+      <text x="30" y="32" fill="#6B7A99" font-family="JetBrains Mono" font-size="6">FLIPKIT</text>
+      <text x="162" y="32" fill="#1FCC7C" font-family="JetBrains Mono" font-size="6" text-anchor="end">●  87%</text>
+      <rect x="24" y="36" width="152" height="18" fill="#071A0F"/>
+      <text x="100" y="48" fill="#1FCC7C" font-family="JetBrains Mono" font-size="8" font-weight="700" text-anchor="middle">NFC Reader</text>
+      <circle cx="100" cy="110" r="40" fill="none" stroke="#1FCC7C" stroke-width="1" opacity=".15"/>
+      <circle cx="100" cy="110" r="30" fill="none" stroke="#1FCC7C" stroke-width="1" opacity=".25"/>
+      <circle cx="100" cy="110" r="20" fill="none" stroke="#1FCC7C" stroke-width="1.5" opacity=".5"/>
+      <circle cx="100" cy="110" r="10" fill="rgba(31,204,124,.2)" stroke="#1FCC7C" stroke-width="1.5"/>
+      <text x="100" y="114" fill="#1FCC7C" font-family="JetBrains Mono" font-size="6" font-weight="700" text-anchor="middle">NFC</text>
+      <text x="100" y="162" fill="#1FCC7C" font-family="JetBrains Mono" font-size="7" font-weight="700" text-anchor="middle">SCANNING...</text>
+      <text x="100" y="173" fill="#6B7A99" font-family="JetBrains Mono" font-size="6" text-anchor="middle">Hold card to back of device</text>
+      <rect x="30" y="182" width="140" height="20" rx="4" fill="#071A0F" stroke="#1FCC7C" stroke-width="1"/>
+      <text x="100" y="195" fill="#1FCC7C" font-family="JetBrains Mono" font-size="6.5" font-weight="700" text-anchor="middle">READ · WRITE · CLONE</text>
+    `
+  },
+  subghz: {
+    color: '#7A5AFF',
+    title: 'Sub-GHz Transceiver',
+    body: 'Capture and replay 433/868/915 MHz signals from garage doors, weather stations, and car key fobs using the CC1101 on SPI (CS: GPIO 5). Python-cc1101 for capture, rpitx for replay directly from GPIO.',
+    tags: ['CC1101','GPIO 5','SPI','python-cc1101','rpitx','433MHz'],
+    screen: `
+      <rect x="24" y="22" width="152" height="14" rx="0" fill="#0D1830"/>
+      <text x="30" y="32" fill="#6B7A99" font-family="JetBrains Mono" font-size="6">FLIPKIT</text>
+      <text x="162" y="32" fill="#1FCC7C" font-family="JetBrains Mono" font-size="6" text-anchor="end">●  87%</text>
+      <rect x="24" y="36" width="152" height="18" fill="#120A30"/>
+      <text x="100" y="48" fill="#7A5AFF" font-family="JetBrains Mono" font-size="8" font-weight="700" text-anchor="middle">Sub-GHz</text>
+      <text x="30" y="66" fill="#6B7A99" font-family="JetBrains Mono" font-size="6">FREQ: 433.920 MHz</text>
+      <text x="162" y="66" fill="#7A5AFF" font-family="JetBrains Mono" font-size="6" text-anchor="end">CAPTURING</text>
+      <rect x="24" y="70" width="152" height="80" fill="#0A0514"/>
+      <polyline points="24,110 34,108 44,105 50,90 56,80 62,88 68,106 74,109 80,107 86,100 92,88 98,80 104,88 110,106 116,110 122,108 128,110 134,109 140,110 146,108 152,110 158,109 164,110 170,109 176,110" fill="none" stroke="#7A5AFF" stroke-width="1.5" opacity=".9"/>
+      <line x1="24" y1="110" x2="176" y2="110" stroke="#1E2B3F" stroke-width=".5"/>
+      <text x="30" y="162" fill="#6B7A99" font-family="JetBrains Mono" font-size="6">CAPTURED SIGNALS — 2</text>
+      <rect x="30" y="166" width="140" height="14" rx="3" fill="#180830" stroke="#7A5AFF" stroke-width=".5"/>
+      <text x="36" y="175" fill="#7A5AFF" font-family="JetBrains Mono" font-size="6">🚗  Car fob · 433.92 · ASK · 72bit</text>
+      <rect x="30" y="184" width="140" height="14" rx="3" fill="#180830" stroke="#7A5AFF" stroke-width=".5" opacity=".5"/>
+      <text x="36" y="193" fill="#7A5AFF" font-family="JetBrains Mono" font-size="6" opacity=".6">🚪  Gate · 433.86 · OOK · 24bit</text>
+    `
+  },
+  ir: {
+    color: '#FF4757',
+    title: 'IR Remote Control',
+    body: 'Capture IR codes from any remote and replay them to control TVs, ACs, and projectors. IR LED on GPIO 12 (PWM0) using pigpio. TSOP38238 receiver on GPIO 23 decodes NEC, Sony, RC5 protocols.',
+    tags: ['GPIO 12','GPIO 23','PWM0','pigpio','NEC','lirc'],
+    screen: `
+      <rect x="24" y="22" width="152" height="14" rx="0" fill="#0D1830"/>
+      <text x="30" y="32" fill="#6B7A99" font-family="JetBrains Mono" font-size="6">FLIPKIT</text>
+      <text x="162" y="32" fill="#1FCC7C" font-family="JetBrains Mono" font-size="6" text-anchor="end">●  87%</text>
+      <rect x="24" y="36" width="152" height="18" fill="#1A0609"/>
+      <text x="100" y="48" fill="#FF4757" font-family="JetBrains Mono" font-size="8" font-weight="700" text-anchor="middle">IR Remote</text>
+      <text x="100" y="64" fill="#6B7A99" font-family="JetBrains Mono" font-size="6" text-anchor="middle">Samsung TV · NEC protocol</text>
+      <rect x="60" y="70" width="80" height="110" rx="10" fill="#0F0810" stroke="#FF4757" stroke-width="1" opacity=".8"/>
+      <circle cx="100" cy="84" r="6" fill="#1A0609" stroke="#FF4757" stroke-width="1"/>
+      <text x="100" y="88" fill="#FF4757" font-family="JetBrains Mono" font-size="6" text-anchor="middle">⏻</text>
+      <rect x="68" y="96" width="20" height="12" rx="3" fill="#180A10" stroke="#FF4757" stroke-width=".8"/>
+      <text x="78" y="105" fill="#FF4757" font-family="JetBrains Mono" font-size="6" text-anchor="middle">▲</text>
+      <rect x="92" y="96" width="20" height="12" rx="3" fill="#180A10" stroke="#FF4757" stroke-width=".8"/>
+      <text x="102" y="105" fill="#FF4757" font-family="JetBrains Mono" font-size="6" text-anchor="middle">▼</text>
+      <rect x="68" y="112" width="20" height="12" rx="3" fill="#180A10" stroke="#FF4757" stroke-width=".8"/>
+      <text x="78" y="121" fill="#FF4757" font-family="JetBrains Mono" font-size="6" text-anchor="middle">◀◀</text>
+      <rect x="92" y="112" width="20" height="12" rx="3" fill="#180A10" stroke="#FF4757" stroke-width=".8"/>
+      <text x="102" y="121" fill="#FF4757" font-family="JetBrains Mono" font-size="6" text-anchor="middle">▶▶</text>
+      <rect x="68" y="128" width="44" height="14" rx="3" fill="rgba(255,71,87,.2)" stroke="#FF4757" stroke-width="1"/>
+      <text x="90" y="138" fill="#FF4757" font-family="JetBrains Mono" font-size="6.5" font-weight="700" text-anchor="middle">▶  SEND</text>
+    `
+  },
+  badusb: {
+    color: '#FFD60A',
+    title: 'BadUSB / HID Attack',
+    body: 'The Pi Zero 2W acts as a USB keyboard/mouse when plugged into a target computer. Enable with dtoverlay=dwc2 in config.txt. Write payloads in Python using the g_hid gadget driver — opens terminal, runs commands, all in seconds.',
+    tags: ['dwc2','g_hid','HID','config.txt','USB gadget'],
+    screen: `
+      <rect x="24" y="22" width="152" height="14" rx="0" fill="#0D1830"/>
+      <text x="30" y="32" fill="#6B7A99" font-family="JetBrains Mono" font-size="6">FLIPKIT</text>
+      <text x="162" y="32" fill="#1FCC7C" font-family="JetBrains Mono" font-size="6" text-anchor="end">●  87%</text>
+      <rect x="24" y="36" width="152" height="18" fill="#1A1200"/>
+      <text x="100" y="48" fill="#FFD60A" font-family="JetBrains Mono" font-size="8" font-weight="700" text-anchor="middle">BadUSB</text>
+      <rect x="24" y="54" width="152" height="148" fill="#030508"/>
+      <text x="30" y="68" fill="#1FCC7C" font-family="JetBrains Mono" font-size="6">$ python3 payload.py</text>
+      <text x="30" y="78" fill="#6B7A99" font-family="JetBrains Mono" font-size="6">[*] HID device ready</text>
+      <text x="30" y="88" fill="#6B7A99" font-family="JetBrains Mono" font-size="6">[*] Target connected</text>
+      <text x="30" y="98" fill="#FFD60A" font-family="JetBrains Mono" font-size="6">[+] Opening terminal...</text>
+      <text x="30" y="108" fill="#FFD60A" font-family="JetBrains Mono" font-size="6">[+] Typing payload...</text>
+      <text x="30" y="118" fill="#1FCC7C" font-family="JetBrains Mono" font-size="6">[✓] Payload executed</text>
+      <text x="30" y="128" fill="#1FCC7C" font-family="JetBrains Mono" font-size="6">[✓] Reverse shell: :4444</text>
+      <text x="30" y="140" fill="#FFD60A" font-family="JetBrains Mono" font-size="6">█</text>
+      <rect x="24" y="168" width="152" height="1" fill="#1E2B3F"/>
+      <text x="30" y="180" fill="#6B7A99" font-family="JetBrains Mono" font-size="5.5">PAYLOADS: rickroll · wifi-grab</text>
+      <text x="30" y="189" fill="#6B7A99" font-family="JetBrains Mono" font-size="5.5">         rev-shell · keylogger</text>
+    `
+  },
+  camera: {
+    color: '#FF8C42',
+    title: 'Camera (Pi Camera v2)',
+    body: '8MP Sony IMX219 sensor via CSI-2 ribbon cable. Use libcamera or picamera2 in Python to capture photos and video. Stream live preview to the TFT display using framebuffer output.',
+    tags: ['Pi Camera v2','CSI-2','libcamera','picamera2','IMX219'],
+    screen: `
+      <rect x="24" y="22" width="152" height="14" rx="0" fill="#0D1830"/>
+      <text x="30" y="32" fill="#6B7A99" font-family="JetBrains Mono" font-size="6">FLIPKIT</text>
+      <text x="162" y="32" fill="#1FCC7C" font-family="JetBrains Mono" font-size="6" text-anchor="end">●  87%</text>
+      <rect x="24" y="36" width="152" height="18" fill="#1A0C00"/>
+      <text x="100" y="48" fill="#FF8C42" font-family="JetBrains Mono" font-size="8" font-weight="700" text-anchor="middle">Camera</text>
+      <rect x="24" y="54" width="152" height="120" fill="#050A14"/>
+      <rect x="24" y="54" width="152" height="50" fill="#0A1830" opacity=".8"/>
+      <rect x="24" y="104" width="152" height="70" fill="#0A1208" opacity=".6"/>
+      <line x1="74" y1="54" x2="74" y2="174" stroke="rgba(255,140,66,.2)" stroke-width=".5"/>
+      <line x1="126" y1="54" x2="126" y2="174" stroke="rgba(255,140,66,.2)" stroke-width=".5"/>
+      <line x1="24" y1="94" x2="176" y2="94" stroke="rgba(255,140,66,.2)" stroke-width=".5"/>
+      <line x1="24" y1="134" x2="176" y2="134" stroke="rgba(255,140,66,.2)" stroke-width=".5"/>
+      <rect x="80" y="74" width="40" height="40" fill="none" stroke="#FF8C42" stroke-width="1" opacity=".8"/>
+      <rect x="80" y="74" width="8" height="2" fill="#FF8C42"/>
+      <rect x="80" y="74" width="2" height="8" fill="#FF8C42"/>
+      <rect x="112" y="74" width="8" height="2" fill="#FF8C42"/>
+      <rect x="118" y="74" width="2" height="8" fill="#FF8C42"/>
+      <rect x="80" y="112" width="8" height="2" fill="#FF8C42"/>
+      <rect x="80" y="106" width="2" height="8" fill="#FF8C42"/>
+      <rect x="112" y="112" width="8" height="2" fill="#FF8C42"/>
+      <rect x="118" y="106" width="2" height="8" fill="#FF8C42"/>
+      <rect x="28" y="58" width="22" height="8" rx="2" fill="#FF4757"/>
+      <text x="39" y="64.5" fill="#fff" font-family="JetBrains Mono" font-size="5.5" font-weight="700" text-anchor="middle">LIVE</text>
+      <text x="100" y="170" fill="#FF8C42" font-family="JetBrains Mono" font-size="6" text-anchor="middle">8MP · f/2.0 · ISO 200</text>
+      <circle cx="100" cy="186" r="8" fill="none" stroke="#FF8C42" stroke-width="1.5"/>
+      <circle cx="100" cy="186" r="5" fill="#FF8C42"/>
+    `
+  },
+  wifi: {
+    color: '#34E8FF',
+    title: 'WiFi Scanner',
+    body: 'The Pi Zero 2W has built-in 802.11n WiFi. Scan nearby networks, capture handshakes with aircrack-ng, and run deauth attacks. Also works as a rogue AP or captive portal using hostapd.',
+    tags: ['iwlist','aircrack-ng','hostapd','wpa_supplicant','monitor mode'],
+    screen: `
+      <rect x="24" y="22" width="152" height="14" rx="0" fill="#0D1830"/>
+      <text x="30" y="32" fill="#6B7A99" font-family="JetBrains Mono" font-size="6">FLIPKIT</text>
+      <text x="162" y="32" fill="#1FCC7C" font-family="JetBrains Mono" font-size="6" text-anchor="end">●  87%</text>
+      <rect x="24" y="36" width="152" height="18" fill="#071A1A"/>
+      <text x="100" y="48" fill="#34E8FF" font-family="JetBrains Mono" font-size="8" font-weight="700" text-anchor="middle">WiFi Scanner</text>
+      <text x="30" y="64" fill="#6B7A99" font-family="JetBrains Mono" font-size="6">NETWORKS FOUND — 6</text>
+      <rect x="30" y="68" width="140" height="1" fill="#1E2B3F"/>
+      <rect x="30" y="72" width="140" height="16" rx="3" fill="rgba(52,232,255,.08)"/>
+      <text x="36" y="83" fill="#34E8FF" font-family="JetBrains Mono" font-size="6" font-weight="700">Linksys_HomeNet</text>
+      <text x="162" y="83" fill="#1FCC7C" font-family="JetBrains Mono" font-size="6" text-anchor="end">▓▓▓▓ -42dBm</text>
+      <rect x="30" y="90" width="140" height="16" rx="3" fill="rgba(255,255,255,.02)"/>
+      <text x="36" y="101" fill="#8B95A5" font-family="JetBrains Mono" font-size="6">NETGEAR-5G-ABF2</text>
+      <text x="162" y="101" fill="#8B95A5" font-family="JetBrains Mono" font-size="6" text-anchor="end">▓▓▓░ -61dBm</text>
+      <rect x="30" y="108" width="140" height="16" rx="3" fill="rgba(255,255,255,.02)"/>
+      <text x="36" y="119" fill="#8B95A5" font-family="JetBrains Mono" font-size="6">xfinitywifi</text>
+      <text x="162" y="119" fill="#8B95A5" font-family="JetBrains Mono" font-size="6" text-anchor="end">▓▓░░ -74dBm</text>
+      <rect x="30" y="126" width="140" height="16" rx="3" fill="rgba(255,255,255,.02)"/>
+      <text x="36" y="137" fill="#8B95A5" font-family="JetBrains Mono" font-size="6">TP-Link_Guest</text>
+      <text x="162" y="137" fill="#8B95A5" font-family="JetBrains Mono" font-size="6" text-anchor="end">▓░░░ -83dBm</text>
+      <rect x="30" y="150" width="140" height="1" fill="#1E2B3F"/>
+      <rect x="30" y="154" width="66" height="18" rx="4" fill="#071A1A" stroke="#34E8FF" stroke-width="1"/>
+      <text x="63" y="166" fill="#34E8FF" font-family="JetBrains Mono" font-size="6" font-weight="700" text-anchor="middle">SCAN</text>
+      <rect x="104" y="154" width="66" height="18" rx="4" fill="#071A1A" stroke="#6B7A99" stroke-width="1"/>
+      <text x="137" y="166" fill="#6B7A99" font-family="JetBrains Mono" font-size="6" font-weight="700" text-anchor="middle">DEAUTH</text>
+    `
+  }
+};
+
+const screenEl = document.getElementById('screen-content');
+const detailCard = document.getElementById('detail-card');
+const detailTitle = document.getElementById('detail-title');
+const detailBody = document.getElementById('detail-body');
+const detailTags = document.getElementById('detail-tags');
+
+document.querySelectorAll('.pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    const app = apps[pill.dataset.app];
+    if (!app) return;
+    screenEl.innerHTML = app.screen;
+    detailTitle.textContent = app.title;
+    detailTitle.style.color = app.color;
+    detailBody.textContent = app.body;
+    detailCard.style.borderColor = app.color + '55';
+    detailTags.innerHTML = app.tags.map(t => `<div class="dtag">${t}</div>`).join('');
+  });
+});
+</script>
