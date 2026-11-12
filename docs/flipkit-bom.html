@@ -1,0 +1,274 @@
+<title>FlipKit Pi</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0B0F18;--surf:#131923;--elev:#1C2438;--acc:#1FCC7C;--blu:#2DA8FF;--txt:#E2E8F0;--mut:#8B95A5;--dan:#FF4757;--brd:#1E2B3F;--warn:#FF8C42;}
+html{-webkit-font-smoothing:antialiased;}
+body{background:radial-gradient(ellipse at top,#0D1420 0%,#050709 70%);min-height:100vh;color:var(--txt);font-family:system-ui,-apple-system,sans-serif;padding-bottom:60px;}
+.page-header{display:flex;flex-direction:column;align-items:center;gap:8px;padding:32px 20px 20px;}
+.ph-logo{font-family:'Courier New',monospace;font-size:38px;font-weight:900;letter-spacing:-2px;background:linear-gradient(125deg,#1FCC7C 0%,#34E8FF 55%,#2DA8FF 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.ph-sub{font-family:'Courier New',monospace;font-size:10px;color:var(--mut);letter-spacing:.5px;text-align:center;}
+.ph-badges{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin-top:4px;}
+.chip{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:var(--mut);font-family:'Courier New',monospace;font-size:10px;padding:4px 10px;border-radius:20px;}
+.chip.on{background:rgba(31,204,124,.1);border-color:rgba(31,204,124,.3);color:var(--acc);}
+.upgrade-banner{margin:0 12px 4px;background:rgba(31,204,124,.07);border:1px solid rgba(31,204,124,.25);border-radius:10px;padding:10px 14px;font-family:'Courier New',monospace;font-size:10px;color:var(--acc);line-height:1.7;}
+.upgrade-banner strong{color:#fff;}
+.cost-strip{display:flex;gap:8px;padding:0 16px 16px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.cost-strip::-webkit-scrollbar{display:none}
+.cost-card{background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:11px 14px;flex-shrink:0;min-width:100px;}
+.cc-lbl{font-family:'Courier New',monospace;font-size:9px;color:var(--mut);letter-spacing:.7px;text-transform:uppercase;margin-bottom:4px;}
+.cc-val{font-family:'Courier New',monospace;font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;}
+.cc-val.green{color:var(--acc);}.cc-val.blue{color:var(--blu);}.cc-val.warn{color:var(--warn);}
+.sec-lbl{padding:14px 16px 6px;font-family:'Courier New',monospace;font-size:9px;color:var(--mut);letter-spacing:.8px;text-transform:uppercase;}
+.group{margin:0 12px 2px;background:var(--surf);border:1px solid var(--brd);border-radius:12px;overflow:hidden;}
+.mitem{display:flex;align-items:center;gap:12px;padding:0 14px;height:58px;border-bottom:1px solid rgba(255,255,255,.05);position:relative;}
+.mitem:last-child{border-bottom:none}
+.mitem-icon{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.2);}
+.mitem-body{flex:1;min-width:0;}
+.mitem-label{font-size:14px;color:var(--txt);font-weight:500;letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mitem-desc{font-size:10px;color:var(--mut);margin-top:2px;font-family:'Courier New',monospace;}
+.mitem-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0;}
+.price{font-family:'Courier New',monospace;font-size:13px;font-weight:700;color:var(--acc);font-variant-numeric:tabular-nums;}
+.where{font-family:'Courier New',monospace;font-size:9px;color:var(--blu);}
+.new-tag{font-family:'Courier New',monospace;font-size:9px;font-weight:700;color:var(--warn);background:rgba(255,140,66,.1);border:1px solid rgba(255,140,66,.3);border-radius:4px;padding:1px 6px;letter-spacing:.4px;}
+.sub-row{display:flex;justify-content:flex-end;padding:4px 16px 0;font-family:'Courier New',monospace;font-size:9px;color:var(--mut);}
+.sub-row span{color:var(--acc);margin-left:4px;}
+.total-group{margin:14px 12px 0;background:var(--surf);border:1px solid var(--brd);border-radius:12px;overflow:hidden;}
+.t-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);font-family:'Courier New',monospace;font-size:11px;}
+.t-row:last-child{border-bottom:none;}
+.t-row .tl{color:var(--mut);}.t-row .tv{color:var(--txt);font-weight:700;font-variant-numeric:tabular-nums;}
+.t-row.grand{background:rgba(31,204,124,.06);}
+.t-row.grand .tl{color:var(--txt);font-size:13px;font-weight:700;}
+.t-row.grand .tv{color:var(--acc);font-size:16px;}
+.note-card{margin:10px 12px 0;background:rgba(45,168,255,.06);border:1px solid rgba(45,168,255,.2);border-radius:10px;padding:11px 14px;font-family:'Courier New',monospace;font-size:10px;color:rgba(255,255,255,.6);line-height:1.7;}
+.note-card strong{color:var(--blu);}
+.tool-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);}
+.tool-row:last-child{border-bottom:none;}
+.tl-name{font-size:12px;color:var(--txt);font-weight:500;}
+.tl-note{font-family:'Courier New',monospace;font-size:9px;color:var(--mut);margin-top:1px;}
+.tl-price{font-family:'Courier New',monospace;font-size:12px;color:var(--acc);font-variant-numeric:tabular-nums;}
+.hint-row{margin-top:20px;text-align:center;font-family:'Courier New',monospace;font-size:9px;color:rgba(255,255,255,.1);letter-spacing:.3px;padding:0 20px;}
+.ic-red{background:rgba(255,71,87,.2);}.ic-green{background:rgba(31,204,124,.2);}.ic-blue{background:rgba(45,168,255,.2);}.ic-purple{background:rgba(122,90,255,.2);}.ic-yellow{background:rgba(255,214,10,.18);}.ic-orange{background:rgba(255,140,66,.2);}.ic-grey{background:rgba(255,255,255,.07);}.ic-teal{background:rgba(52,232,255,.15);}.ic-pink{background:rgba(255,45,85,.2);}.ic-red2{background:rgba(220,38,38,.25);}
+@media(min-width:480px){body{max-width:420px;margin:0 auto;}}
+</style>
+
+<div class="page-header">
+  <div class="ph-logo">FlipKit</div>
+  <div class="ph-sub">Pi Zero 2W · Mini Linux Computer · No Soldering_</div>
+  <div class="ph-badges">
+    <div class="chip on">Linux</div>
+    <div class="chip on">Screen</div>
+    <div class="chip on">Camera</div>
+    <div class="chip on">Mic</div>
+    <div class="chip on">NFC/RFID</div>
+    <div class="chip on">Sub-GHz</div>
+    <div class="chip on">IR</div>
+    <div class="chip on">BadUSB</div>
+    <div class="chip on">WiFi</div>
+    <div class="chip on">BLE</div>
+  </div>
+</div>
+
+<div style="margin:0 12px 12px;">
+  <div class="upgrade-banner">
+    <strong>RASPBERRY PI ZERO 2W BUILD.</strong> Runs full Linux — Python, SSH, browser, everything.<br>
+    Display + radios wire to the 40-pin GPIO header. No soldering on the Pi itself.<br>
+    Camera plugs in via CSI ribbon. PiSugar handles battery charging.
+  </div>
+</div>
+
+<div class="cost-strip">
+  <div class="cost-card"><div class="cc-lbl">Parts</div><div class="cc-val green">~$88</div></div>
+  <div class="cost-card"><div class="cc-lbl">HAT PCB</div><div class="cc-val blue">~$8</div></div>
+  <div class="cost-card"><div class="cc-lbl">Total</div><div class="cc-val warn">~$96</div></div>
+  <div class="cost-card"><div class="cc-lbl">Linux</div><div class="cc-val green">✓</div></div>
+</div>
+
+<!-- BRAIN -->
+<div class="sec-lbl">Brain</div>
+<div class="group">
+  <div class="mitem">
+    <div class="mitem-icon ic-red2">🫐</div>
+    <div class="mitem-body">
+      <div class="mitem-label">Raspberry Pi Zero 2W</div>
+      <div class="mitem-desc">quad-core 64-bit · 512MB RAM · WiFi · BLE · 40-pin GPIO · CSI camera port</div>
+    </div>
+    <div class="mitem-right"><div class="price">$15</div><div class="where">rpilocator.com</div></div>
+  </div>
+  <div class="mitem">
+    <div class="mitem-icon ic-grey">💾</div>
+    <div class="mitem-body">
+      <div class="mitem-label">MicroSD 32GB (Class 10 / A1)</div>
+      <div class="mitem-desc">Raspberry Pi OS Lite · flash with Raspberry Pi Imager</div>
+    </div>
+    <div class="mitem-right"><div class="price">$7</div><div class="where">Amazon</div></div>
+  </div>
+</div>
+<div class="sub-row">brain subtotal <span>$22</span></div>
+
+<!-- DISPLAY -->
+<div class="sec-lbl">Display</div>
+<div class="group">
+  <div class="mitem">
+    <div class="mitem-icon ic-blue">🖥️</div>
+    <div class="mitem-body">
+      <div class="mitem-label">2.4" ILI9341 TFT + XPT2046 Touch</div>
+      <div class="mitem-desc">320×240 · SPI · resistive touch · GPIO header wiring · fbcp-ili9341 driver</div>
+    </div>
+    <div class="mitem-right"><div class="price">$8</div><div class="new-tag">TOUCH</div><div class="where">AliExpress</div></div>
+  </div>
+</div>
+<div class="sub-row">display subtotal <span>$8</span></div>
+
+<!-- CAMERA + MIC -->
+<div class="sec-lbl">Camera + Mic</div>
+<div class="group">
+  <div class="mitem">
+    <div class="mitem-icon ic-pink">📷</div>
+    <div class="mitem-body">
+      <div class="mitem-label">Raspberry Pi Camera Module v2</div>
+      <div class="mitem-desc">8MP Sony IMX219 · CSI ribbon cable · official driver · Pi Zero CSI adapter needed</div>
+    </div>
+    <div class="mitem-right"><div class="price">$15</div><div class="new-tag">CSI</div><div class="where">PiShop / Adafruit</div></div>
+  </div>
+  <div class="mitem">
+    <div class="mitem-icon ic-green">🎤</div>
+    <div class="mitem-body">
+      <div class="mitem-label">INMP441 I2S Mic Breakout</div>
+      <div class="mitem-desc">digital I2S · 3 GPIO pins · Pi I2S driver · no USB dongle needed</div>
+    </div>
+    <div class="mitem-right"><div class="price">$4</div><div class="where">AliExpress</div></div>
+  </div>
+</div>
+<div class="sub-row">camera + mic subtotal <span>$19</span></div>
+
+<!-- INPUT -->
+<div class="sec-lbl">Input</div>
+<div class="group">
+  <div class="mitem">
+    <div class="mitem-icon ic-grey">🎮</div>
+    <div class="mitem-body">
+      <div class="mitem-label">Tactile Buttons × 8</div>
+      <div class="mitem-desc">D-pad + A/B/Menu/Back · wire to GPIO · evdev input driver</div>
+    </div>
+    <div class="mitem-right"><div class="price">$1</div><div class="where">AliExpress</div></div>
+  </div>
+</div>
+<div class="sub-row">input subtotal <span>$1</span></div>
+
+<!-- RADIOS -->
+<div class="sec-lbl">Radios</div>
+<div class="group">
+  <div class="mitem">
+    <div class="mitem-icon ic-purple">📡</div>
+    <div class="mitem-body">
+      <div class="mitem-label">CC1101 Sub-GHz Module</div>
+      <div class="mitem-desc">433/868/915 MHz · SPI · rpitx / cc1101 Python lib</div>
+    </div>
+    <div class="mitem-right"><div class="price">$3</div><div class="where">AliExpress</div></div>
+  </div>
+  <div class="mitem">
+    <div class="mitem-icon ic-blue">💳</div>
+    <div class="mitem-body">
+      <div class="mitem-label">PN532 NFC Module</div>
+      <div class="mitem-desc">13.56 MHz · I2C · nfcpy Python library · read/write cards</div>
+    </div>
+    <div class="mitem-right"><div class="price">$6</div><div class="where">AliExpress</div></div>
+  </div>
+  <div class="mitem">
+    <div class="mitem-icon ic-orange">🔐</div>
+    <div class="mitem-body">
+      <div class="mitem-label">RDM6300 RFID Module (125kHz)</div>
+      <div class="mitem-desc">building keycards · UART · Python serial · 3.3V compatible</div>
+    </div>
+    <div class="mitem-right"><div class="price">$3</div><div class="where">AliExpress</div></div>
+  </div>
+  <div class="mitem">
+    <div class="mitem-icon ic-red">🔴</div>
+    <div class="mitem-body">
+      <div class="mitem-label">IR LED + TSOP38238 Receiver</div>
+      <div class="mitem-desc">940nm · lirc / pigpio · GPIO 18 (PWM) for TX</div>
+    </div>
+    <div class="mitem-right"><div class="price">$2</div><div class="where">AliExpress</div></div>
+  </div>
+</div>
+<div class="sub-row">radios subtotal <span>$14</span></div>
+
+<!-- POWER -->
+<div class="sec-lbl">Power</div>
+<div class="group">
+  <div class="mitem">
+    <div class="mitem-icon ic-green">🔋</div>
+    <div class="mitem-body">
+      <div class="mitem-label">PiSugar 3 (Pi Zero HAT)</div>
+      <div class="mitem-desc">1200mAh LiPo built in · USB-C charging · I2C power management · no wiring</div>
+    </div>
+    <div class="mitem-right"><div class="price">$20</div><div class="new-tag">PLUG-IN</div><div class="where">PiSugar / Amazon</div></div>
+  </div>
+</div>
+<div class="sub-row">power subtotal <span>$20</span></div>
+
+<!-- GPIO HAT PCB -->
+<div class="sec-lbl">GPIO HAT (connects everything)</div>
+<div class="group">
+  <div class="mitem">
+    <div class="mitem-icon ic-green">🟢</div>
+    <div class="mitem-body">
+      <div class="mitem-label">Custom Pi Zero HAT — JLCPCB</div>
+      <div class="mitem-desc">breakout for display, all radios, mic, buttons · sits on 40-pin header · 5 boards ~$8</div>
+    </div>
+    <div class="mitem-right"><div class="price">$8</div><div class="where">jlcpcb.com</div></div>
+  </div>
+  <div class="mitem">
+    <div class="mitem-icon ic-grey">🖨️</div>
+    <div class="mitem-body">
+      <div class="mitem-label">3D Printed Case</div>
+      <div class="mitem-desc">Pi Zero form factor · cutouts for screen, camera, USB-C, buttons</div>
+    </div>
+    <div class="mitem-right"><div class="price">Free–$8</div><div class="where">Printables.com</div></div>
+  </div>
+</div>
+<div class="sub-row">HAT + case subtotal <span>$8–16</span></div>
+
+<!-- TOTAL -->
+<div class="total-group">
+  <div class="t-row"><span class="tl">Brain (Pi Zero 2W + microSD)</span><span class="tv">$22</span></div>
+  <div class="t-row"><span class="tl">Display (2.4" TFT + touch)</span><span class="tv">$8</span></div>
+  <div class="t-row"><span class="tl">Camera + Mic</span><span class="tv">$19</span></div>
+  <div class="t-row"><span class="tl">Input (buttons)</span><span class="tv">$1</span></div>
+  <div class="t-row"><span class="tl">Radios (Sub-GHz + NFC + RFID + IR)</span><span class="tv">$14</span></div>
+  <div class="t-row"><span class="tl">Power (PiSugar 3)</span><span class="tv">$20</span></div>
+  <div class="t-row"><span class="tl">GPIO HAT + case</span><span class="tv">$8–16</span></div>
+  <div class="t-row grand"><span class="tl">TOTAL</span><span class="tv">~$92–100</span></div>
+</div>
+
+<div class="note-card">
+  <strong>WHY PI ZERO 2W.</strong><br>
+  Runs full Raspberry Pi OS — Python scripts, SSH over WiFi, a real web browser. BadUSB works via USB gadget mode (one line in config.txt). Camera works with <code>libcamera</code> out of the box. PiSugar 3 clips onto the bottom — no wiring, charges via USB-C, reports battery over I2C.
+</div>
+
+<div class="sec-lbl">Software Stack (all free)</div>
+<div class="group">
+  <div class="tool-row">
+    <div><div class="tl-name">Raspberry Pi OS Lite</div><div class="tl-note">headless Linux · flash to microSD with Pi Imager</div></div>
+    <div class="tl-price">free</div>
+  </div>
+  <div class="tool-row">
+    <div><div class="tl-name">fbcp-ili9341</div><div class="tl-note">framebuffer driver for ILI9341 over SPI · C++ · fast</div></div>
+    <div class="tl-price">free</div>
+  </div>
+  <div class="tool-row">
+    <div><div class="tl-name">Python + nfcpy + pyserial</div><div class="tl-note">NFC, RFID, Sub-GHz · pip install</div></div>
+    <div class="tl-price">free</div>
+  </div>
+  <div class="tool-row">
+    <div><div class="tl-name">libcamera / picamera2</div><div class="tl-note">official Pi camera library · Python API</div></div>
+    <div class="tl-price">free</div>
+  </div>
+  <div class="tool-row">
+    <div><div class="tl-name">rpitx</div><div class="tl-note">transmit RF directly from GPIO · Sub-GHz replay attacks</div></div>
+    <div class="tl-price">free</div>
+  </div>
+</div>
+
+<div class="hint-row">pi zero 2w · linux · no soldering on pi · ~$92–100 total</div>

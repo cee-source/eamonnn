@@ -1,0 +1,218 @@
+<title>FlipKit Schematic</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0B0F18;--surf:#131923;--acc:#1FCC7C;--blu:#2DA8FF;--txt:#E2E8F0;--mut:#8B95A5;--brd:#1E2B3F;--warn:#FF8C42;}
+html{-webkit-font-smoothing:antialiased;}
+body{background:radial-gradient(ellipse at top,#0D1420 0%,#050709 70%);min-height:100vh;color:var(--txt);font-family:system-ui,-apple-system,sans-serif;padding-bottom:60px;}
+.hdr{display:flex;flex-direction:column;align-items:center;gap:4px;padding:22px 20px 12px;}
+.logo{font-family:'Courier New',monospace;font-size:32px;font-weight:900;letter-spacing:-2px;background:linear-gradient(125deg,#1FCC7C 0%,#34E8FF 55%,#2DA8FF 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.sub{font-family:'Courier New',monospace;font-size:9px;color:var(--mut);letter-spacing:.5px;}
+.svg-outer{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 10px 12px;}
+svg{min-width:700px;display:block;margin:0 auto;width:100%;max-width:940px;}
+.legend-wrap{display:flex;flex-wrap:wrap;gap:8px 14px;padding:4px 16px 16px;justify-content:center;}
+.leg-item{display:flex;align-items:center;gap:6px;font-family:'Courier New',monospace;font-size:9px;color:var(--mut);}
+.leg-dot{width:18px;height:3px;border-radius:2px;}
+.sec-lbl{padding:10px 16px 6px;font-family:'Courier New',monospace;font-size:9px;color:var(--mut);letter-spacing:.8px;text-transform:uppercase;}
+.tbl-wrap{margin:0 12px;overflow-x:auto;border-radius:12px;border:1px solid var(--brd);}
+table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:10px;}
+thead tr{background:rgba(255,255,255,.04);}
+th{padding:8px 12px;text-align:left;color:var(--mut);font-size:9px;letter-spacing:.5px;text-transform:uppercase;font-weight:400;white-space:nowrap;}
+td{padding:7px 12px;border-top:1px solid rgba(255,255,255,.04);color:var(--txt);white-space:nowrap;}
+.bt{display:inline-block;padding:1px 7px;border-radius:3px;font-size:8px;font-weight:700;letter-spacing:.3px;}
+.spi{background:rgba(45,168,255,.15);color:#2DA8FF;}
+.i2c{background:rgba(31,204,124,.15);color:#1FCC7C;}
+.csi{background:rgba(122,90,255,.15);color:#7A5AFF;}
+.i2s{background:rgba(52,232,255,.15);color:#34E8FF;}
+.uart{background:rgba(255,140,66,.15);color:#FF8C42;}
+.gpio{background:rgba(255,71,87,.15);color:#FF4757;}
+.usb{background:rgba(196,201,212,.1);color:#C4C9D4;}
+.pwr{background:rgba(255,214,10,.12);color:#FFD60A;}
+.hint{margin-top:18px;text-align:center;font-family:'Courier New',monospace;font-size:9px;color:rgba(255,255,255,.1);padding:0 20px;}
+@media(min-width:480px){body{max-width:480px;margin:0 auto;}}
+</style>
+
+<div class="hdr">
+  <div class="logo">FlipKit</div>
+  <div class="sub">Pi Zero 2W · GPIO Schematic · v0.2 · BCM pin numbering_</div>
+</div>
+
+<div class="svg-outer">
+<svg viewBox="0 0 920 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- ── CONNECTION LINES (behind blocks) ── -->
+
+  <!-- Display+Touch → Pi top (SPI blue) -->
+  <line x1="426" y1="98" x2="426" y2="200" stroke="#2DA8FF" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="432" y="155" fill="#2DA8FF" font-family="JetBrains Mono" font-size="8" opacity=".9">SPI</text>
+
+  <!-- Camera → Pi top-right (CSI purple) — L-shape -->
+  <polyline points="655,57 638,57 638,200" stroke="#7A5AFF" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="641" y="130" fill="#7A5AFF" font-family="JetBrains Mono" font-size="8" opacity=".9">CSI</text>
+
+  <!-- Mic → Pi right (I2S teal) -->
+  <line x1="655" y1="248" x2="628" y2="248" stroke="#34E8FF" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="630" y="243" fill="#34E8FF" font-family="JetBrains Mono" font-size="8" opacity=".9">I2S</text>
+
+  <!-- CC1101 → Pi right-bottom (SPI blue) -->
+  <line x1="655" y1="390" x2="628" y2="375" stroke="#2DA8FF" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="630" y="386" fill="#2DA8FF" font-family="JetBrains Mono" font-size="8" opacity=".9">SPI</text>
+
+  <!-- PN532 → Pi bottom (I2C green) -->
+  <line x1="522" y1="478" x2="505" y2="400" stroke="#1FCC7C" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="514" y="452" fill="#1FCC7C" font-family="JetBrains Mono" font-size="8" opacity=".9">I2C</text>
+
+  <!-- RDM6300 → Pi bottom (UART orange) -->
+  <line x1="362" y1="478" x2="383" y2="400" stroke="#FF8C42" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="340" y="452" fill="#FF8C42" font-family="JetBrains Mono" font-size="8" opacity=".9">UART</text>
+
+  <!-- IR → Pi left-bottom (GPIO red) -->
+  <line x1="233" y1="388" x2="288" y2="375" stroke="#FF4757" stroke-width="1.5" stroke-dasharray="5,3"/>
+
+  <!-- Buttons → Pi left (GPIO yellow) -->
+  <line x1="233" y1="248" x2="288" y2="260" stroke="#FFD60A" stroke-width="1.5" stroke-dasharray="5,3"/>
+
+  <!-- USB-C → Pi top-left — L-shape -->
+  <polyline points="233,118 270,118 270,200" stroke="#C4C9D4" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="240" y="111" fill="#C4C9D4" font-family="JetBrains Mono" font-size="8" opacity=".9">USB</text>
+
+  <!-- PiSugar → Pi bottom-left — L-shape -->
+  <polyline points="233,505 265,505 265,400" stroke="#FFD60A" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="238" y="462" fill="#FFD60A" font-family="JetBrains Mono" font-size="8" opacity=".9">PWR</text>
+
+  <!-- ── BLOCKS ── -->
+
+  <!-- Pi Zero 2W center -->
+  <rect x="288" y="200" width="340" height="200" rx="10" fill="#131923" stroke="#CC0000" stroke-width="2"/>
+  <rect x="288" y="200" width="340" height="34" rx="10" fill="#2A0808"/>
+  <rect x="288" y="222" width="340" height="12" fill="#2A0808"/>
+  <text x="458" y="221" text-anchor="middle" fill="#E2E8F0" font-family="JetBrains Mono" font-size="13" font-weight="700">Raspberry Pi Zero 2W</text>
+  <text x="458" y="244" text-anchor="middle" fill="#8B95A5" font-family="JetBrains Mono" font-size="8.5">quad-core 64-bit · 512MB RAM · WiFi · BLE · 40-pin GPIO</text>
+  <text x="305" y="268" fill="#2DA8FF" font-family="JetBrains Mono" font-size="8">SPI   GPIO 9(MISO) 10(MOSI) 11(SCK)</text>
+  <text x="305" y="283" fill="#2DA8FF" font-family="JetBrains Mono" font-size="8">  CS  GPIO 8(disp) 7(touch) 5(CC1101)</text>
+  <text x="305" y="298" fill="#2DA8FF" font-family="JetBrains Mono" font-size="8">  DC·RST·IRQ  GPIO 25 · 24 · 17</text>
+  <text x="305" y="316" fill="#1FCC7C" font-family="JetBrains Mono" font-size="8">I2C  GPIO 2(SDA) 3(SCL)</text>
+  <text x="305" y="331" fill="#7A5AFF" font-family="JetBrains Mono" font-size="8">CSI  camera ribbon connector (built-in)</text>
+  <text x="305" y="346" fill="#34E8FF" font-family="JetBrains Mono" font-size="8">I2S  GPIO 18(BCK) 19(WS) 20(DATA)</text>
+  <text x="305" y="361" fill="#FF8C42" font-family="JetBrains Mono" font-size="8">UART GPIO 15(RX)</text>
+  <text x="305" y="376" fill="#FF4757" font-family="JetBrains Mono" font-size="8">IR   GPIO 12(TX/PWM) 23(RX)</text>
+  <text x="305" y="391" fill="#FFD60A" font-family="JetBrains Mono" font-size="8">BTN  GPIO 4,14,22,27,16,26,13,21</text>
+
+  <!-- Display + Touch (top center) -->
+  <rect x="298" y="18" width="256" height="80" rx="8" fill="#0F1A2E" stroke="#2DA8FF" stroke-width="1.5"/>
+  <text x="426" y="40" text-anchor="middle" fill="#E2E8F0" font-family="JetBrains Mono" font-size="11" font-weight="600">ILI9341 + XPT2046</text>
+  <text x="426" y="56" text-anchor="middle" fill="#8B95A5" font-family="JetBrains Mono" font-size="8">2.4" TFT · 320×240 · Resistive Touch</text>
+  <text x="426" y="71" text-anchor="middle" fill="#2DA8FF" font-family="JetBrains Mono" font-size="8">CS:8 DC:25 RST:24 · CS_T:7 IRQ:17</text>
+  <text x="426" y="85" text-anchor="middle" fill="#FF8C42" font-family="JetBrains Mono" font-size="8" font-weight="600">→ J1  14-pin 2.54mm header</text>
+
+  <!-- Camera (top right) -->
+  <rect x="655" y="18" width="168" height="80" rx="8" fill="#130E20" stroke="#7A5AFF" stroke-width="1.5"/>
+  <text x="739" y="40" text-anchor="middle" fill="#E2E8F0" font-family="JetBrains Mono" font-size="11" font-weight="600">Pi Camera v2</text>
+  <text x="739" y="56" text-anchor="middle" fill="#8B95A5" font-family="JetBrains Mono" font-size="8">8MP Sony IMX219</text>
+  <text x="739" y="71" text-anchor="middle" fill="#7A5AFF" font-family="JetBrains Mono" font-size="8">CSI-2 ribbon · libcamera</text>
+  <text x="739" y="85" text-anchor="middle" fill="#FF8C42" font-family="JetBrains Mono" font-size="8" font-weight="600">→ J2  15-pin CSI ribbon</text>
+
+  <!-- Mic (right) -->
+  <rect x="655" y="218" width="168" height="58" rx="8" fill="#071A16" stroke="#34E8FF" stroke-width="1.5"/>
+  <text x="739" y="240" text-anchor="middle" fill="#E2E8F0" font-family="JetBrains Mono" font-size="11" font-weight="600">INMP441</text>
+  <text x="739" y="256" text-anchor="middle" fill="#8B95A5" font-family="JetBrains Mono" font-size="8">I2S MEMS Microphone</text>
+  <text x="739" y="271" text-anchor="middle" fill="#34E8FF" font-family="JetBrains Mono" font-size="8">BCK:18  WS:19  DATA:20</text>
+
+  <!-- CC1101 (right-bottom) -->
+  <rect x="655" y="360" width="168" height="58" rx="8" fill="#070A1A" stroke="#2DA8FF" stroke-width="1.5"/>
+  <text x="739" y="382" text-anchor="middle" fill="#E2E8F0" font-family="JetBrains Mono" font-size="11" font-weight="600">CC1101</text>
+  <text x="739" y="398" text-anchor="middle" fill="#8B95A5" font-family="JetBrains Mono" font-size="8">Sub-GHz 433/868/915 MHz</text>
+  <text x="739" y="413" text-anchor="middle" fill="#2DA8FF" font-family="JetBrains Mono" font-size="8">SPI · CS:5  GDO0:6</text>
+
+  <!-- PN532 (bottom right-center) -->
+  <rect x="445" y="478" width="165" height="58" rx="8" fill="#071A0F" stroke="#1FCC7C" stroke-width="1.5"/>
+  <text x="527" y="500" text-anchor="middle" fill="#E2E8F0" font-family="JetBrains Mono" font-size="11" font-weight="600">PN532 NFC</text>
+  <text x="527" y="516" text-anchor="middle" fill="#8B95A5" font-family="JetBrains Mono" font-size="8">13.56 MHz · PCB coil antenna</text>
+  <text x="527" y="531" text-anchor="middle" fill="#1FCC7C" font-family="JetBrains Mono" font-size="8">I2C addr 0x24 · SDA:2  SCL:3</text>
+
+  <!-- RDM6300 (bottom left-center) -->
+  <rect x="278" y="478" width="158" height="58" rx="8" fill="#1A0C06" stroke="#FF8C42" stroke-width="1.5"/>
+  <text x="357" y="500" text-anchor="middle" fill="#E2E8F0" font-family="JetBrains Mono" font-size="11" font-weight="600">RDM6300</text>
+  <text x="357" y="516" text-anchor="middle" fill="#8B95A5" font-family="JetBrains Mono" font-size="8">RFID 125kHz · EM4100</text>
+  <text x="357" y="531" text-anchor="middle" fill="#FF8C42" font-family="JetBrains Mono" font-size="8">UART · RX:15</text>
+
+  <!-- IR (left-bottom) -->
+  <rect x="75" y="358" width="158" height="60" rx="8" fill="#1A0607" stroke="#FF4757" stroke-width="1.5"/>
+  <text x="154" y="380" text-anchor="middle" fill="#E2E8F0" font-family="JetBrains Mono" font-size="11" font-weight="600">IR TX + RX</text>
+  <text x="154" y="396" text-anchor="middle" fill="#8B95A5" font-family="JetBrains Mono" font-size="8">940nm LED + TSOP38238</text>
+  <text x="154" y="412" text-anchor="middle" fill="#FF4757" font-family="JetBrains Mono" font-size="8">TX:12(PWM)  RX:23</text>
+
+  <!-- Buttons (left-center) -->
+  <rect x="75" y="218" width="158" height="60" rx="8" fill="#12100A" stroke="#FFD60A" stroke-width="1.5"/>
+  <text x="154" y="240" text-anchor="middle" fill="#E2E8F0" font-family="JetBrains Mono" font-size="11" font-weight="600">Buttons × 8</text>
+  <text x="154" y="256" text-anchor="middle" fill="#8B95A5" font-family="JetBrains Mono" font-size="8">direct GPIO · no expander needed</text>
+  <text x="154" y="272" text-anchor="middle" fill="#FFD60A" font-family="JetBrains Mono" font-size="8">GPIO 4,14,22,27,16,26,13,21</text>
+
+  <!-- USB-C (top-left) -->
+  <rect x="75" y="88" width="158" height="58" rx="8" fill="#111111" stroke="#C4C9D4" stroke-width="1.5"/>
+  <text x="154" y="110" text-anchor="middle" fill="#E2E8F0" font-family="JetBrains Mono" font-size="11" font-weight="600">USB-C</text>
+  <text x="154" y="126" text-anchor="middle" fill="#8B95A5" font-family="JetBrains Mono" font-size="8">BadUSB via dwc2 gadget mode</text>
+  <text x="154" y="141" text-anchor="middle" fill="#C4C9D4" font-family="JetBrains Mono" font-size="8">add dtoverlay=dwc2 to config.txt</text>
+
+  <!-- PiSugar 3 (bottom-left) -->
+  <rect x="75" y="478" width="158" height="58" rx="8" fill="#141000" stroke="#FFD60A" stroke-width="1.5"/>
+  <text x="154" y="500" text-anchor="middle" fill="#E2E8F0" font-family="JetBrains Mono" font-size="11" font-weight="600">PiSugar 3</text>
+  <text x="154" y="516" text-anchor="middle" fill="#8B95A5" font-family="JetBrains Mono" font-size="8">1200mAh · USB-C charge · clips on</text>
+  <text x="154" y="531" text-anchor="middle" fill="#FFD60A" font-family="JetBrains Mono" font-size="8">I2C power mgmt · SDA:2 SCL:3</text>
+
+</svg>
+</div>
+
+<!-- Bus legend -->
+<div class="legend-wrap">
+  <div class="leg-item"><div class="leg-dot" style="background:#2DA8FF"></div>SPI</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#1FCC7C"></div>I2C</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#7A5AFF"></div>CSI (Camera)</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#34E8FF"></div>I2S</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#FF8C42"></div>UART</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#FF4757"></div>GPIO / IR</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#FFD60A"></div>GPIO (Buttons) / Power</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#C4C9D4"></div>USB</div>
+</div>
+
+<!-- Pin reference table -->
+<div class="sec-lbl">Pin Reference (BCM numbering)</div>
+<div class="tbl-wrap">
+<table>
+  <thead><tr><th>BCM GPIO</th><th>Pi Pin #</th><th>Signal</th><th>Bus</th><th>Peripheral</th></tr></thead>
+  <tbody>
+    <tr><td>2</td><td>3</td><td>I2C_SDA</td><td><span class="bt i2c">I2C</span></td><td>PN532 (0x24) · PiSugar 3</td></tr>
+    <tr><td>3</td><td>5</td><td>I2C_SCL</td><td><span class="bt i2c">I2C</span></td><td>PN532 · PiSugar 3</td></tr>
+    <tr><td>4</td><td>7</td><td>BTN_UP</td><td><span class="bt gpio">GPIO</span></td><td>Button UP (pull-up)</td></tr>
+    <tr><td>5</td><td>29</td><td>SPI_CS_CC1101</td><td><span class="bt spi">SPI</span></td><td>CC1101</td></tr>
+    <tr><td>6</td><td>31</td><td>CC1101_GDO0</td><td><span class="bt gpio">GPIO</span></td><td>CC1101 interrupt</td></tr>
+    <tr><td>7</td><td>26</td><td>SPI_CS_TOUCH</td><td><span class="bt spi">SPI</span></td><td>XPT2046 (SPI0_CE1)</td></tr>
+    <tr><td>8</td><td>24</td><td>SPI_CS_DISP</td><td><span class="bt spi">SPI</span></td><td>ILI9341 (SPI0_CE0)</td></tr>
+    <tr><td>9</td><td>21</td><td>SPI_MISO</td><td><span class="bt spi">SPI</span></td><td>ILI9341 / XPT2046 / CC1101</td></tr>
+    <tr><td>10</td><td>19</td><td>SPI_MOSI</td><td><span class="bt spi">SPI</span></td><td>ILI9341 / XPT2046 / CC1101</td></tr>
+    <tr><td>11</td><td>23</td><td>SPI_SCK</td><td><span class="bt spi">SPI</span></td><td>ILI9341 / XPT2046 / CC1101</td></tr>
+    <tr><td>12</td><td>32</td><td>IR_TX</td><td><span class="bt gpio">GPIO</span></td><td>IR LED (PWM0 / pigpio)</td></tr>
+    <tr><td>13</td><td>33</td><td>BTN_MENU</td><td><span class="bt gpio">GPIO</span></td><td>Button MENU</td></tr>
+    <tr><td>14</td><td>8</td><td>BTN_DOWN</td><td><span class="bt gpio">GPIO</span></td><td>Button DOWN</td></tr>
+    <tr><td>15</td><td>10</td><td>RFID_RX</td><td><span class="bt uart">UART</span></td><td>RDM6300 (UART0_RXD)</td></tr>
+    <tr><td>16</td><td>36</td><td>BTN_A</td><td><span class="bt gpio">GPIO</span></td><td>Button A</td></tr>
+    <tr><td>17</td><td>11</td><td>TOUCH_IRQ</td><td><span class="bt spi">SPI</span></td><td>XPT2046 interrupt</td></tr>
+    <tr><td>18</td><td>12</td><td>I2S_BCK</td><td><span class="bt i2s">I2S</span></td><td>INMP441 (PCM_CLK)</td></tr>
+    <tr><td>19</td><td>35</td><td>I2S_WS</td><td><span class="bt i2s">I2S</span></td><td>INMP441 (PCM_FS)</td></tr>
+    <tr><td>20</td><td>38</td><td>I2S_DATA</td><td><span class="bt i2s">I2S</span></td><td>INMP441 (PCM_DIN)</td></tr>
+    <tr><td>21</td><td>40</td><td>BTN_BACK</td><td><span class="bt gpio">GPIO</span></td><td>Button BACK</td></tr>
+    <tr><td>22</td><td>15</td><td>BTN_LEFT</td><td><span class="bt gpio">GPIO</span></td><td>Button LEFT</td></tr>
+    <tr><td>23</td><td>16</td><td>IR_RX</td><td><span class="bt gpio">GPIO</span></td><td>TSOP38238 receiver</td></tr>
+    <tr><td>24</td><td>18</td><td>DISP_RST</td><td><span class="bt spi">SPI</span></td><td>ILI9341 reset</td></tr>
+    <tr><td>25</td><td>22</td><td>DISP_DC</td><td><span class="bt spi">SPI</span></td><td>ILI9341 data/cmd</td></tr>
+    <tr><td>26</td><td>37</td><td>BTN_B</td><td><span class="bt gpio">GPIO</span></td><td>Button B</td></tr>
+    <tr><td>27</td><td>13</td><td>BTN_RIGHT</td><td><span class="bt gpio">GPIO</span></td><td>Button RIGHT</td></tr>
+    <tr><td>CSI</td><td>built-in</td><td>CAMERA</td><td><span class="bt csi">CSI</span></td><td>Pi Camera v2 · 15-pin ribbon · J2</td></tr>
+    <tr><td>USB</td><td>micro-USB</td><td>BadUSB / power</td><td><span class="bt usb">USB</span></td><td>dwc2 gadget · dtoverlay=dwc2</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="hint">pi zero 2w · bcm gpio · j1 display header · j2 csi camera · ~$92–100 total</div>

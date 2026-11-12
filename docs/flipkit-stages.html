@@ -1,0 +1,238 @@
+<title>FlipKit Build Stages</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+<style>
+/* layout: single column timeline, dark-first */
+:root {
+  --bg: #0A0D14;
+  --surf: #111621;
+  --card: #161D2C;
+  --brd: #1E2B3F;
+  --txt: #E2E8F0;
+  --dim: #8B95A5;
+  --acc: #1FCC7C;
+  --blu: #2DA8FF;
+  --warn: #FF8C42;
+  --red: #FF4757;
+  --purp: #7A5AFF;
+  --teal: #34E8FF;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #F0F4F8; --surf: #FFFFFF; --card: #F7FAFC;
+    --brd: #CBD5E0; --txt: #1A202C; --dim: #718096;
+    --acc: #12A05E; --blu: #1A7BC4; --warn: #C05621;
+    --red: #C53030; --purp: #553C9A; --teal: #1A9CB0;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #F0F4F8; --surf: #FFFFFF; --card: #F7FAFC;
+  --brd: #CBD5E0; --txt: #1A202C; --dim: #718096;
+  --acc: #12A05E; --blu: #1A7BC4; --warn: #C05621;
+  --red: #C53030; --purp: #553C9A; --teal: #1A9CB0;
+  color-scheme: light;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;}
+body{
+  background:var(--bg);color:var(--txt);
+  font-family:'JetBrains Mono',monospace;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:24px 60px;
+  max-width:520px;margin:0 auto;
+}
+
+.hdr{text-align:center;margin-bottom:28px;}
+.logo{font-size:28px;font-weight:700;letter-spacing:-1px;background:linear-gradient(125deg,#1FCC7C,#34E8FF,#2DA8FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.sub{font-size:9px;color:var(--dim);letter-spacing:.6px;margin-top:4px;}
+
+.timeline{position:relative;padding-left:36px;}
+.timeline::before{content:'';position:absolute;left:14px;top:8px;bottom:8px;width:2px;background:linear-gradient(to bottom,var(--acc),var(--purp),var(--blu));border-radius:2px;opacity:.35;}
+
+.stage{position:relative;margin-bottom:20px;}
+.stage:last-child{margin-bottom:0;}
+
+.dot{position:absolute;left:-29px;top:16px;width:16px;height:16px;border-radius:50%;border:2px solid var(--surf);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;z-index:1;}
+
+.card{background:var(--card);border:1px solid var(--brd);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px;}
+
+.s1 .dot{background:#1FCC7C;}.s1 .card::before{background:#1FCC7C;}
+.s2 .dot{background:#2DA8FF;}.s2 .card::before{background:#2DA8FF;}
+.s3 .dot{background:#FF8C42;}.s3 .card::before{background:#FF8C42;}
+.s4 .dot{background:#7A5AFF;}.s4 .card::before{background:#7A5AFF;}
+.s5 .dot{background:#34E8FF;}.s5 .card::before{background:#34E8FF;}
+.s6 .dot{background:#FF4757;}.s6 .card::before{background:#FF4757;}
+.s7 .dot{background:#FFD60A;}.s7 .card::before{background:#FFD60A;}
+
+.stage-num{font-size:9px;color:var(--dim);letter-spacing:.5px;margin-bottom:4px;}
+.stage-title{font-size:14px;font-weight:700;color:var(--txt);margin-bottom:6px;letter-spacing:-.3px;}
+.stage-desc{font-size:10px;color:var(--dim);line-height:1.6;margin-bottom:10px;}
+
+.tasks{display:flex;flex-direction:column;gap:4px;}
+.task{display:flex;align-items:flex-start;gap:8px;font-size:10px;color:var(--txt);line-height:1.5;}
+.tick{width:14px;height:14px;border-radius:4px;border:1px solid var(--brd);flex-shrink:0;margin-top:1px;background:rgba(255,255,255,.03);}
+
+.time-badge{display:inline-block;font-size:8px;font-weight:700;color:var(--dim);background:rgba(255,255,255,.05);border:1px solid var(--brd);border-radius:4px;padding:2px 8px;letter-spacing:.4px;margin-top:10px;}
+
+.note{margin-top:8px;background:rgba(255,255,255,.03);border-radius:6px;padding:7px 10px;font-size:9px;color:var(--dim);line-height:1.6;border-left:2px solid var(--brd);}
+.note strong{color:var(--txt);}
+
+.total-bar{margin-top:28px;background:linear-gradient(135deg,rgba(31,204,124,.08),rgba(45,168,255,.08));border:1px solid rgba(31,204,124,.25);border-radius:12px;padding:16px;text-align:center;}
+.total-label{font-size:9px;color:var(--dim);letter-spacing:.5px;margin-bottom:4px;}
+.total-val{font-size:22px;font-weight:700;color:var(--acc);}
+.total-sub{font-size:9px;color:var(--dim);margin-top:4px;}
+</style>
+
+<div class="hdr">
+  <div class="logo">FlipKit</div>
+  <div class="sub">Pi Zero 2W · Build Stages · From Order to Done_</div>
+</div>
+
+<div class="timeline">
+
+  <!-- Stage 1 -->
+  <div class="stage s1">
+    <div class="dot">1</div>
+    <div class="card">
+      <div class="stage-num">STAGE 01</div>
+      <div class="stage-title">Order Parts</div>
+      <div class="stage-desc">Order everything at once so it arrives together. Pi Zero 2W sells out fast — use rpilocator.com to find stock.</div>
+      <div class="tasks">
+        <div class="task"><div class="tick"></div>Pi Zero 2W from rpilocator.com (Adafruit, PiShop, Vilros)</div>
+        <div class="task"><div class="tick"></div>PiSugar 3 HAT — Amazon or pisugar.com</div>
+        <div class="task"><div class="tick"></div>Pi Camera Module v2 — Adafruit or Amazon</div>
+        <div class="task"><div class="tick"></div>2.4" ILI9341 + XPT2046 TFT display — AliExpress</div>
+        <div class="task"><div class="tick"></div>INMP441 I2S mic breakout — AliExpress</div>
+        <div class="task"><div class="tick"></div>Radios: CC1101 + PN532 + RDM6300 + IR kit — AliExpress</div>
+        <div class="task"><div class="tick"></div>8× tactile buttons + jumper wires — AliExpress</div>
+        <div class="task"><div class="tick"></div>32GB microSD (Class 10 / A1) — Amazon</div>
+      </div>
+      <div class="time-badge">⏱ DAY 1 · ~$92–100 total</div>
+    </div>
+  </div>
+
+  <!-- Stage 2 -->
+  <div class="stage s2">
+    <div class="dot">2</div>
+    <div class="card">
+      <div class="stage-num">STAGE 02</div>
+      <div class="stage-title">Flash + Boot Pi OS</div>
+      <div class="stage-desc">While parts ship, set up the software. Flash microSD, enable SSH over WiFi, and confirm the Pi boots.</div>
+      <div class="tasks">
+        <div class="task"><div class="tick"></div>Download Raspberry Pi Imager on your laptop</div>
+        <div class="task"><div class="tick"></div>Flash "Raspberry Pi OS Lite (64-bit)" to microSD</div>
+        <div class="task"><div class="tick"></div>In Imager settings: set hostname, WiFi SSID/password, enable SSH</div>
+        <div class="task"><div class="tick"></div>Insert SD, power Pi via USB — wait 90 seconds</div>
+        <div class="task"><div class="tick"></div>SSH in: <code style="color:var(--acc)">ssh pi@flipkit.local</code></div>
+        <div class="task"><div class="tick"></div>Run <code style="color:var(--acc)">sudo apt update && sudo apt upgrade -y</code></div>
+      </div>
+      <div class="note"><strong>While parts ship</strong> — this stage can be done on any Pi or even before hardware arrives.</div>
+      <div class="time-badge">⏱ DAY 1–7 (while shipping)</div>
+    </div>
+  </div>
+
+  <!-- Stage 3 -->
+  <div class="stage s3">
+    <div class="dot">3</div>
+    <div class="card">
+      <div class="stage-num">STAGE 03</div>
+      <div class="stage-title">Attach PiSugar + Camera</div>
+      <div class="stage-desc">PiSugar 3 clips onto the bottom of the Pi Zero — no soldering. Camera plugs in via CSI ribbon.</div>
+      <div class="tasks">
+        <div class="task"><div class="tick"></div>Clip PiSugar 3 onto Pi Zero pogo pins (no wires)</div>
+        <div class="task"><div class="tick"></div>Connect 15-pin CSI ribbon cable (Pi Zero uses narrow end)</div>
+        <div class="task"><div class="tick"></div>Enable camera: <code style="color:var(--acc)">sudo raspi-config</code> → Interface Options → Camera</div>
+        <div class="task"><div class="tick"></div>Test: <code style="color:var(--acc)">libcamera-still -o test.jpg</code></div>
+        <div class="task"><div class="tick"></div>Test PiSugar: <code style="color:var(--acc)">pip install pisugar-server</code> → check battery %</div>
+      </div>
+      <div class="time-badge">⏱ 30 MIN · no soldering</div>
+    </div>
+  </div>
+
+  <!-- Stage 4 -->
+  <div class="stage s4">
+    <div class="dot">4</div>
+    <div class="card">
+      <div class="stage-num">STAGE 04</div>
+      <div class="stage-title">Wire Display + Touch</div>
+      <div class="stage-desc">Connect the ILI9341 TFT to the Pi GPIO header with jumper wires, then install the display driver.</div>
+      <div class="tasks">
+        <div class="task"><div class="tick"></div>Wire 14 pins: VCC→3.3V, GND, MOSI→GPIO10, SCK→GPIO11, MISO→GPIO9, CS→GPIO8, DC→GPIO25, RST→GPIO24, CS_T→GPIO7, IRQ→GPIO17, LED→3.3V</div>
+        <div class="task"><div class="tick"></div>Install fbcp-ili9341: <code style="color:var(--acc)">git clone https://github.com/juj/fbcp-ili9341</code></div>
+        <div class="task"><div class="tick"></div>Build + run driver (cmake with -DILI9341=ON -DSPI_BUS_CLOCK_DIVISOR=6)</div>
+        <div class="task"><div class="tick"></div>See Pi desktop on the tiny screen ✓</div>
+        <div class="task"><div class="tick"></div>Calibrate touch with xinput-calibrator</div>
+      </div>
+      <div class="time-badge">⏱ 1–2 HRS</div>
+    </div>
+  </div>
+
+  <!-- Stage 5 -->
+  <div class="stage s5">
+    <div class="dot">5</div>
+    <div class="card">
+      <div class="stage-num">STAGE 05</div>
+      <div class="stage-title">Wire Radios + Mic</div>
+      <div class="stage-desc">Add the radio modules and microphone one at a time, testing each before moving to the next.</div>
+      <div class="tasks">
+        <div class="task"><div class="tick"></div>Wire INMP441 mic → GPIO 18/19/20, enable I2S in raspi-config, test with arecord</div>
+        <div class="task"><div class="tick"></div>Wire PN532 NFC → I2C (GPIO 2/3), install nfcpy, scan a card</div>
+        <div class="task"><div class="tick"></div>Wire RDM6300 RFID → GPIO 15 (UART), test with pyserial</div>
+        <div class="task"><div class="tick"></div>Wire CC1101 → SPI (CS: GPIO 5), install python-cc1101, capture 433MHz</div>
+        <div class="task"><div class="tick"></div>Wire IR LED → GPIO 12, TSOP → GPIO 23, install lirc, record + replay a remote</div>
+        <div class="task"><div class="tick"></div>Wire 8 buttons → GPIO 4,14,22,27,16,26,13,21 with 10kΩ pull-ups</div>
+      </div>
+      <div class="time-badge">⏱ 2–4 HRS</div>
+    </div>
+  </div>
+
+  <!-- Stage 6 -->
+  <div class="stage s6">
+    <div class="dot">6</div>
+    <div class="card">
+      <div class="stage-num">STAGE 06</div>
+      <div class="stage-title">Design + Order GPIO HAT</div>
+      <div class="stage-desc">Replace the jumper wire rats-nest with a clean custom PCB HAT that connects everything neatly.</div>
+      <div class="tasks">
+        <div class="task"><div class="tick"></div>Open EasyEDA → new project "FlipKit HAT"</div>
+        <div class="task"><div class="tick"></div>Place Pi Zero 2W 40-pin header footprint</div>
+        <div class="task"><div class="tick"></div>Add headers for display (J1 14-pin), mic, each radio module</div>
+        <div class="task"><div class="tick"></div>Route traces — keep SPI lines short, add 100nF bypass caps</div>
+        <div class="task"><div class="tick"></div>Export Gerber → upload to JLCPCB → order 5 boards (~$8)</div>
+        <div class="task"><div class="tick"></div>Wait ~7 days for boards to arrive</div>
+      </div>
+      <div class="note"><strong>Optional but recommended</strong> — jumper wires work fine for testing. HAT makes it portable and reliable.</div>
+      <div class="time-badge">⏱ 2–3 HRS DESIGN · 7 DAYS SHIP</div>
+    </div>
+  </div>
+
+  <!-- Stage 7 -->
+  <div class="stage s7">
+    <div class="dot">7</div>
+    <div class="card">
+      <div class="stage-num">STAGE 07</div>
+      <div class="stage-title">FlipKit Software + Case</div>
+      <div class="stage-desc">Install the FlipKit UI, enable BadUSB, print the case, and you have a working device.</div>
+      <div class="tasks">
+        <div class="task"><div class="tick"></div>Clone flipkit repo → install Python dependencies</div>
+        <div class="task"><div class="tick"></div>Enable BadUSB: add <code style="color:var(--acc)">dtoverlay=dwc2</code> + <code style="color:var(--acc)">modules-load=dwc2,g_hid</code> to config.txt</div>
+        <div class="task"><div class="tick"></div>Set FlipKit UI to launch on boot (systemd service)</div>
+        <div class="task"><div class="tick"></div>Download Pi Zero 2W case from Printables.com (or design custom)</div>
+        <div class="task"><div class="tick"></div>3D print case — PLA, 0.2mm layer height</div>
+        <div class="task"><div class="tick"></div>Assemble: Pi + PiSugar + HAT + display into case ✓</div>
+      </div>
+      <div class="time-badge">⏱ 2–4 HRS · DONE</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="total-bar">
+  <div class="total-label">ESTIMATED TOTAL BUILD TIME</div>
+  <div class="total-val">~2–3 weeks</div>
+  <div class="total-sub">mostly waiting for shipping · active work ~10 hrs · cost ~$92–100</div>
+</div>
