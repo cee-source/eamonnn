@@ -49,8 +49,19 @@ body{background:var(--bg);color:var(--txt);font-family:'Space Grotesk',system-ui
 .pill[data-app="badusb"].active{background:rgba(255,214,10,.2);border-color:#FFD60A;color:#FFD60A;}
 .pill[data-app="camera"].active{background:rgba(255,140,66,.25);border-color:#FF8C42;color:#FF8C42;}
 .pill[data-app="wifi"].active{background:rgba(52,232,255,.2);border-color:#34E8FF;color:#34E8FF;}
-#device-svg{width:100%;max-width:260px;height:auto;filter:drop-shadow(0 20px 60px rgba(0,0,0,.7));transition:filter .3s;}
+.flipper{width:100%;max-width:260px;aspect-ratio:200/320;perspective:900px;position:relative;}
+.flipper-inner{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .8s cubic-bezier(.4,0,.2,1);}
+.flipper.concealed .flipper-inner{transform:rotateY(180deg);}
+.flipper-front,.flipper-back{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
+.flipper-back{transform:rotateY(180deg);cursor:pointer;}
+#device-svg{width:100%;height:100%;filter:drop-shadow(0 20px 60px rgba(0,0,0,.7));transition:filter .3s;}
 #device-svg.glow{animation:device-glow .6s ease}
+#book-svg{width:100%;height:100%;filter:drop-shadow(0 20px 60px rgba(0,0,0,.85));}
+.conceal-btn{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.5px;padding:6px 18px;border-radius:20px;cursor:pointer;border:1px solid var(--brd);background:var(--card);color:var(--dim);transition:all .15s;user-select:none;}
+.conceal-btn:hover{border-color:var(--acc);color:var(--txt);}
+.conceal-btn.active{border-color:var(--red);color:var(--red);background:rgba(255,71,87,.1);}
+.pills{transition:opacity .4s;}
+.pills.concealed{opacity:.35;pointer-events:none;}
 .specs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:0 0 24px;}
 .spec{display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--card);border:1px solid var(--brd);border-radius:8px;padding:8px 12px;min-width:70px;}
 .spec-val{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--acc);}
@@ -88,6 +99,7 @@ body{background:var(--bg);color:var(--txt);font-family:'Space Grotesk',system-ui
     <div class="pill" data-app="wifi">WiFi Scan</div>
   </div>
 
+  <div class="flipper" id="flipper"><div class="flipper-inner"><div class="flipper-front">
   <svg id="device-svg" viewBox="0 0 200 320" xmlns="http://www.w3.org/2000/svg">
     <rect x="10" y="4" width="180" height="312" rx="22" fill="#0F1520" stroke="#1E2B3F" stroke-width="1.5"/>
     <rect x="13" y="7" width="174" height="306" rx="20" fill="none" stroke="#1A2535" stroke-width="1"/>
@@ -119,6 +131,52 @@ body{background:var(--bg);color:var(--txt);font-family:'Space Grotesk',system-ui
     <text x="30" y="303" fill="#C0392B" font-family="JetBrains Mono" font-size="7" opacity=".6">π</text>
     <text x="38" y="303" fill="#1E2B3F" font-family="JetBrains Mono" font-size="6">Zero 2W</text>
   </svg>
+  </div>
+  <div class="flipper-back" id="book-cover">
+    <svg id="book-svg" viewBox="0 0 200 320" xmlns="http://www.w3.org/2000/svg">
+      <rect x="22" y="8" width="156" height="310" rx="4" fill="rgba(0,0,0,.45)"/>
+      <rect x="162" y="10" width="12" height="306" rx="2" fill="#C8B99A"/>
+      <rect x="162" y="10" width="9" height="306" rx="2" fill="#D8CBAF"/>
+      <rect x="162" y="10" width="6" height="306" rx="2" fill="#EAE2CC"/>
+      <rect x="20" y="6" width="144" height="308" rx="4" fill="#2E1A14"/>
+      <rect x="12" y="10" width="12" height="306" rx="3" fill="#1A0E09"/>
+      <rect x="20" y="6" width="6" height="308" fill="#231408"/>
+      <line x1="12" y1="50" x2="24" y2="50" stroke="#8B6914" stroke-width=".8" opacity=".5"/>
+      <line x1="12" y1="270" x2="24" y2="270" stroke="#8B6914" stroke-width=".8" opacity=".5"/>
+      <rect x="26" y="12" width="132" height="296" rx="2" fill="none" stroke="#8B6914" stroke-width="1.5" opacity=".55"/>
+      <rect x="30" y="16" width="124" height="288" rx="1" fill="none" stroke="#8B6914" stroke-width=".6" opacity=".35"/>
+      <path d="M28,20 L44,20 M28,20 L28,36" stroke="#C9941A" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <path d="M152,20 L136,20 M152,20 L152,36" stroke="#C9941A" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <path d="M28,296 L44,296 M28,296 L28,280" stroke="#C9941A" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <path d="M152,296 L136,296 M152,296 L152,280" stroke="#C9941A" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <line x1="34" y1="52" x2="146" y2="52" stroke="#8B6914" stroke-width=".8" opacity=".5"/>
+      <line x1="34" y1="55" x2="146" y2="55" stroke="#8B6914" stroke-width=".3" opacity=".3"/>
+      <text x="90" y="78" fill="#C9941A" font-family="Georgia,serif" font-size="9" font-weight="700" text-anchor="middle" letter-spacing="2">THE</text>
+      <text x="90" y="92" fill="#C9941A" font-family="Georgia,serif" font-size="9" font-weight="700" text-anchor="middle" letter-spacing="1">BIRD WATCHER'S</text>
+      <text x="90" y="106" fill="#C9941A" font-family="Georgia,serif" font-size="9" font-weight="700" text-anchor="middle" letter-spacing="1">FIELD GUIDE</text>
+      <line x1="38" y1="114" x2="142" y2="114" stroke="#8B6914" stroke-width=".8" opacity=".5"/>
+      <line x1="38" y1="117" x2="142" y2="117" stroke="#8B6914" stroke-width=".3" opacity=".3"/>
+      <g opacity=".35" transform="translate(66,130)">
+        <ellipse cx="22" cy="34" rx="20" ry="8" fill="#C9941A"/>
+        <ellipse cx="22" cy="30" rx="11" ry="6" fill="#C9941A"/>
+        <path d="M2,32 Q-6,22 -12,26 Q-4,30 2,30" fill="#C9941A"/>
+        <path d="M42,32 Q50,22 56,26 Q48,30 42,30" fill="#C9941A"/>
+        <ellipse cx="22" cy="25" rx="6" ry="5" fill="#C9941A"/>
+        <path d="M22,22 L27,19 L22,20.5 Z" fill="#C9941A"/>
+      </g>
+      <text x="90" y="208" fill="#8B6914" font-family="Georgia,serif" font-size="7.5" text-anchor="middle" font-style="italic" letter-spacing=".8">North American Species</text>
+      <line x1="38" y1="255" x2="142" y2="255" stroke="#8B6914" stroke-width=".6" opacity=".4"/>
+      <text x="90" y="270" fill="#9A7020" font-family="Georgia,serif" font-size="7" text-anchor="middle" font-style="italic">Dr. R. P. Netwalker</text>
+      <text x="90" y="281" fill="#7A5A18" font-family="Georgia,serif" font-size="6.5" text-anchor="middle" letter-spacing=".5">Fourth Edition</text>
+      <line x1="38" y1="288" x2="142" y2="288" stroke="#8B6914" stroke-width=".6" opacity=".35"/>
+      <text x="90" y="297" fill="#6B4A14" font-family="Georgia,serif" font-size="6" text-anchor="middle">Naturalist Press</text>
+      <text x="90" y="313" fill="#4A3010" font-family="JetBrains Mono,monospace" font-size="5.5" text-anchor="middle" letter-spacing=".5">tap to open_</text>
+      <text fill="#6B4A14" font-family="Georgia,serif" font-size="5" text-anchor="middle" transform="translate(18,160) rotate(-90)" letter-spacing=".5">BIRD WATCHER'S FIELD GUIDE</text>
+    </svg>
+  </div>
+  </div>
+  </div>
+  <button class="conceal-btn" id="conceal-btn">◈  CONCEAL</button>
 </div>
 
 <div class="detail" id="detail-card">
@@ -330,4 +388,14 @@ document.querySelectorAll('.pill').forEach(pill=>{
 });
 
 switchApp('rfid');
+
+const flipper=document.getElementById('flipper');
+const concealBtn=document.getElementById('conceal-btn');
+const bookCover=document.getElementById('book-cover');
+function reveal(){flipper.classList.remove('concealed');concealBtn.classList.remove('active');concealBtn.textContent='◈  CONCEAL';document.querySelector('.pills').classList.remove('concealed');}
+concealBtn.addEventListener('click',()=>{
+  if(flipper.classList.contains('concealed')){reveal();}
+  else{flipper.classList.add('concealed');concealBtn.classList.add('active');concealBtn.textContent='◈  REVEAL';document.querySelector('.pills').classList.add('concealed');}
+});
+bookCover.addEventListener('click',reveal);
 </script>
