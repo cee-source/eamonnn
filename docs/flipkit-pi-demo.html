@@ -49,7 +49,7 @@ body{background:var(--bg);color:var(--txt);font-family:'Space Grotesk',system-ui
 .pill[data-app="badusb"].active{background:rgba(255,214,10,.2);border-color:#FFD60A;color:#FFD60A;}
 .pill[data-app="camera"].active{background:rgba(255,140,66,.25);border-color:#FF8C42;color:#FF8C42;}
 .pill[data-app="wifi"].active{background:rgba(52,232,255,.2);border-color:#34E8FF;color:#34E8FF;}
-.flipper{width:100%;max-width:260px;aspect-ratio:200/320;perspective:900px;position:relative;}
+.flipper{width:100%;max-width:min(95vw,480px);aspect-ratio:200/320;perspective:900px;position:relative;}
 .flipper-inner{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .8s cubic-bezier(.4,0,.2,1);}
 .flipper.concealed .flipper-inner{transform:rotateY(180deg);}
 .flipper-front,.flipper-back{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
