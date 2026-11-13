@@ -86,6 +86,7 @@ def build_root_menu(config, display) -> list[MenuEntry]:
     from modules.network.network_menu     import build_network_menu
     from modules.cats.cat_menu            import build_cats_menu
     from modules.bluenet.bluenet_menu     import build_bluenet_menu
+    from modules.camera.camera_menu       import build_camera_menu
 
     return [
         MenuEntry(label='RFID / NFC',  children=build_rfid_menu(config, display)),
@@ -97,6 +98,7 @@ def build_root_menu(config, display) -> list[MenuEntry]:
         MenuEntry(label='Bluetooth',   children=build_bluetooth_menu(config, display)),
         MenuEntry(label='Radio TX',    children=build_radio_menu(config, display)),
         MenuEntry(label='Aircraft',    children=build_aircraft_menu(config, display)),
+        MenuEntry(label='Camera',      children=build_camera_menu(config, display)),
         MenuEntry(label='Network',     children=build_network_menu(config, display)),
         MenuEntry(label='Games',       children=build_games_menu(config, display)),
         MenuEntry(label='Cat Videos',  children=build_cats_menu(config, display)),
