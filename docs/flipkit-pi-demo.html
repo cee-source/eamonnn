@@ -79,6 +79,23 @@ body{background:var(--bg);color:var(--txt);font-family:'Space Grotesk',system-ui
 .detail-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;}
 .dtag{font-family:'JetBrains Mono',monospace;font-size:8px;padding:2px 7px;border-radius:4px;border:1px solid var(--brd);color:var(--dim);}
 .hint{text-align:center;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,.08);margin-top:12px;}
+/* Deck screen overlay */
+.deck-screen{position:absolute;left:7%;top:8.1%;width:86%;height:24.4%;background:#010602;border-radius:3px;overflow:hidden;padding:3px;box-sizing:border-box;display:flex;flex-direction:column;transition:background .08s;}
+#deck-boot{font-family:'JetBrains Mono',monospace;font-size:5.5px;color:#39FF14;line-height:1.5;overflow:hidden;flex:1;display:flex;flex-direction:column;}
+.boot-line{display:block;white-space:nowrap;}
+.deck-app-ui{display:none;flex-direction:column;gap:2px;height:100%;overflow:hidden;}
+.deck-app-ui.active{display:flex;}
+#mini-pills{display:flex;gap:2px;flex-wrap:wrap;}
+.mpill{font-family:'JetBrains Mono',monospace;font-size:5px;padding:1px 3px;border-radius:2px;cursor:pointer;border:1px solid;opacity:.6;transition:opacity .1s;line-height:1.3;}
+.mpill.active,.mpill:hover{opacity:1;}
+#mini-output{font-family:'JetBrains Mono',monospace;font-size:5.5px;line-height:1.5;overflow:hidden;flex:1;white-space:pre;}
+/* Lunchbox */
+#lunchbox-wrap{position:absolute;inset:0;transform:translateY(-110%);transition:transform .7s cubic-bezier(.4,0,.2,1);pointer-events:none;z-index:20;}
+#lunchbox-wrap.stashed{transform:translateY(0);pointer-events:auto;cursor:pointer;}
+#lunchbox-svg{width:100%;height:100%;filter:drop-shadow(0 20px 60px rgba(0,0,0,.85));}
+#stash-btn{display:none;}
+#stash-btn.visible{display:inline-block;}
+#stash-btn.active{border-color:#FF8C42;color:#FF8C42;background:rgba(255,140,66,.1);}
 </style>
 
 <div class="hdr"><div class="logo">FlipKit</div><div class="hdr-tag">Pi Zero 2W · Linux · v0.1</div></div>
@@ -287,10 +304,81 @@ body{background:var(--bg);color:var(--txt);font-family:'Space Grotesk',system-ui
       <text x="100" y="296" fill="#1FCC7C" font-family="JetBrains Mono,monospace" font-size="7" font-weight="700" text-anchor="middle" letter-spacing="2" opacity=".65">DECK-01</text>
       <text x="100" y="307" fill="#252540" font-family="JetBrains Mono,monospace" font-size="5" text-anchor="middle" letter-spacing=".5">tap to surface_</text>
     </svg>
+    <div class="deck-screen" id="deck-screen">
+      <div id="deck-boot"></div>
+      <div class="deck-app-ui" id="deck-app-ui">
+        <div id="mini-pills"></div>
+        <div id="mini-output"></div>
+      </div>
+    </div>
   </div>
+  </div>
+  <div id="lunchbox-wrap">
+    <svg id="lunchbox-svg" viewBox="0 0 200 320" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="lg-metal" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#262630"/>
+          <stop offset="25%" stop-color="#3A3A46"/>
+          <stop offset="50%" stop-color="#48484E"/>
+          <stop offset="75%" stop-color="#3A3A46"/>
+          <stop offset="100%" stop-color="#262630"/>
+        </linearGradient>
+      </defs>
+      <rect x="14" y="38" width="176" height="284" rx="8" fill="rgba(0,0,0,.5)"/>
+      <rect x="10" y="34" width="180" height="282" rx="8" fill="url(#lg-metal)" stroke="#1E1E28" stroke-width="2"/>
+      <rect x="12" y="34" width="176" height="6" rx="4" fill="#505058" opacity=".3"/>
+      <g stroke="#38383E" stroke-width=".8" opacity=".7">
+        <line x1="10" y1="68" x2="190" y2="68"/>
+        <line x1="10" y1="102" x2="190" y2="102"/>
+        <line x1="10" y1="176" x2="190" y2="176"/>
+        <line x1="10" y1="216" x2="190" y2="216"/>
+        <line x1="10" y1="256" x2="190" y2="256"/>
+        <line x1="10" y1="296" x2="190" y2="296"/>
+      </g>
+      <rect x="68" y="22" width="12" height="14" rx="3" fill="#252530" stroke="#1E1E28" stroke-width="1"/>
+      <rect x="120" y="22" width="12" height="14" rx="3" fill="#252530" stroke="#1E1E28" stroke-width="1"/>
+      <path d="M74,30 C74,4 126,4 126,30" fill="none" stroke="#1A1A24" stroke-width="8" stroke-linecap="round"/>
+      <path d="M74,30 C74,6 126,6 126,30" fill="none" stroke="#3A3A44" stroke-width="6" stroke-linecap="round"/>
+      <path d="M74,30 C74,8 126,8 126,30" fill="none" stroke="#484850" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="22" cy="46" r="5" fill="#1E1E28" stroke="#2E2E38" stroke-width="1"/><circle cx="22" cy="46" r="2.5" fill="#2E2E38"/>
+      <circle cx="178" cy="46" r="5" fill="#1E1E28" stroke="#2E2E38" stroke-width="1"/><circle cx="178" cy="46" r="2.5" fill="#2E2E38"/>
+      <circle cx="22" cy="124" r="5" fill="#1E1E28" stroke="#2E2E38" stroke-width="1"/><circle cx="22" cy="124" r="2.5" fill="#2E2E38"/>
+      <circle cx="178" cy="124" r="5" fill="#1E1E28" stroke="#2E2E38" stroke-width="1"/><circle cx="178" cy="124" r="2.5" fill="#2E2E38"/>
+      <circle cx="22" cy="158" r="5" fill="#1E1E28" stroke="#2E2E38" stroke-width="1"/><circle cx="22" cy="158" r="2.5" fill="#2E2E38"/>
+      <circle cx="178" cy="158" r="5" fill="#1E1E28" stroke="#2E2E38" stroke-width="1"/><circle cx="178" cy="158" r="2.5" fill="#2E2E38"/>
+      <circle cx="22" cy="308" r="5" fill="#1E1E28" stroke="#2E2E38" stroke-width="1"/><circle cx="22" cy="308" r="2.5" fill="#2E2E38"/>
+      <circle cx="178" cy="308" r="5" fill="#1E1E28" stroke="#2E2E38" stroke-width="1"/><circle cx="178" cy="308" r="2.5" fill="#2E2E38"/>
+      <rect x="10" y="136" width="180" height="10" rx="2" fill="#1A1A24"/>
+      <rect x="10" y="139" width="180" height="4" fill="#404048" opacity=".5"/>
+      <rect x="80" y="130" width="40" height="22" rx="4" fill="#252530" stroke="#30303C" stroke-width="1.2"/>
+      <rect x="84" y="134" width="32" height="14" rx="2.5" fill="#B8B8C4" stroke="#9898A4" stroke-width=".8"/>
+      <rect x="90" y="136" width="20" height="10" rx="2" fill="#A0A0AE"/>
+      <rect x="96" y="137" width="8" height="8" rx="1.5" fill="#787888"/>
+      <rect x="28" y="50" width="144" height="78" rx="5" fill="#141420" stroke="#1E1E2C" stroke-width="1"/>
+      <rect x="30" y="52" width="140" height="74" rx="4" fill="#0E0E1A"/>
+      <text x="100" y="74" fill="#1FCC7C" font-family="JetBrains Mono,monospace" font-size="8.5" font-weight="700" text-anchor="middle" letter-spacing=".5">DEFINITELY</text>
+      <text x="100" y="88" fill="#1FCC7C" font-family="JetBrains Mono,monospace" font-size="8.5" font-weight="700" text-anchor="middle" letter-spacing=".5">JUST A</text>
+      <text x="100" y="102" fill="#1FCC7C" font-family="JetBrains Mono,monospace" font-size="8.5" font-weight="700" text-anchor="middle" letter-spacing=".5">SANDWICH</text>
+      <text x="100" y="116" fill="#2DA8FF" font-family="JetBrains Mono,monospace" font-size="5.5" text-anchor="middle" opacity=".6">est.2024 · totally normal</text>
+      <rect x="28" y="150" width="144" height="128" rx="5" fill="#0A0A14" stroke="#141420" stroke-width="1"/>
+      <text x="100" y="174" fill="#252540" font-family="JetBrains Mono,monospace" font-size="5.5" text-anchor="middle" letter-spacing="1">[ PROPERTY OF ]</text>
+      <text x="100" y="192" fill="#1FCC7C" font-family="JetBrains Mono,monospace" font-size="11" font-weight="700" text-anchor="middle">FlipKit π</text>
+      <text x="100" y="208" fill="#2DA8FF" font-family="JetBrains Mono,monospace" font-size="5.5" text-anchor="middle" opacity=".6">Zero 2W · DECK-01 · Rev D</text>
+      <rect x="44" y="216" width="112" height="18" rx="2.5" fill="#FF4757" opacity=".1"/>
+      <rect x="44" y="216" width="112" height="18" rx="2.5" fill="none" stroke="#FF4757" stroke-width=".8" opacity=".4"/>
+      <text x="100" y="228" fill="#FF4757" font-family="JetBrains Mono,monospace" font-size="6" text-anchor="middle" opacity=".85">⚠ NOT A SANDWICH</text>
+      <text x="100" y="250" fill="#1E1E30" font-family="JetBrains Mono,monospace" font-size="5" text-anchor="middle">S/N: FK-PI-00001337</text>
+      <text x="100" y="262" fill="#1E1E30" font-family="JetBrains Mono,monospace" font-size="5" text-anchor="middle">DO NOT X-RAY</text>
+      <text x="100" y="296" fill="#252540" font-family="JetBrains Mono,monospace" font-size="6" text-anchor="middle" letter-spacing=".5">tap to open_</text>
+      <g stroke="#1A1A24" stroke-width=".8" opacity=".5">
+        <line x1="148" y1="62" x2="158" y2="70"/><line x1="152" y1="62" x2="160" y2="68"/>
+        <line x1="38" y1="240" x2="48" y2="246"/>
+      </g>
+    </svg>
   </div>
   </div>
   <button class="conceal-btn" id="conceal-btn">◈  JACK IN</button>
+  <button class="conceal-btn" id="stash-btn">◈  STASH</button>
 </div>
 
 <div class="detail" id="detail-card">
@@ -505,11 +593,111 @@ switchApp('rfid');
 
 const flipper=document.getElementById('flipper');
 const concealBtn=document.getElementById('conceal-btn');
+const stashBtn=document.getElementById('stash-btn');
 const bookCover=document.getElementById('book-cover');
-function reveal(){flipper.classList.remove('concealed');concealBtn.classList.remove('active');concealBtn.textContent='◈  JACK IN';document.querySelector('.pills').classList.remove('concealed');}
+const lunchboxWrap=document.getElementById('lunchbox-wrap');
+const deckScreen=document.getElementById('deck-screen');
+
+deckScreen.addEventListener('click',e=>e.stopPropagation());
+stashBtn.addEventListener('click',e=>e.stopPropagation());
+
+const bootLines=[
+  'NETWALKER BIOS v2.1.4',
+  '> POST: PASS',
+  '> CPU: BCM2710A1 ×4',
+  '> OC: 9999999GHz !!!',
+  '> TURBO: UNREASONABLE',
+  '> Loading FlipKit OS...',
+  '[##########] 100%',
+  '> kernel 6.1.21-rpi+',
+  '> wlan0: 192.168.4.1',
+  'DECK-01 // JACKED IN.',
+];
+const bootDelays=[0,120,240,360,540,720,900,1050,1200,1500];
+
+function startBoot(){
+  const bootEl=document.getElementById('deck-boot');
+  const appUi=document.getElementById('deck-app-ui');
+  bootEl.innerHTML='';
+  bootEl.style.display='flex';
+  appUi.classList.remove('active');
+  deckScreen.style.background='#39FF14';
+  setTimeout(()=>{deckScreen.style.background='#010602';},80);
+  bootLines.forEach((line,i)=>{
+    setTimeout(()=>{
+      const s=document.createElement('span');
+      s.className='boot-line';
+      s.textContent=line;
+      bootEl.appendChild(s);
+      bootEl.scrollTop=bootEl.scrollHeight;
+    },bootDelays[i]||i*160);
+  });
+  setTimeout(()=>{
+    bootEl.style.display='none';
+    appUi.classList.add('active');
+    renderMiniApp('rfid');
+    stashBtn.classList.add('visible');
+  },1900);
+}
+
+function resetDeck(){
+  const bootEl=document.getElementById('deck-boot');
+  const appUi=document.getElementById('deck-app-ui');
+  bootEl.innerHTML='';
+  bootEl.style.display='flex';
+  appUi.classList.remove('active');
+  deckScreen.style.background='#010602';
+  stashBtn.classList.remove('visible','active');
+  stashBtn.textContent='◈  STASH';
+  lunchboxWrap.classList.remove('stashed');
+}
+
+const miniApps={
+  rfid:{color:'#2DA8FF',label:'RFID',out:'> Reader active\n> Range: 10cm\n> Key: MFC 1K\n> Ready_'},
+  nfc:{color:'#1FCC7C',label:'NFC',out:'> Listening...\n> ISO 14443-A\n> Tag: Mifare\n> Copied_'},
+  subghz:{color:'#7A5AFF',label:'SUB',out:'> 433.92 MHz\n> Signal: found\n> Saving...\n> Done_'},
+  ir:{color:'#FF4757',label:'IR',out:'> IR RX active\n> Proto: NEC\n> Code: 0xE0\n> Sent_'},
+  badusb:{color:'#FFD60A',label:'USB',out:'> HID active\n> Script: loaded\n> Typing...\n> OK_'},
+  camera:{color:'#FF8C42',label:'CAM',out:'> OV5647 init\n> 1920×1080 @30\n> Snap!\n> Saved_'},
+  wifi:{color:'#34E8FF',label:'WiFi',out:'> wlan0: UP\n> Scan: 12 APs\n> Probe: sent\n> Done_'},
+};
+
+function renderMiniApp(key){
+  const pEl=document.getElementById('mini-pills');
+  const oEl=document.getElementById('mini-output');
+  pEl.innerHTML=Object.entries(miniApps).map(([k,v])=>
+    `<span class="mpill${k===key?' active':''}" style="color:${v.color};border-color:${v.color}44" data-key="${k}">${v.label}</span>`
+  ).join('');
+  oEl.style.color=miniApps[key].color;
+  oEl.textContent=miniApps[key].out;
+  pEl.querySelectorAll('.mpill').forEach(p=>{
+    p.addEventListener('click',e=>{e.stopPropagation();renderMiniApp(p.dataset.key);});
+  });
+}
+
+function reveal(){
+  flipper.classList.remove('concealed');
+  concealBtn.classList.remove('active');
+  concealBtn.textContent='◈  JACK IN';
+  document.querySelector('.pills').classList.remove('concealed');
+  resetDeck();
+}
+
 concealBtn.addEventListener('click',()=>{
   if(flipper.classList.contains('concealed')){reveal();}
-  else{flipper.classList.add('concealed');concealBtn.classList.add('active');concealBtn.textContent='◈  JACK OUT';document.querySelector('.pills').classList.add('concealed');}
+  else{
+    flipper.classList.add('concealed');
+    concealBtn.classList.add('active');
+    concealBtn.textContent='◈  JACK OUT';
+    document.querySelector('.pills').classList.add('concealed');
+    setTimeout(startBoot,850);
+  }
 });
+
 bookCover.addEventListener('click',reveal);
+
+function stash(){lunchboxWrap.classList.add('stashed');stashBtn.classList.add('active');stashBtn.textContent='◈  OPEN';}
+function unstash(){lunchboxWrap.classList.remove('stashed');stashBtn.classList.remove('active');stashBtn.textContent='◈  STASH';}
+stashBtn.addEventListener('click',()=>lunchboxWrap.classList.contains('stashed')?unstash():stash());
+lunchboxWrap.addEventListener('click',unstash);
 </script>
