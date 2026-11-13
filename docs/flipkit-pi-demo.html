@@ -134,49 +134,163 @@ body{background:var(--bg);color:var(--txt);font-family:'Space Grotesk',system-ui
   </div>
   <div class="flipper-back" id="book-cover">
     <svg id="book-svg" viewBox="0 0 200 320" xmlns="http://www.w3.org/2000/svg">
-      <rect x="22" y="8" width="156" height="310" rx="4" fill="rgba(0,0,0,.45)"/>
-      <rect x="162" y="10" width="12" height="306" rx="2" fill="#C8B99A"/>
-      <rect x="162" y="10" width="9" height="306" rx="2" fill="#D8CBAF"/>
-      <rect x="162" y="10" width="6" height="306" rx="2" fill="#EAE2CC"/>
-      <rect x="20" y="6" width="144" height="308" rx="4" fill="#2E1A14"/>
-      <rect x="12" y="10" width="12" height="306" rx="3" fill="#1A0E09"/>
-      <rect x="20" y="6" width="6" height="308" fill="#231408"/>
-      <line x1="12" y1="50" x2="24" y2="50" stroke="#8B6914" stroke-width=".8" opacity=".5"/>
-      <line x1="12" y1="270" x2="24" y2="270" stroke="#8B6914" stroke-width=".8" opacity=".5"/>
-      <rect x="26" y="12" width="132" height="296" rx="2" fill="none" stroke="#8B6914" stroke-width="1.5" opacity=".55"/>
-      <rect x="30" y="16" width="124" height="288" rx="1" fill="none" stroke="#8B6914" stroke-width=".6" opacity=".35"/>
-      <path d="M28,20 L44,20 M28,20 L28,36" stroke="#C9941A" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-      <path d="M152,20 L136,20 M152,20 L152,36" stroke="#C9941A" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-      <path d="M28,296 L44,296 M28,296 L28,280" stroke="#C9941A" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-      <path d="M152,296 L136,296 M152,296 L152,280" stroke="#C9941A" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-      <line x1="34" y1="52" x2="146" y2="52" stroke="#8B6914" stroke-width=".8" opacity=".5"/>
-      <line x1="34" y1="55" x2="146" y2="55" stroke="#8B6914" stroke-width=".3" opacity=".3"/>
-      <text x="90" y="78" fill="#C9941A" font-family="Georgia,serif" font-size="9" font-weight="700" text-anchor="middle" letter-spacing="2">THE</text>
-      <text x="90" y="92" fill="#C9941A" font-family="Georgia,serif" font-size="9" font-weight="700" text-anchor="middle" letter-spacing="1">BIRD WATCHER'S</text>
-      <text x="90" y="106" fill="#C9941A" font-family="Georgia,serif" font-size="9" font-weight="700" text-anchor="middle" letter-spacing="1">FIELD GUIDE</text>
-      <line x1="38" y1="114" x2="142" y2="114" stroke="#8B6914" stroke-width=".8" opacity=".5"/>
-      <line x1="38" y1="117" x2="142" y2="117" stroke="#8B6914" stroke-width=".3" opacity=".3"/>
-      <g opacity=".35" transform="translate(66,130)">
-        <ellipse cx="22" cy="34" rx="20" ry="8" fill="#C9941A"/>
-        <ellipse cx="22" cy="30" rx="11" ry="6" fill="#C9941A"/>
-        <path d="M2,32 Q-6,22 -12,26 Q-4,30 2,30" fill="#C9941A"/>
-        <path d="M42,32 Q50,22 56,26 Q48,30 42,30" fill="#C9941A"/>
-        <ellipse cx="22" cy="25" rx="6" ry="5" fill="#C9941A"/>
-        <path d="M22,22 L27,19 L22,20.5 Z" fill="#C9941A"/>
+      <!-- body shell -->
+      <rect x="5" y="5" width="190" height="310" rx="8" fill="#0C0C18" stroke="#181828" stroke-width="2"/>
+      <rect x="8" y="8" width="184" height="304" rx="6" fill="#080810" stroke="#12121E" stroke-width="1"/>
+      <!-- left neon green accent -->
+      <rect x="5" y="55" width="3" height="90" rx="1.5" fill="#39FF14" opacity=".9"/>
+      <rect x="4" y="53" width="6" height="94" rx="3" fill="#39FF14" opacity=".12"/>
+      <!-- right neon cyan accent -->
+      <rect x="192" y="145" width="3" height="45" rx="1.5" fill="#00E5FF" opacity=".7"/>
+      <rect x="190" y="143" width="6" height="49" rx="3" fill="#00E5FF" opacity=".1"/>
+      <!-- corner screws -->
+      <circle cx="20" cy="20" r="4.5" fill="#161624" stroke="#252538" stroke-width="1"/>
+      <line x1="17" y1="20" x2="23" y2="20" stroke="#30304A" stroke-width=".9"/><line x1="20" y1="17" x2="20" y2="23" stroke="#30304A" stroke-width=".9"/>
+      <circle cx="180" cy="20" r="4.5" fill="#161624" stroke="#252538" stroke-width="1"/>
+      <line x1="177" y1="20" x2="183" y2="20" stroke="#30304A" stroke-width=".9"/><line x1="180" y1="17" x2="180" y2="23" stroke="#30304A" stroke-width=".9"/>
+      <circle cx="20" cy="300" r="4.5" fill="#161624" stroke="#252538" stroke-width="1"/>
+      <line x1="17" y1="300" x2="23" y2="300" stroke="#30304A" stroke-width=".9"/><line x1="20" y1="297" x2="20" y2="303" stroke="#30304A" stroke-width=".9"/>
+      <circle cx="180" cy="300" r="4.5" fill="#161624" stroke="#252538" stroke-width="1"/>
+      <line x1="177" y1="300" x2="183" y2="300" stroke="#30304A" stroke-width=".9"/><line x1="180" y1="297" x2="180" y2="303" stroke="#30304A" stroke-width=".9"/>
+      <!-- vent slots top -->
+      <rect x="82" y="14" width="8" height="3" rx="1.5" fill="#181828"/>
+      <rect x="94" y="14" width="8" height="3" rx="1.5" fill="#181828"/>
+      <rect x="106" y="14" width="8" height="3" rx="1.5" fill="#181828"/>
+      <rect x="118" y="14" width="8" height="3" rx="1.5" fill="#181828"/>
+      <!-- CRT screen -->
+      <rect x="14" y="26" width="172" height="78" rx="5" fill="#020A04" stroke="#0A2010" stroke-width="1.5"/>
+      <rect x="17" y="29" width="166" height="72" rx="4" fill="#010602"/>
+      <rect x="14" y="26" width="172" height="78" rx="5" fill="none" stroke="#39FF14" stroke-width=".5" opacity=".3"/>
+      <!-- phosphor text -->
+      <text x="21" y="45" fill="#39FF14" font-family="JetBrains Mono,monospace" font-size="6.8" opacity=".95">DECK-01 // ONLINE</text>
+      <text x="21" y="57" fill="#39FF14" font-family="JetBrains Mono,monospace" font-size="6.8" opacity=".8">kernel 6.1.21-rpi+</text>
+      <text x="21" y="69" fill="#39FF14" font-family="JetBrains Mono,monospace" font-size="6.8" opacity=".6">wlan0: 192.168.4.1</text>
+      <text x="21" y="81" fill="#39FF14" font-family="JetBrains Mono,monospace" font-size="6.8" opacity=".4">root@flipkit:~# _</text>
+      <!-- active LED -->
+      <circle cx="181" cy="30" r="2.5" fill="#39FF14" opacity=".85"/>
+      <circle cx="181" cy="30" r="4" fill="#39FF14" opacity=".15"/>
+      <!-- scanlines -->
+      <g stroke="#000" stroke-width="1.5" opacity=".07">
+        <line x1="17" y1="31" x2="183" y2="31"/><line x1="17" y1="34" x2="183" y2="34"/><line x1="17" y1="37" x2="183" y2="37"/>
+        <line x1="17" y1="40" x2="183" y2="40"/><line x1="17" y1="43" x2="183" y2="43"/><line x1="17" y1="46" x2="183" y2="46"/>
+        <line x1="17" y1="49" x2="183" y2="49"/><line x1="17" y1="52" x2="183" y2="52"/><line x1="17" y1="55" x2="183" y2="55"/>
+        <line x1="17" y1="58" x2="183" y2="58"/><line x1="17" y1="61" x2="183" y2="61"/><line x1="17" y1="64" x2="183" y2="64"/>
+        <line x1="17" y1="67" x2="183" y2="67"/><line x1="17" y1="70" x2="183" y2="70"/><line x1="17" y1="73" x2="183" y2="73"/>
+        <line x1="17" y1="76" x2="183" y2="76"/><line x1="17" y1="79" x2="183" y2="79"/><line x1="17" y1="82" x2="183" y2="82"/>
+        <line x1="17" y1="85" x2="183" y2="85"/><line x1="17" y1="88" x2="183" y2="88"/><line x1="17" y1="91" x2="183" y2="91"/>
+        <line x1="17" y1="94" x2="183" y2="94"/><line x1="17" y1="97" x2="183" y2="97"/>
       </g>
-      <text x="90" y="208" fill="#8B6914" font-family="Georgia,serif" font-size="7.5" text-anchor="middle" font-style="italic" letter-spacing=".8">North American Species</text>
-      <line x1="38" y1="255" x2="142" y2="255" stroke="#8B6914" stroke-width=".6" opacity=".4"/>
-      <text x="90" y="270" fill="#9A7020" font-family="Georgia,serif" font-size="7" text-anchor="middle" font-style="italic">Dr. R. P. Netwalker</text>
-      <text x="90" y="281" fill="#7A5A18" font-family="Georgia,serif" font-size="6.5" text-anchor="middle" letter-spacing=".5">Fourth Edition</text>
-      <line x1="38" y1="288" x2="142" y2="288" stroke="#8B6914" stroke-width=".6" opacity=".35"/>
-      <text x="90" y="297" fill="#6B4A14" font-family="Georgia,serif" font-size="6" text-anchor="middle">Naturalist Press</text>
-      <text x="90" y="313" fill="#4A3010" font-family="JetBrains Mono,monospace" font-size="5.5" text-anchor="middle" letter-spacing=".5">tap to open_</text>
-      <text fill="#6B4A14" font-family="Georgia,serif" font-size="5" text-anchor="middle" transform="translate(18,160) rotate(-90)" letter-spacing=".5">BIRD WATCHER'S FIELD GUIDE</text>
+      <!-- keyboard section label -->
+      <rect x="14" y="110" width="172" height="1" fill="#1A1A2C"/>
+      <text x="17" y="119" fill="#24243A" font-family="JetBrains Mono,monospace" font-size="5.5" letter-spacing="1">KBD ···········</text>
+      <!-- Row 1 y=122 -->
+      <rect x="18" y="122" width="13" height="11" rx="2" fill="#100A1A" stroke="#6B34FF" stroke-width=".8"/>
+      <rect x="33" y="122" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="48" y="122" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="63" y="122" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="78" y="122" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="93" y="122" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="108" y="122" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="123" y="122" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="138" y="122" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="153" y="122" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="168" y="122" width="13" height="11" rx="2" fill="#100A1A" stroke="#6B34FF" stroke-width=".8"/>
+      <!-- Row 2 y=136 -->
+      <rect x="18" y="136" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="33" y="136" width="13" height="11" rx="2" fill="#0A180C" stroke="#39FF14" stroke-width=".8"/>
+      <rect x="48" y="136" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="63" y="136" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="78" y="136" width="13" height="11" rx="2" fill="#0A180C" stroke="#39FF14" stroke-width=".8"/>
+      <rect x="93" y="136" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="108" y="136" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="123" y="136" width="13" height="11" rx="2" fill="#0A180C" stroke="#39FF14" stroke-width=".8"/>
+      <rect x="138" y="136" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="153" y="136" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="168" y="136" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <!-- Row 3 y=150 -->
+      <rect x="18" y="150" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="33" y="150" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="48" y="150" width="13" height="11" rx="2" fill="#0A180C" stroke="#39FF14" stroke-width=".8"/>
+      <rect x="63" y="150" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="78" y="150" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="93" y="150" width="13" height="11" rx="2" fill="#0A180C" stroke="#39FF14" stroke-width=".8"/>
+      <rect x="108" y="150" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="123" y="150" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="138" y="150" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="153" y="150" width="13" height="11" rx="2" fill="#0A180C" stroke="#39FF14" stroke-width=".8"/>
+      <rect x="168" y="150" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <!-- Row 4 y=164 -->
+      <rect x="18" y="164" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="33" y="164" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="48" y="164" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="63" y="164" width="13" height="11" rx="2" fill="#0A180C" stroke="#39FF14" stroke-width=".8"/>
+      <rect x="78" y="164" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="93" y="164" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="108" y="164" width="13" height="11" rx="2" fill="#0A180C" stroke="#39FF14" stroke-width=".8"/>
+      <rect x="123" y="164" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="138" y="164" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="153" y="164" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="168" y="164" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <!-- Row 5 y=178 -->
+      <rect x="18" y="178" width="13" height="11" rx="2" fill="#100A1A" stroke="#6B34FF" stroke-width=".8"/>
+      <rect x="33" y="178" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="48" y="178" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="63" y="178" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="78" y="178" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="93" y="178" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="108" y="178" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="123" y="178" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="138" y="178" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="153" y="178" width="13" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="168" y="178" width="13" height="11" rx="2" fill="#100A1A" stroke="#6B34FF" stroke-width=".8"/>
+      <!-- spacebar row y=192 -->
+      <rect x="18" y="192" width="20" height="11" rx="2" fill="#100A1A" stroke="#6B34FF" stroke-width=".8"/>
+      <rect x="42" y="192" width="99" height="11" rx="2" fill="#141422" stroke="#1E1E32" stroke-width=".8"/>
+      <rect x="145" y="192" width="20" height="11" rx="2" fill="#100A1A" stroke="#6B34FF" stroke-width=".8"/>
+      <rect x="169" y="192" width="13" height="11" rx="2" fill="#100A1A" stroke="#6B34FF" stroke-width=".8"/>
+      <!-- PCB separator -->
+      <rect x="14" y="210" width="172" height="1" fill="#1A1A2C"/>
+      <!-- circuit traces -->
+      <g stroke="#1FCC7C" stroke-width=".6" opacity=".3" fill="none">
+        <path d="M20,224 L55,224 L55,240 L95,240"/>
+        <path d="M20,234 L38,234 L38,250 L75,250 L75,260"/>
+        <path d="M115,224 L140,224 L140,244 L178,244"/>
+        <path d="M95,230 L95,256 L148,256"/>
+        <path d="M55,268 L55,276 L118,276 L118,264"/>
+      </g>
+      <circle cx="55" cy="224" r="2" fill="#1FCC7C" opacity=".45"/>
+      <circle cx="95" cy="240" r="2" fill="#1FCC7C" opacity=".45"/>
+      <circle cx="75" cy="250" r="2" fill="#1FCC7C" opacity=".45"/>
+      <circle cx="140" cy="244" r="2" fill="#1FCC7C" opacity=".45"/>
+      <!-- chips -->
+      <rect x="34" y="228" width="38" height="22" rx="2" fill="#141422" stroke="#2DA8FF" stroke-width=".9"/>
+      <text x="53" y="242" fill="#2DA8FF" font-family="JetBrains Mono,monospace" font-size="5.5" text-anchor="middle" opacity=".85">RP2040</text>
+      <rect x="118" y="228" width="38" height="22" rx="2" fill="#141422" stroke="#7A5AFF" stroke-width=".9"/>
+      <text x="137" y="242" fill="#7A5AFF" font-family="JetBrains Mono,monospace" font-size="5.5" text-anchor="middle" opacity=".85">CC1101</text>
+      <!-- status LEDs -->
+      <circle cx="27" cy="264" r="2.5" fill="#39FF14" opacity=".75"/>
+      <circle cx="27" cy="264" r="4.5" fill="#39FF14" opacity=".1"/>
+      <circle cx="37" cy="264" r="2.5" fill="#2DA8FF" opacity=".5"/>
+      <circle cx="47" cy="264" r="2.5" fill="#FF4757" opacity=".4"/>
+      <!-- USB-C -->
+      <rect x="80" y="274" width="30" height="12" rx="2" fill="#141422" stroke="#252538" stroke-width=".9"/>
+      <text x="95" y="283" fill="#3A3A58" font-family="JetBrains Mono,monospace" font-size="5" text-anchor="middle">USB-C</text>
+      <!-- GPIO header -->
+      <g fill="#252540">
+        <circle cx="128" cy="263" r="2"/><circle cx="134" cy="263" r="2"/><circle cx="140" cy="263" r="2"/>
+        <circle cx="146" cy="263" r="2"/><circle cx="152" cy="263" r="2"/><circle cx="158" cy="263" r="2"/>
+        <circle cx="128" cy="269" r="2"/><circle cx="134" cy="269" r="2"/><circle cx="140" cy="269" r="2"/>
+        <circle cx="146" cy="269" r="2"/><circle cx="152" cy="269" r="2"/><circle cx="158" cy="269" r="2"/>
+      </g>
+      <text x="143" y="278" fill="#28284A" font-family="JetBrains Mono,monospace" font-size="4.5" text-anchor="middle">GPIO 40P</text>
+      <!-- deck label -->
+      <text x="100" y="296" fill="#1FCC7C" font-family="JetBrains Mono,monospace" font-size="7" font-weight="700" text-anchor="middle" letter-spacing="2" opacity=".65">DECK-01</text>
+      <text x="100" y="307" fill="#252540" font-family="JetBrains Mono,monospace" font-size="5" text-anchor="middle" letter-spacing=".5">tap to surface_</text>
     </svg>
   </div>
   </div>
   </div>
-  <button class="conceal-btn" id="conceal-btn">◈  CONCEAL</button>
+  <button class="conceal-btn" id="conceal-btn">◈  JACK IN</button>
 </div>
 
 <div class="detail" id="detail-card">
@@ -392,10 +506,10 @@ switchApp('rfid');
 const flipper=document.getElementById('flipper');
 const concealBtn=document.getElementById('conceal-btn');
 const bookCover=document.getElementById('book-cover');
-function reveal(){flipper.classList.remove('concealed');concealBtn.classList.remove('active');concealBtn.textContent='◈  CONCEAL';document.querySelector('.pills').classList.remove('concealed');}
+function reveal(){flipper.classList.remove('concealed');concealBtn.classList.remove('active');concealBtn.textContent='◈  JACK IN';document.querySelector('.pills').classList.remove('concealed');}
 concealBtn.addEventListener('click',()=>{
   if(flipper.classList.contains('concealed')){reveal();}
-  else{flipper.classList.add('concealed');concealBtn.classList.add('active');concealBtn.textContent='◈  REVEAL';document.querySelector('.pills').classList.add('concealed');}
+  else{flipper.classList.add('concealed');concealBtn.classList.add('active');concealBtn.textContent='◈  JACK OUT';document.querySelector('.pills').classList.add('concealed');}
 });
 bookCover.addEventListener('click',reveal);
 </script>
