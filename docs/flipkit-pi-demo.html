@@ -79,6 +79,8 @@ body{background:var(--bg);color:var(--txt);font-family:'Space Grotesk',system-ui
 .detail-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;}
 .dtag{font-family:'JetBrains Mono',monospace;font-size:8px;padding:2px 7px;border-radius:4px;border:1px solid var(--brd);color:var(--dim);}
 .hint{text-align:center;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,.08);margin-top:12px;}
+.perf-bar{font-family:'JetBrains Mono',monospace;font-size:10px;color:#1FCC7C;background:rgba(31,204,124,.07);border:1px solid rgba(31,204,124,.2);border-radius:4px;padding:7px 14px;margin:4px 0 16px;text-align:center;letter-spacing:.04em;white-space:nowrap;overflow:hidden;}
+.perf-bar span{color:#fff;font-weight:700;}
 /* fast-only mode — no concealment */
 .flipper-inner{transform-style:flat!important;transition:none!important;}
 .flipper.concealed .flipper-inner{transform:none!important;}
@@ -107,6 +109,7 @@ body{background:var(--bg);color:var(--txt);font-family:'Space Grotesk',system-ui
 <div class="hero">
   <div class="hero-title">A <span>hacking tool</span><br>you build yourself.</div>
   <div class="hero-sub">RFID · NFC · Sub-GHz · IR · BadUSB · Camera · WiFi — running at 9999999× clock_</div>
+<div class="perf-bar">CLOCK ► <span id="cpu-hz">9,999,847,293</span> GHz &nbsp;·&nbsp; OPS ► <span id="cpu-ops">999,847,293,847,293</span>/s &nbsp;·&nbsp; TURBO ► MAXIMUM</div>
 </div>
 
 <div class="device-wrap">
@@ -704,4 +707,9 @@ function stash(){lunchboxWrap.classList.add('stashed');stashBtn.classList.add('a
 function unstash(){lunchboxWrap.classList.remove('stashed');stashBtn.classList.remove('active');stashBtn.textContent='◈  STASH';}
 stashBtn.addEventListener('click',()=>lunchboxWrap.classList.contains('stashed')?unstash():stash());
 lunchboxWrap.addEventListener('click',unstash);
+// insane cpu
+let _hz=9999847293,_ops=999847293847293;
+const _hzEl=document.getElementById('cpu-hz'),_opsEl=document.getElementById('cpu-ops');
+function _tick(){_hz+=Math.floor(Math.random()*499e6+1e6);_ops+=Math.floor(Math.random()*49999e9+1e9);if(_hz>99999999999)_hz=9999847293;if(_ops>9999999999999999)_ops=999847293847293;if(_hzEl)_hzEl.textContent=_hz.toLocaleString();if(_opsEl)_opsEl.textContent=_ops.toLocaleString();requestAnimationFrame(_tick);}
+_tick();
 </script>
