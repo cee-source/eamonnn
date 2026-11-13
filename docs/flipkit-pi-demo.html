@@ -79,6 +79,10 @@ body{background:var(--bg);color:var(--txt);font-family:'Space Grotesk',system-ui
 .detail-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;}
 .dtag{font-family:'JetBrains Mono',monospace;font-size:8px;padding:2px 7px;border-radius:4px;border:1px solid var(--brd);color:var(--dim);}
 .hint{text-align:center;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,.08);margin-top:12px;}
+/* fast-only mode — no concealment */
+.flipper-inner{transform-style:flat!important;transition:none!important;}
+.flipper.concealed .flipper-inner{transform:none!important;}
+.flipper-back,.deck-screen,#lunchbox-wrap,.conceal-btn{display:none!important;}
 /* Deck screen overlay */
 .deck-screen{position:absolute;left:7%;top:8.1%;width:86%;height:24.4%;background:#010602;border-radius:3px;overflow:hidden;padding:3px;box-sizing:border-box;display:flex;flex-direction:column;transition:background .08s;}
 #deck-boot{font-family:'JetBrains Mono',monospace;font-size:5.5px;color:#39FF14;line-height:1.5;overflow:hidden;flex:1;display:flex;flex-direction:column;}
@@ -98,11 +102,11 @@ body{background:var(--bg);color:var(--txt);font-family:'Space Grotesk',system-ui
 #stash-btn.active{border-color:#FF8C42;color:#FF8C42;background:rgba(255,140,66,.1);}
 </style>
 
-<div class="hdr"><div class="logo">FlipKit</div><div class="hdr-tag">Pi Zero 2W · Linux · v0.1</div></div>
+<div class="hdr"><div class="logo">FlipKit</div><div class="hdr-tag">∞GHz · TURBO: MAX · UNREASONABLY FAST_</div></div>
 
 <div class="hero">
   <div class="hero-title">A <span>hacking tool</span><br>you build yourself.</div>
-  <div class="hero-sub">RFID · NFC · Sub-GHz · IR · BadUSB · Camera · WiFi · BLE_</div>
+  <div class="hero-sub">RFID · NFC · Sub-GHz · IR · BadUSB · Camera · WiFi — running at 9999999× clock_</div>
 </div>
 
 <div class="device-wrap">
@@ -389,7 +393,7 @@ body{background:var(--bg);color:var(--txt);font-family:'Space Grotesk',system-ui
 
 <div class="sec-title">Specs</div>
 <div class="specs">
-  <div class="spec"><div class="spec-val">4-core</div><div class="spec-lbl">64-bit CPU</div></div>
+  <div class="spec"><div class="spec-val">∞GHz</div><div class="spec-lbl">OVERCLOCKED</div></div><div class="spec"><div class="spec-val">TURBO</div><div class="spec-lbl">MAXIMUM</div></div><div class="spec"><div class="spec-val">4-core</div><div class="spec-lbl">64-bit CPU</div></div>
   <div class="spec"><div class="spec-val">512MB</div><div class="spec-lbl">RAM</div></div>
   <div class="spec"><div class="spec-val">2.4"</div><div class="spec-lbl">Touchscreen</div></div>
   <div class="spec"><div class="spec-val">8MP</div><div class="spec-lbl">Camera</div></div>
