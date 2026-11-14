@@ -1,0 +1,37 @@
+Reference,Value,Description,Package,Qty,LCSC/MPN,Unit $
+U1,CM5 SO-DIMM,Raspberry Pi Compute Module 5 (16GB),260-pin SO-DIMM,1,SC1234,80.00
+U2,MFRC522,RFID/NFC 13.56MHz SPI transceiver,SOIC-32,1,C113644,1.20
+U3,CC1101,Sub-GHz 300-928MHz SPI transceiver,QFN-20,1,C9064,2.10
+U4,BQ25895RTWR,LiPo charge + 5V boost controller,WQFN-24,1,C93834,2.80
+U5,TPS62085RGTR,3.3V 3A sync buck regulator,VQFN-10,1,C115869,1.50
+U6,TPS62085RGTR,1.8V 3A sync buck regulator,VQFN-10,1,C115869,1.50
+U7,CH334R,4-port USB 2.0 hub controller,QFN-48,1,C116661,0.90
+J1,SODIMM-260,CM5 SO-DIMM connector 260-pin,SMD,1,C5343,3.20
+J2,USB-C-PD,USB-C 2.0 power + data (OTG),SMD 16P,1,C165948,0.40
+J3,USB-A-HOST,USB-A host port (for BadUSB output),Through-hole,1,C46407,0.20
+J4,CSI-FFC-22,22-pin FFC camera connector,0.5mm pitch,1,C225080,0.30
+J5,DSI-FFC-22,22-pin FFC display connector,0.5mm pitch,1,C225080,0.30
+J6,HDMI-MICRO,Micro HDMI (second display),SMD,1,C217665,1.10
+J7,UART-DEBUG,2x5 2.54mm debug/UART header,Through-hole,1,C9900003735,0.15
+J8,GPIO-EXP,2x10 2.54mm GPIO expansion,Through-hole,1,C9900003736,0.20
+ANT1,U.FL-RFID,U.FL coax antenna connector (RFID),SMD,1,C88371,0.25
+ANT2,U.FL-CC1101,U.FL coax antenna connector (Sub-GHz),SMD,1,C88371,0.25
+Y1,27.120MHz,Crystal for MFRC522,SMD 3225,1,C32346,0.30
+L1,22uH,CC1101 RF choke,0402,1,C1046,0.05
+L2,4.7uH,Buck converter inductor (3.3V),CDRH4D18,1,C17832,0.20
+L3,4.7uH,Buck converter inductor (1.8V),CDRH4D18,1,C17832,0.20
+L4,4.7uH,Buck boost inductor (BQ25895),CDRH4D18,1,C17832,0.20
+BAT1,JST-PH-2P,2-pin JST PH LiPo battery connector,Through-hole,1,C422959,0.10
+SW1,RESET,Tactile reset switch,SMD 3x4mm,1,C318884,0.05
+SW2,BOOT,Tactile boot select switch,SMD 3x4mm,1,C318884,0.05
+LED1,PWR,Power LED green 0402,0402,1,C2286,0.02
+LED2,ACT,Activity LED green 0402,0402,1,C2286,0.02
+LED3,RFID,RFID LED blue 0402,0402,1,C72041,0.02
+LED4,RF,Sub-GHz LED yellow 0402,0402,1,C2297,0.02
+D1,TSOP4838,IR receiver 38kHz,THT,1,C5327,0.30
+Q1,BSS138,IR LED MOSFET driver,SOT-23,1,C112234,0.05
+IR1,SFH4545,IR LED 850nm 100mA,THT 5mm,1,C129320,0.20
+C_bulk,100uF x4,Bulk decoupling caps,1206,4,C15008,0.10
+C_bypass,100nF x40,Bypass caps,0402,40,C1525,0.01
+R_misc,Various,Pull-ups/pull-downs/LED resistors,0402,30,—,0.01
+PCB,4-layer,100x65mm 4-layer 1oz Cu JLCPCB,—,5,—,4.00
