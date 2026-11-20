@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FlipKit Tools</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+<style>
+:root {
+  --bg:      #07090D;
+  --sidebar: #0E1724;
+  --main:    #0A1322;
+  --chrome:  #1A2434;
+  --trace:   #1FCC7C;
+  --border:  rgba(255,255,255,.06);
+  --fg:      #DDE3EA;
+  --dim:     rgba(255,255,255,.35);
+  --mono:    'JetBrains Mono', monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--fg); font-family: var(--mono); font-size: 13px; }
+
+.layout { display: flex; height: 100vh; }
+
+/* Sidebar */
+.sidebar {
+  width: 120px; flex-shrink: 0;
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+}
+.brand {
+  height: 44px; display: flex; align-items: center; justify-content: center;
+  border-bottom: 1px solid var(--border);
+  font-size: 16px; font-weight: 700; letter-spacing: .15em; color: var(--trace);
+}
+nav { flex: 1; padding: 6px 0; }
+.nav-item {
+  display: flex; align-items: center; padding: 8px 14px;
+  color: rgba(255,255,255,.38); cursor: pointer;
+  border-left: 2px solid transparent;
+  font-size: 11px; letter-spacing: .05em;
+  transition: color .12s, background .12s;
+  user-select: none;
+}
+.nav-item:hover { color: rgba(255,255,255,.65); background: rgba(255,255,255,.03); }
+.nav-item.active { color: var(--trace); background: rgba(31,204,124,.07); border-left-color: var(--trace); }
+.nav-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,.12); margin-left: auto; }
+.nav-item.active .nav-dot { background: var(--trace); }
+.nav-sep { height: 1px; background: var(--border); margin: 6px 14px; }
+.nav-disabled { opacity: .3; cursor: not-allowed; }
+
+/* Main */
+.main { flex: 1; background: var(--main); display: flex; flex-direction: column; overflow: hidden; }
+
+.toolbar {
+  height: 42px; background: var(--chrome);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 20px; gap: 12px;
+  flex-shrink: 0;
+}
+.toolbar-title { font-size: 12px; font-weight: 700; letter-spacing: .07em; color: rgba(255,255,255,.8); }
+.badge {
+  font-size: 9px; letter-spacing: .1em; padding: 2px 8px; border-radius: 2px;
+}
+.badge-ready { background: rgba(31,204,124,.12); color: var(--trace); border: 1px solid rgba(31,204,124,.25); }
+.badge-idle  { background: rgba(255,255,255,.04); color: rgba(255,255,255,.3); border: 1px solid rgba(255,255,255,.1); }
+.badge-on    { background: rgba(255,165,0,.12); color: #F5A623; border: 1px solid rgba(255,165,0,.25); }
+
+.panel { flex: 1; padding: 20px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
+
+/* Cards */
+.card {
+  background: rgba(255,255,255,.025); border: 1px solid var(--border); border-radius: 6px;
+  padding: 14px 16px;
+}
+.card-title { font-size: 9px; letter-spacing: .2em; color: rgba(255,255,255,.25); margin-bottom: 10px; text-transform: uppercase; }
+
+.stat-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 16px; }
+.sk { font-size: 10px; color: rgba(255,255,255,.28); line-height: 1.9; }
+.sv { font-size: 10px; color: rgba(255,255,255,.65); line-height: 1.9; }
+.sv.hi { color: var(--trace); }
+
+/* Buttons */
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn {
+  padding: 7px 18px; border-radius: 3px; cursor: pointer; font-family: var(--mono);
+  font-size: 10px; letter-spacing: .08em; border: 1px solid;
+  transition: background .15s;
+}
+.btn-p { background: rgba(31,204,124,.1); border-color: rgba(31,204,124,.3); color: var(--trace); }
+.btn-p:hover { background: rgba(31,204,124,.2); }
+.btn-p:disabled { opacity: .4; cursor: not-allowed; }
+.btn-d { background: rgba(255,80,80,.08); border-color: rgba(255,80,80,.25); color: #FF5F5F; }
+.btn-d:hover { background: rgba(255,80,80,.16); }
+.btn-s { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.1); color: rgba(255,255,255,.4); }
+
+/* Log */
+.log {
+  background: #05090D; border: 1px solid var(--border); border-radius: 4px;
+  padding: 10px 12px; max-height: 200px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.log-row { font-size: 10px; color: rgba(255,255,255,.25); line-height: 1.6; }
+.log-row.fresh { color: rgba(31,204,124,.65); }
+.log-row.err { color: rgba(255,80,80,.65); }
+.log-empty { color: rgba(255,255,255,.12); font-style: italic; }
+
+/* Results table */
+.results { width: 100%; border-collapse: collapse; font-size: 10px; }
+.results th {
+  text-align: left; padding: 5px 10px;
+  color: rgba(255,255,255,.25); letter-spacing: .12em; font-size: 9px;
+  border-bottom: 1px solid var(--border);
+}
+.results td { padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,.03); color: rgba(255,255,255,.6); }
+.results tr:last-child td { border-bottom: none; }
+.results tr:hover td { background: rgba(255,255,255,.02); }
+.rssi-cell { color: var(--trace); }
+.enc-wpa { color: #F5A623; }
+.enc-open { color: rgba(255,80,80,.7); }
+
+/* Signal bar */
+.sig-bar { display: flex; align-items: center; gap: 6px; }
+.sig-track { width: 50px; height: 3px; background: rgba(255,255,255,.07); border-radius: 2px; overflow: hidden; }
+.sig-fill { height: 100%; background: var(--trace); border-radius: 2px; }
+
+/* Lure SSID input */
+.ssid-input {
+  background: rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.1); border-radius: 3px;
+  padding: 6px 10px; font-family: var(--mono); font-size: 11px;
+  color: rgba(255,255,255,.75); width: 220px; outline: none;
+}
+.ssid-input:focus { border-color: rgba(31,204,124,.4); }
+
+.spinner { display: inline-block; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.hr { height: 1px; background: var(--border); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">FK</div>
+    <nav>
+      <div class="nav-item active" data-tool="ble">BLE<span class="nav-dot"></span></div>
+      <div class="nav-item" data-tool="wifi">WiFi<span class="nav-dot"></span></div>
+      <div class="nav-item" data-tool="lure">Lure Trap<span class="nav-dot"></span></div>
+      <div class="nav-sep"></div>
+      <div class="nav-item nav-disabled" title="Needs hardware">RFID</div>
+      <div class="nav-item nav-disabled" title="Needs hardware">Sub-GHz</div>
+      <div class="nav-item nav-disabled" title="Needs hardware">IR</div>
+      <div class="nav-item nav-disabled" title="Needs hardware">NFC</div>
+    </nav>
+  </aside>
+
+  <!-- Main panel -->
+  <main class="main" id="main">
+    <!-- filled by renderTool() -->
+  </main>
+
+</div>
+
+<script>
+var activeTool = 'ble';
+var scanning   = false;
+
+var toolMeta = {
+  ble:  { title: 'BLE Scanner',   badge: 'READY',   badgeCls: 'badge-ready' },
+  wifi: { title: 'WiFi Analyzer', badge: 'READY',   badgeCls: 'badge-ready' },
+  lure: { title: 'Lure Trap',     badge: 'IDLE',    badgeCls: 'badge-idle'  },
+};
+
+/* ── Render shells ─────────────────────────────── */
+function renderBLE() {
+  return `
+    <div class="card">
+      <div class="card-title">Info</div>
+      <div class="stat-grid">
+        <span class="sk">Chip</span>      <span class="sv hi">CYW43455 (Pi 5)</span>
+        <span class="sk">Standard</span>  <span class="sv">Bluetooth 5.0</span>
+        <span class="sk">Scan type</span> <span class="sv">Active (RSSI sorted)</span>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-p" id="scan-btn" onclick="runBLE()">▶ Scan (5s)</button>
+    </div>
+    <div id="ble-results"></div>
+    <div class="card">
+      <div class="card-title">Log</div>
+      <div class="log" id="ble-log"><span class="log-empty">No scans yet.</span></div>
+    </div>`;
+}
+
+function renderWiFi() {
+  return `
+    <div class="card">
+      <div class="card-title">Info</div>
+      <div class="stat-grid">
+        <span class="sk">Adapter</span>  <span class="sv hi">CYW43455 (wlan0)</span>
+        <span class="sk">Bands</span>    <span class="sv">2.4 GHz + 5 GHz</span>
+        <span class="sk">Mode</span>     <span class="sv">Passive scan</span>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-p" id="scan-btn" onclick="runWiFi()">▶ Scan</button>
+    </div>
+    <div id="wifi-results"></div>
+    <div class="card">
+      <div class="card-title">Log</div>
+      <div class="log" id="wifi-log"><span class="log-empty">No scans yet.</span></div>
+    </div>`;
+}
+
+function renderLure() {
+  return `
+    <div class="card">
+      <div class="card-title">Configuration</div>
+      <div class="stat-grid">
+        <span class="sk">Mode</span>     <span class="sv hi">Rogue AP (Evil Twin)</span>
+        <span class="sk">Interface</span><span class="sv">wlan0</span>
+        <span class="sk">Channel</span>  <span class="sv">6 (2.4 GHz)</span>
+        <span class="sk">Gateway</span>  <span class="sv">192.168.4.1</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">SSID</div>
+      <input class="ssid-input" id="lure-ssid" value="Free WiFi" placeholder="AP name to broadcast">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-p" id="lure-start-btn" onclick="lureStart()">▶ Start AP</button>
+      <button class="btn btn-d" id="lure-stop-btn" onclick="lureStop()" disabled>■ Stop</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Status</div>
+      <div class="log" id="lure-log"><span class="log-empty">AP not started.</span></div>
+    </div>`;
+}
+
+/* ── Render tool ───────────────────────────────── */
+function renderTool(key) {
+  var m = toolMeta[key];
+  var bodies = { ble: renderBLE, wifi: renderWiFi, lure: renderLure };
+  document.getElementById('main').innerHTML =
+    '<div class="toolbar">' +
+      '<span class="toolbar-title">' + m.title + '</span>' +
+      '<span class="badge ' + m.badgeCls + '" id="main-badge">● ' + m.badge + '</span>' +
+    '</div>' +
+    '<div class="panel">' + bodies[key]() + '</div>';
+}
+
+/* ── Nav click ─────────────────────────────────── */
+document.addEventListener('click', function(e) {
+  var item = e.target.closest('.nav-item:not(.nav-disabled)');
+  if (!item || !item.dataset.tool) return;
+  document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+  item.classList.add('active');
+  activeTool = item.dataset.tool;
+  scanning = false;
+  renderTool(activeTool);
+});
+
+/* ── BLE scan ──────────────────────────────────── */
+function runBLE() {
+  if (scanning) return;
+  scanning = true;
+  var btn = document.getElementById('scan-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner">↻</span> Scanning...';
+  setBadge('● SCANNING', 'badge-on');
+  logAppend('ble-log', '[BLE] Starting 5s scan...');
+
+  fetch('/api/ble/scan')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      scanning = false; btn.disabled = false; btn.innerHTML = '▶ Scan (5s)';
+      if (data.error) {
+        setBadge('● ERROR', 'badge-idle');
+        logAppend('ble-log', '[ERR] ' + data.error, 'err');
+        return;
+      }
+      setBadge('● READY', 'badge-ready');
+      logAppend('ble-log', '[BLE] Found ' + data.count + ' device(s).', 'fresh');
+      renderBLEResults(data.devices);
+    })
+    .catch(function(e) {
+      scanning = false; btn.disabled = false; btn.innerHTML = '▶ Scan (5s)';
+      logAppend('ble-log', '[ERR] ' + e.message, 'err');
+      setBadge('● ERROR', 'badge-idle');
+    });
+}
+
+function renderBLEResults(devices) {
+  var el = document.getElementById('ble-results');
+  if (!devices.length) { el.innerHTML = ''; return; }
+  var rows = devices.map(function(d) {
+    return '<tr>' +
+      '<td>' + esc(d.name) + '</td>' +
+      '<td style="color:rgba(255,255,255,.35);font-size:9px">' + esc(d.address) + '</td>' +
+      '<td class="rssi-cell">' + d.rssi + ' dBm</td>' +
+      '<td><div class="sig-bar"><div class="sig-track"><div class="sig-fill" style="width:' + d.signal + '%"></div></div></div></td>' +
+      '</tr>';
+  }).join('');
+  el.innerHTML = '<div class="card"><table class="results">' +
+    '<thead><tr><th>NAME</th><th>ADDRESS</th><th>RSSI</th><th>SIG</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div>';
+}
+
+/* ── WiFi scan ─────────────────────────────────── */
+function runWiFi() {
+  if (scanning) return;
+  scanning = true;
+  var btn = document.getElementById('scan-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner">↻</span> Scanning...';
+  setBadge('● SCANNING', 'badge-on');
+  logAppend('wifi-log', '[WiFi] Scanning wlan0...');
+
+  fetch('/api/wifi/scan')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      scanning = false; btn.disabled = false; btn.innerHTML = '▶ Scan';
+      if (data.error) {
+        setBadge('● ERROR', 'badge-idle');
+        logAppend('wifi-log', '[ERR] ' + data.error, 'err');
+        return;
+      }
+      setBadge('● READY', 'badge-ready');
+      logAppend('wifi-log', '[WiFi] Found ' + data.count + ' network(s).', 'fresh');
+      renderWiFiResults(data.networks);
+    })
+    .catch(function(e) {
+      scanning = false; btn.disabled = false; btn.innerHTML = '▶ Scan';
+      logAppend('wifi-log', '[ERR] ' + e.message, 'err');
+      setBadge('● ERROR', 'badge-idle');
+    });
+}
+
+function renderWiFiResults(nets) {
+  var el = document.getElementById('wifi-results');
+  if (!nets.length) { el.innerHTML = ''; return; }
+  var rows = nets.map(function(n) {
+    var encCls = n.enc === 'Open' ? 'enc-open' : 'enc-wpa';
+    return '<tr>' +
+      '<td>' + esc(n.ssid || '(hidden)') + '</td>' +
+      '<td style="color:rgba(255,255,255,.3);font-size:9px">' + esc(n.band || '') + '</td>' +
+      '<td class="rssi-cell">' + (n.dbm || '—') + '</td>' +
+      '<td class="' + encCls + '">' + esc(n.enc) + '</td>' +
+      '<td><div class="sig-bar"><div class="sig-track"><div class="sig-fill" style="width:' + (n.signal||0) + '%"></div></div></div></td>' +
+      '</tr>';
+  }).join('');
+  el.innerHTML = '<div class="card"><table class="results">' +
+    '<thead><tr><th>SSID</th><th>BAND</th><th>SIGNAL</th><th>ENC</th><th></th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div>';
+}
+
+/* ── Lure Trap ─────────────────────────────────── */
+function lureStart() {
+  var ssid = document.getElementById('lure-ssid').value.trim() || 'Free WiFi';
+  document.getElementById('lure-start-btn').disabled = true;
+  logAppend('lure-log', '[LURE] Starting AP: "' + ssid + '"...');
+
+  fetch('/api/lure/start', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ssid: ssid})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error) { logAppend('lure-log', '[ERR] ' + d.error, 'err'); document.getElementById('lure-start-btn').disabled = false; return; }
+    logAppend('lure-log', '[LURE] AP online — SSID: "' + d.ssid + '" @ ' + d.ip, 'fresh');
+    setBadge('● RUNNING', 'badge-on');
+    document.getElementById('lure-stop-btn').disabled = false;
+  })
+  .catch(function(e) { logAppend('lure-log', '[ERR] ' + e.message, 'err'); document.getElementById('lure-start-btn').disabled = false; });
+}
+
+function lureStop() {
+  document.getElementById('lure-stop-btn').disabled = true;
+  fetch('/api/lure/stop', {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function() {
+      logAppend('lure-log', '[LURE] AP stopped.');
+      setBadge('● IDLE', 'badge-idle');
+      document.getElementById('lure-start-btn').disabled = false;
+    });
+}
+
+/* ── Helpers ───────────────────────────────────── */
+function logAppend(id, text, cls) {
+  var log = document.getElementById(id);
+  if (!log) return;
+  var empty = log.querySelector('.log-empty');
+  if (empty) empty.remove();
+  var row = document.createElement('div');
+  row.className = 'log-row' + (cls ? ' ' + cls : '');
+  row.textContent = text;
+  log.appendChild(row);
+  while (log.children.length > 30) log.removeChild(log.firstChild);
+  log.scrollTop = log.scrollHeight;
+}
+
+function setBadge(text, cls) {
+  var b = document.getElementById('main-badge');
+  if (!b) return;
+  b.textContent = text;
+  b.className = 'badge ' + cls;
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Init
+renderTool('ble');
+</script>
+</body>
+</html>
