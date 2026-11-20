@@ -194,7 +194,7 @@ var panels = {
         <span class="sk">Scan</span><span class="sv">Active — RSSI sorted</span>
       </div></div>
     <div class="btn-row">
-      <button class="btn btn-p" id="scan-btn" onclick="runBLE()">▶ Scan (5s)</button>
+      <button class="btn btn-p" id="scan-btn" onclick="runBLE()">▶ Scan (8s)</button>
     </div>
     <div id="ble-results"></div>
     <div class="card"><div class="card-title">Log</div>
@@ -360,8 +360,8 @@ function runBLE() {
   var btn = document.getElementById('scan-btn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner">↻</span> Scanning...';
   setBadge('● SCANNING','badge-on'); logAppend('ble-log','[BLE] Starting 5s scan...');
-  fetch('/api/ble/scan').then(r=>r.json()).then(function(d){
-    scanning = false; btn.disabled = false; btn.innerHTML = '▶ Scan (5s)';
+  fetch('/api/ble/scan?timeout=8').then(r=>r.json()).then(function(d){
+    scanning = false; btn.disabled = false; btn.innerHTML = '▶ Scan (8s)';
     if (d.error){ setBadge('● ERROR','badge-err'); logAppend('ble-log','[ERR] '+d.error,'err'); return; }
     setBadge('● READY','badge-ready');
     logAppend('ble-log','[BLE] Found '+d.count+' device(s).','fresh');

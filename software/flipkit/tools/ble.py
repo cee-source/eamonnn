@@ -1,7 +1,6 @@
 import asyncio
-from bleak import BleakScanner
+from bleak import BleakScanner, BleakClient
 
-# BLE company ID → vendor
 COMPANIES = {
     0x004C: 'Apple',
     0x0006: 'Microsoft',
@@ -12,10 +11,8 @@ COMPANIES = {
     0x0010: 'Broadcom',
     0x0059: 'Nordic Semi',
     0x0046: 'MediaTek',
-    0x009E: 'Murata',
 }
 
-# Apple manufacturer data type byte → device type
 APPLE_TYPES = {
     0x07: 'AirPods',
     0x09: 'AirPods Pro',
@@ -24,7 +21,7 @@ APPLE_TYPES = {
     0x05: 'AirTag',
     0x06: 'HomePod',
     0x0A: 'HomePod Mini',
-    0x0C: 'iPhone/iPad',
+    0x0C: 'iPhone',
     0x0D: 'iPad',
     0x0E: 'Apple Watch',
     0x1E: 'MacBook',
@@ -35,73 +32,98 @@ APPLE_TYPES = {
     0x14: 'iPhone',
 }
 
-# Windows Swift Pair company ID
-MICROSOFT_ID = 0x0006
+DEVICE_NAME_UUID = "00002a00-0000-1000-8000-00805f9b34fb"
 
-def _fingerprint(adv, device_name):
-    """Return (device_type, username) from advertisement data."""
+
+def _fingerprint_type(adv, adv_name):
+    """Return device_type string from advertisement data."""
     mfr = adv.manufacturer_data or {}
-    name = device_name or ''
+    name = adv_name or ''
+    nl = name.lower()
 
-    # Apple
     if 0x004C in mfr:
         data = mfr[0x004C]
-        if data:
-            apple_type = APPLE_TYPES.get(data[0], 'Apple Device')
-            return apple_type, name or apple_type
-
-    # Microsoft / Windows
-    if MICROSOFT_ID in mfr:
-        return 'Windows PC', name or 'Windows PC'
-
-    # Google / Android / Chromebook
+        return APPLE_TYPES.get(data[0], 'Apple Device') if data else 'Apple Device'
+    if 0x0006 in mfr:
+        return 'Windows PC'
     if 0x00E0 in mfr:
-        return 'Chromebook', name or 'Chromebook'
-
-    # Samsung
+        return 'Chromebook'
     if 0x0075 in mfr:
-        return 'Samsung Android', name or 'Samsung Device'
+        return 'Samsung Android'
 
-    # Guess from name patterns
-    nl = name.lower()
-    if any(x in nl for x in ["iphone", "ipad", "macbook", "imac", "apple"]):
-        return 'Apple Device', name
-    if any(x in nl for x in ["galaxy", "samsung"]):
-        return 'Samsung Android', name
-    if any(x in nl for x in ["pixel", "android"]):
-        return 'Android', name
-    if any(x in nl for x in ["desktop", "laptop", "pc", "windows"]):
-        return 'Windows PC', name
-    if any(x in nl for x in ["chromebook"]):
-        return 'Chromebook', name
+    if any(x in nl for x in ['iphone', 'ipad', 'macbook', 'imac', 'apple']):
+        return 'Apple Device'
+    if any(x in nl for x in ['galaxy', 'samsung']):
+        return 'Samsung Android'
+    if any(x in nl for x in ['pixel', 'android']):
+        return 'Android'
+    if any(x in nl for x in ['desktop', 'laptop', 'pc', 'windows']):
+        return 'Windows PC'
+    if 'chromebook' in nl:
+        return 'Chromebook'
 
-    # Fallback: use first company match
     for cid, vendor in COMPANIES.items():
         if cid in mfr:
-            label = vendor + ' Device'
-            return label, name or label
+            return vendor + ' Device'
 
-    # Try to guess from service UUIDs
-    if adv.service_uuids:
-        return 'BLE Device', name or 'BLE Device'
+    return 'Unknown'
 
-    return 'Unknown', name or '—'
+
+async def _gatt_name(address, timeout=2.0):
+    """Connect to device and read the GATT Device Name characteristic."""
+    try:
+        client = BleakClient(address)
+        await asyncio.wait_for(client.connect(), timeout=timeout)
+        try:
+            data = await asyncio.wait_for(
+                client.read_gatt_char(DEVICE_NAME_UUID),
+                timeout=1.5
+            )
+            name = data.decode('utf-8', errors='replace').strip()
+            return name if name else None
+        finally:
+            try:
+                await client.disconnect()
+            except Exception:
+                pass
+    except Exception:
+        return None
 
 
 async def _scan(timeout):
     results = await BleakScanner.discover(timeout=timeout, return_adv=True)
+    if not results:
+        return []
+
+    # Try GATT name reads in parallel (2s timeout each — runs concurrently)
+    addresses = list(results.keys())
+    gatt_names = await asyncio.gather(
+        *[_gatt_name(addr) for addr in addresses],
+        return_exceptions=True
+    )
+    gatt_map = {
+        addr: (name if isinstance(name, str) else None)
+        for addr, name in zip(addresses, gatt_names)
+    }
+
     out = []
     for address, (device, adv) in results.items():
         rssi = adv.rssi if adv.rssi is not None else -120
-        device_type, username = _fingerprint(adv, device.name)
+        adv_name = device.name or adv.local_name or ''
+        device_type = _fingerprint_type(adv, adv_name)
+
+        # Priority: GATT name > advertisement name > device type
+        username = gatt_map.get(address) or adv_name or device_type
+
         out.append({
-            'name':        device.name or 'Unknown',
-            'address':     device.address,
+            'name':        adv_name or device_type,
+            'address':     address,
             'rssi':        rssi,
             'signal':      max(0, min(100, 100 + rssi)),
             'device_type': device_type,
             'username':    username,
         })
+
     return sorted(out, key=lambda x: x['rssi'], reverse=True)
 
 
