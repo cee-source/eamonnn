@@ -137,6 +137,8 @@ input.fk-input:focus, input.ssid-input:focus { border-color: rgba(31,204,124,.4)
       <div class="nav-item" data-tool="wifi">WiFi<span class="nav-hw ok"></span></div>
       <div class="nav-item" data-tool="lure">Lure Trap<span class="nav-hw ok"></span></div>
       <div class="nav-item" data-tool="call">Calling<span class="nav-hw" id="hw-tor"></span></div>
+      <div class="nav-item" data-tool="bluenet">BlueNet<span class="nav-hw ok"></span></div>
+      <div class="nav-item" data-tool="games">🕹 Games<span class="nav-hw ok"></span></div>
       <div class="nav-sep"></div>
       <div class="nav-label">Hardware</div>
       <div class="nav-item" data-tool="rfid">RFID<span class="nav-hw na" id="hw-rfid"></span></div>
@@ -262,6 +264,50 @@ var panels = {
     <div class="card"><div class="card-title">Log</div>
       <div class="log" id="call-log"><span class="log-empty">Not connected.</span></div></div>`; },
 
+  bluenet: function(){ return `
+    <div class="card"><div class="card-title">Info</div>
+      <div class="stat-grid">
+        <span class="sk">Mode</span><span class="sv hi">BLE Advertisement Spam</span>
+        <span class="sk">Adapter</span><span class="sv">hci0 (CYW43455)</span>
+        <span class="sk">Targets</span><span class="sv">Apple · Android · Windows</span>
+      </div></div>
+    <div class="card"><div class="card-title">Device Type</div>
+      <div class="btn-row">
+        <button class="btn btn-s" id="bn-apple"  onclick="bnSelect('apple')"  style="border-color:rgba(31,204,124,.3)">Apple</button>
+        <button class="btn btn-s" id="bn-android" onclick="bnSelect('android')">Android</button>
+        <button class="btn btn-s" id="bn-windows" onclick="bnSelect('windows')">Windows</button>
+        <button class="btn btn-s" id="bn-all"     onclick="bnSelect('all')">All</button>
+      </div></div>
+    <div class="btn-row" style="margin-top:4px">
+      <button class="btn btn-p" id="bn-start" onclick="bnStart()">▶ Start Spam</button>
+      <button class="btn btn-d" id="bn-stop"  onclick="bnStop()" disabled>■ Stop</button>
+    </div>
+    <div class="card"><div class="card-title">Log</div>
+      <div class="log" id="bn-log"><span class="log-empty">Not running.</span></div></div>`; },
+
+  games: function(){
+    var cats = [
+      {id:'arcade',  icon:'🕹',  label:'Arcade',   games:'Snake · Flappy · Breakout · Simon'},
+      {id:'puzzle',  icon:'🧩',  label:'Puzzle',   games:'Tetris · 2048'},
+      {id:'board',   icon:'♟',   label:'Board',    games:'Chess · Pong'},
+      {id:'mini',    icon:'⚡',  label:'Mini',     games:'Reaction · Number Guess'},
+      {id:'strategy',icon:'🔴',  label:'Strategy', games:'Checkers · Reversi · Nim'},
+      {id:'casino',  icon:'🎰',  label:'Casino',   games:'Slots · Bowling · Bubble'},
+      {id:'cards',   icon:'🃏',  label:'Cards',    games:'Poker · War · Yahtzee'},
+      {id:'creative',icon:'🎨',  label:'Creative', games:'Pixel Art · Gravity'},
+      {id:'puzzleplus',icon:'🔧',label:'Puzzle+',  games:'Pipe · Maze · Chain'},
+      {id:'action',  icon:'🏃',  label:'Action',   games:'Runner · Dodge · Trivia'},
+    ];
+    var catHTML = cats.map(function(c){
+      return '<div class="game-cat-row" onclick="showGamesInCat(\''+c.id+'\')" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:4px;cursor:pointer;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);transition:background .12s" onmouseover="this.style.background=\'rgba(31,204,124,.07)\'" onmouseout="this.style.background=\'rgba(255,255,255,.02)\'">' +
+        '<span style="font-size:18px">'+c.icon+'</span>' +
+        '<div style="flex:1"><div style="font-size:11px;color:rgba(255,255,255,.7)">'+c.label+'</div>' +
+        '<div style="font-size:9px;color:rgba(255,255,255,.25);margin-top:2px">'+c.games+'</div></div>' +
+        '<span style="color:rgba(255,255,255,.2);font-size:12px">›</span></div>';
+    }).join('');
+    return '<div id="game-area"><div style="display:flex;flex-direction:column;gap:6px">'+catHTML+'</div></div>';
+  },
+
   rfid:   function(){ return noHW('📡','RFID Scanner','MFRC522','Wired via SPI0 — GPIO pins 19-24.'); },
   subghz: function(){ return noHW('📻','Sub-GHz Radio','CC1101','Wired via SPI1 — GPIO pins 35-40.'); },
   camera: function(){ return hwStatus.camera
@@ -282,7 +328,9 @@ var toolMeta = {
   camera: { title:'Camera',        badge:'NO HW',   cls:'badge-nohw'  },
   nfc:    { title:'NFC',           badge:'NO HW',   cls:'badge-nohw'  },
   ir:     { title:'IR Blaster',    badge:'NO HW',   cls:'badge-nohw'  },
-  badusb: { title:'BadUSB',        badge:'NO HW',   cls:'badge-nohw'  },
+  badusb:  { title:'BadUSB',        badge:'NO HW',   cls:'badge-nohw'  },
+  bluenet: { title:'BlueNet',       badge:'READY',   cls:'badge-ready' },
+  games:   { title:'Games',         badge:'27 GAMES',cls:'badge-ready' },
 };
 
 function renderTool(key) {
@@ -435,6 +483,92 @@ function callStop() {
   });
 }
 
+/* ── BlueNet ───────────────────────────────────── */
+var _bnType = 'apple';
+function bnSelect(t) {
+  _bnType = t;
+  ['apple','android','windows','all'].forEach(function(x){
+    var b = document.getElementById('bn-'+x);
+    if(b) b.style.borderColor = x===t ? 'rgba(31,204,124,.5)' : 'rgba(255,255,255,.1)';
+  });
+}
+function bnStart() {
+  document.getElementById('bn-start').disabled = true;
+  logAppend('bn-log','[BN] Starting '+_bnType+' spam...');
+  fetch('/api/bluenet/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_type:_bnType})})
+    .then(r=>r.json()).then(function(d){
+      if(d.error){logAppend('bn-log','[ERR] '+d.error,'err');document.getElementById('bn-start').disabled=false;return;}
+      setBadge('● SPAMMING','badge-on');
+      document.getElementById('bn-stop').disabled=false;
+      logAppend('bn-log','[BN] Broadcasting '+_bnType+' advertisements...','fresh');
+      _bnPoll=setInterval(function(){
+        fetch('/api/bluenet/status').then(r=>r.json()).then(function(s){
+          if(s.count) logAppend('bn-log','[BN] Sent '+s.count+' packets');
+        });
+      },3000);
+    }).catch(function(e){logAppend('bn-log','[ERR] '+e.message,'err');document.getElementById('bn-start').disabled=false;});
+}
+var _bnPoll=null;
+function bnStop() {
+  clearInterval(_bnPoll);
+  document.getElementById('bn-stop').disabled=true;
+  fetch('/api/bluenet/stop',{method:'POST'}).then(r=>r.json()).then(function(){
+    logAppend('bn-log','[BN] Stopped.');setBadge('● READY','badge-ready');
+    document.getElementById('bn-start').disabled=false;
+  });
+}
+
+/* ── Games launcher ─────────────────────────────── */
+var GAME_CATS = {
+  arcade:['snake','flappy','breakout','simon'],
+  puzzle:['tetris','g2048'],
+  board:['chess','pong'],
+  mini:['reaction','numguess'],
+  strategy:['checkers','reversi','nim'],
+  casino:['slots','bowling','bubble'],
+  cards:['poker','war','yahtzee'],
+  creative:['pixelart','gravity'],
+  puzzleplus:['pipe','maze','chain'],
+  action:['runner','dodge','trivia']
+};
+var GAME_NAMES = {
+  snake:'Snake',flappy:'Flappy Bird',breakout:'Breakout',simon:'Simon',
+  tetris:'Tetris',g2048:'2048',chess:'Chess',pong:'Pong',
+  reaction:'Reaction',numguess:'Number Guess',checkers:'Checkers',
+  reversi:'Reversi',nim:'Nim',slots:'Slots',bowling:'Bowling',
+  bubble:'Bubble Shooter',poker:'Poker',war:'War',yahtzee:'Yahtzee',
+  pixelart:'Pixel Art',gravity:'Gravity',pipe:'Pipe',maze:'Maze',
+  chain:'Chain',runner:'Runner',dodge:'Dodge',trivia:'Trivia'
+};
+function showGamesInCat(cat) {
+  var area = document.getElementById('game-area');
+  if(!area) return;
+  var keys = GAME_CATS[cat]||[];
+  area.innerHTML = '<div style="margin-bottom:10px"><button onclick="renderTool(\'games\')" class="btn btn-s" style="font-size:9px">‹ Back</button></div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:8px">' +
+    keys.map(function(k){
+      return '<button onclick="launchGame(\''+k+'\')" style="padding:10px 18px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:4px;color:rgba(255,255,255,.65);font-family:monospace;font-size:11px;cursor:pointer;transition:background .12s" onmouseover="this.style.background=\'rgba(31,204,124,.1)\'" onmouseout="this.style.background=\'rgba(255,255,255,.03)\'">'+GAME_NAMES[k]+'</button>';
+    }).join('') + '</div>';
+}
+function launchGame(key) {
+  var area = document.getElementById('game-area');
+  if(!area) return;
+  if(area._fkCleanup){area._fkCleanup();area._fkCleanup=null;}
+  area.innerHTML = '<div style="margin-bottom:8px;display:flex;align-items:center;gap:10px">' +
+    '<button onclick="renderTool(\'games\')" class="btn btn-s" style="font-size:9px">‹ Back</button>' +
+    '<span style="font-size:11px;color:rgba(255,255,255,.5)">'+GAME_NAMES[key]+'</span></div>' +
+    '<div id="game-canvas-area"></div>';
+  var G = window.FK_GAMES;
+  if(G && G[key]) {
+    var carea = document.getElementById('game-canvas-area');
+    G[key].render(carea);
+    if(carea._fkCleanup) area._fkCleanup = carea._fkCleanup;
+  } else {
+    document.getElementById('game-canvas-area').innerHTML =
+      '<div style="text-align:center;padding:40px;color:rgba(255,255,255,.25);font-size:11px">Loading game...</div>';
+  }
+}
+
 /* ── Helpers ───────────────────────────────────── */
 function logAppend(id, text, cls) {
   var log = document.getElementById(id); if (!log) return;
@@ -454,5 +588,6 @@ function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 
 renderTool('ble');
 </script>
+<script src="/static/games.js"></script>
 </body>
 </html>

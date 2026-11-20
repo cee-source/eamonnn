@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request, render_template, session, redirect, url_for
 from flask_cors import CORS
-from tools import ble, wifi, lure, call, hw
+from tools import ble, wifi, lure, call, hw, bluenet
 import os
 
 app = Flask(__name__)
@@ -91,6 +91,20 @@ def call_hangup():
 @app.route('/api/call/stop', methods=['POST'])
 def call_stop():
     return jsonify(call.stop())
+
+# ── BlueNet ───────────────────────────────────────────
+@app.route('/api/bluenet/status')
+def bluenet_status():
+    return jsonify(bluenet.status())
+
+@app.route('/api/bluenet/start', methods=['POST'])
+def bluenet_start():
+    d = request.json or {}
+    return jsonify(bluenet.start(d.get('device_type', 'apple')))
+
+@app.route('/api/bluenet/stop', methods=['POST'])
+def bluenet_stop():
+    return jsonify(bluenet.stop())
 
 if __name__ == '__main__':
     print('\n  FlipKit Tools → http://localhost:5000\n')
