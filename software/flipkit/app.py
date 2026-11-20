@@ -1,9 +1,33 @@
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, session, redirect, url_for
 from flask_cors import CORS
 from tools import ble, wifi, lure
+import os
 
 app = Flask(__name__)
+app.secret_key = os.urandom(24)
 CORS(app)
+
+PASSWORD = '7807809'
+
+@app.before_request
+def require_login():
+    if request.endpoint not in ('login', 'static') and not session.get('auth'):
+        return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        if request.form.get('password') == PASSWORD:
+            session['auth'] = True
+            return redirect(url_for('index'))
+        error = 'Wrong password.'
+    return render_template('login.html', error=error)
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
 
 @app.route('/')
 def index():

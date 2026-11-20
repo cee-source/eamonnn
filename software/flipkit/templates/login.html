@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FlipKit — Login</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+:root { --bg: #07090D; --trace: #1FCC7C; --border: rgba(255,255,255,.08); --mono: 'JetBrains Mono', monospace; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: #DDE3EA;
+  font-family: var(--mono);
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse 50% 40% at 50% 50%, rgba(31,204,124,.04), transparent 70%);
+  pointer-events: none;
+}
+.card {
+  width: 300px;
+  background: #0E1724;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 32px 28px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+.logo {
+  text-align: center;
+  font-size: 22px; font-weight: 700; letter-spacing: .2em; color: var(--trace);
+}
+.label {
+  font-size: 9px; letter-spacing: .2em; color: rgba(255,255,255,.25);
+  text-transform: uppercase; margin-bottom: 6px;
+}
+input[type="password"] {
+  width: 100%; padding: 9px 12px;
+  background: rgba(0,0,0,.35);
+  border: 1px solid rgba(255,255,255,.1); border-radius: 4px;
+  font-family: var(--mono); font-size: 14px; letter-spacing: .2em;
+  color: rgba(255,255,255,.8); outline: none;
+}
+input[type="password"]:focus { border-color: rgba(31,204,124,.45); }
+button {
+  width: 100%; padding: 10px;
+  background: rgba(31,204,124,.1);
+  border: 1px solid rgba(31,204,124,.3); border-radius: 4px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .15em;
+  color: var(--trace); cursor: pointer; transition: background .15s;
+}
+button:hover { background: rgba(31,204,124,.2); }
+.error {
+  font-size: 10px; color: rgba(255,80,80,.7);
+  text-align: center; letter-spacing: .05em;
+}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">FK</div>
+  <form method="post" autocomplete="off">
+    <div class="label">Access Code</div>
+    <input type="password" name="password" autofocus placeholder="·······">
+    {% if error %}<div class="error" style="margin-top:8px">{{ error }}</div>{% endif %}
+    <button type="submit" style="margin-top:16px">▶ ENTER</button>
+  </form>
+</div>
+</body>
+</html>
