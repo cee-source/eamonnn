@@ -2,16 +2,17 @@ import asyncio
 from bleak import BleakScanner
 
 async def _scan(timeout):
-    devices = await BleakScanner.discover(timeout=timeout)
+    results = await BleakScanner.discover(timeout=timeout, return_adv=True)
     out = []
-    for d in sorted(devices, key=lambda x: x.rssi or -120, reverse=True):
+    for address, (device, adv) in results.items():
+        rssi = adv.rssi if adv.rssi is not None else -120
         out.append({
-            'name':    d.name or 'Unknown',
-            'address': d.address,
-            'rssi':    d.rssi or -120,
-            'signal':  max(0, min(100, 100 + (d.rssi or -120))),
+            'name':    device.name or 'Unknown',
+            'address': device.address,
+            'rssi':    rssi,
+            'signal':  max(0, min(100, 100 + rssi)),
         })
-    return out
+    return sorted(out, key=lambda x: x['rssi'], reverse=True)
 
 def scan(timeout=5.0):
     try:
