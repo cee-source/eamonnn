@@ -48,19 +48,19 @@ def _fingerprint(adv, device_name):
         data = mfr[0x004C]
         if data:
             apple_type = APPLE_TYPES.get(data[0], 'Apple Device')
-            return apple_type, name or 'Apple User'
+            return apple_type, name or apple_type
 
     # Microsoft / Windows
     if MICROSOFT_ID in mfr:
-        return 'Windows PC', name or 'Windows User'
+        return 'Windows PC', name or 'Windows PC'
 
     # Google / Android / Chromebook
     if 0x00E0 in mfr:
-        return 'Chromebook', name or 'Google User'
+        return 'Chromebook', name or 'Chromebook'
 
     # Samsung
     if 0x0075 in mfr:
-        return 'Samsung Android', name or 'Samsung User'
+        return 'Samsung Android', name or 'Samsung Device'
 
     # Guess from name patterns
     nl = name.lower()
@@ -78,15 +78,14 @@ def _fingerprint(adv, device_name):
     # Fallback: use first company match
     for cid, vendor in COMPANIES.items():
         if cid in mfr:
-            return vendor + ' Device', name or 'Unknown'
+            label = vendor + ' Device'
+            return label, name or label
 
     # Try to guess from service UUIDs
     if adv.service_uuids:
-        for uuid in adv.service_uuids:
-            if '1800' in uuid or '180a' in uuid.lower():
-                return 'BLE Device', name or 'Unknown'
+        return 'BLE Device', name or 'BLE Device'
 
-    return 'Unknown', name or 'Unknown'
+    return 'Unknown', name or '—'
 
 
 async def _scan(timeout):
