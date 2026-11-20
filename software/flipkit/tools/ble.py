@@ -1,4 +1,4 @@
-import asyncio
+import asyncio, subprocess, re
 from bleak import BleakScanner, BleakClient
 
 COMPANIES = {
@@ -14,29 +14,20 @@ COMPANIES = {
 }
 
 APPLE_TYPES = {
-    0x07: 'AirPods',
-    0x09: 'AirPods Pro',
-    0x0B: 'AirPods Gen3',
-    0x0F: 'AirPods Max',
-    0x05: 'AirTag',
-    0x06: 'HomePod',
-    0x0A: 'HomePod Mini',
-    0x0C: 'iPhone',
-    0x0D: 'iPad',
-    0x0E: 'Apple Watch',
-    0x1E: 'MacBook',
-    0x08: 'Beats',
-    0x03: 'AirPrint',
-    0x01: 'Find My',
-    0x10: 'MacBook Pro',
-    0x14: 'iPhone',
+    0x07: 'AirPods',       0x09: 'AirPods Pro',
+    0x0B: 'AirPods Gen3',  0x0F: 'AirPods Max',
+    0x05: 'AirTag',        0x06: 'HomePod',
+    0x0A: 'HomePod Mini',  0x0C: 'iPhone',
+    0x0D: 'iPad',          0x0E: 'Apple Watch',
+    0x1E: 'MacBook',       0x08: 'Beats',
+    0x03: 'AirPrint',      0x01: 'Find My',
+    0x10: 'MacBook Pro',   0x14: 'iPhone',
 }
 
 DEVICE_NAME_UUID = "00002a00-0000-1000-8000-00805f9b34fb"
 
 
 def _fingerprint_type(adv, adv_name):
-    """Return device_type string from advertisement data."""
     mfr = adv.manufacturer_data or {}
     name = adv_name or ''
     nl = name.lower()
@@ -65,27 +56,38 @@ def _fingerprint_type(adv, adv_name):
     for cid, vendor in COMPANIES.items():
         if cid in mfr:
             return vendor + ' Device'
-
     return 'Unknown'
 
 
-async def _gatt_name(address, timeout=2.0):
-    """Connect to device and read the GATT Device Name characteristic."""
+def _btctl_name(address):
+    """Check BlueZ name cache via bluetoothctl info."""
     try:
-        client = BleakClient(address)
-        await asyncio.wait_for(client.connect(), timeout=timeout)
-        try:
-            data = await asyncio.wait_for(
-                client.read_gatt_char(DEVICE_NAME_UUID),
-                timeout=1.5
-            )
-            name = data.decode('utf-8', errors='replace').strip()
-            return name if name else None
-        finally:
-            try:
-                await client.disconnect()
-            except Exception:
-                pass
+        r = subprocess.run(
+            ['bluetoothctl', 'info', address],
+            capture_output=True, text=True, timeout=2
+        )
+        # Try Name first, then Alias
+        for pattern in [r'^\s+Name:\s+(.+)$', r'^\s+Alias:\s+(.+)$']:
+            m = re.search(pattern, r.stdout, re.MULTILINE)
+            if m:
+                n = m.group(1).strip()
+                # Ignore if it's just the MAC address
+                if n and not re.match(r'^[0-9A-Fa-f:]+$', n):
+                    return n
+    except Exception:
+        pass
+    return None
+
+
+async def _gatt_name(ble_device, timeout=2.5):
+    """Connect to device and read Device Name characteristic."""
+    try:
+        async def _read():
+            async with BleakClient(ble_device) as client:
+                data = await client.read_gatt_char(DEVICE_NAME_UUID)
+                name = data.decode('utf-8', errors='replace').strip()
+                return name or None
+        return await asyncio.wait_for(_read(), timeout=timeout)
     except Exception:
         return None
 
@@ -95,15 +97,25 @@ async def _scan(timeout):
     if not results:
         return []
 
-    # Try GATT name reads in parallel (2s timeout each — runs concurrently)
-    addresses = list(results.keys())
-    gatt_names = await asyncio.gather(
-        *[_gatt_name(addr) for addr in addresses],
+    # 1. Check BlueZ cache for all devices (fast, synchronous)
+    btctl_names = {
+        addr: _btctl_name(addr)
+        for addr in results
+    }
+
+    # 2. For devices with no cached name, try GATT in parallel
+    need_gatt = [
+        (addr, dev)
+        for addr, (dev, _adv) in results.items()
+        if not btctl_names.get(addr) and not (dev.name or '')
+    ]
+    gatt_results = await asyncio.gather(
+        *[_gatt_name(dev) for _, dev in need_gatt],
         return_exceptions=True
     )
     gatt_map = {
         addr: (name if isinstance(name, str) else None)
-        for addr, name in zip(addresses, gatt_names)
+        for (addr, _), name in zip(need_gatt, gatt_results)
     }
 
     out = []
@@ -112,8 +124,13 @@ async def _scan(timeout):
         adv_name = device.name or adv.local_name or ''
         device_type = _fingerprint_type(adv, adv_name)
 
-        # Priority: GATT name > advertisement name > device type
-        username = gatt_map.get(address) or adv_name or device_type
+        # Priority: BlueZ cache > GATT > advertisement name > device type
+        username = (
+            btctl_names.get(address) or
+            gatt_map.get(address) or
+            adv_name or
+            device_type
+        )
 
         out.append({
             'name':        adv_name or device_type,
