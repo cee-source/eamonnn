@@ -2,7 +2,7 @@
 set -e
 echo "[flipkit] Installing dependencies..."
 sudo apt-get update -qq
-sudo apt-get install -y python3-flask python3-pip hostapd dnsmasq iw wireless-tools net-tools nginx
+sudo apt-get install -y python3-flask python3-pip hostapd dnsmasq iw wireless-tools net-tools nginx tor torsocks baresip
 
 pip3 install bleak flask flask-cors --break-system-packages
 

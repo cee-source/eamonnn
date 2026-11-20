@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request, render_template, session, redirect, url_for
 from flask_cors import CORS
-from tools import ble, wifi, lure
+from tools import ble, wifi, lure, call, hw
 import os
 
 app = Flask(__name__)
@@ -33,6 +33,11 @@ def logout():
 def index():
     return render_template('index.html')
 
+# ── Hardware status ───────────────────────────────────
+@app.route('/api/hw/status')
+def hw_status():
+    return jsonify(hw.status_all())
+
 # ── BLE ──────────────────────────────────────────────
 @app.route('/api/ble/scan')
 def ble_scan():
@@ -63,6 +68,29 @@ def lure_start():
 @app.route('/api/lure/stop', methods=['POST'])
 def lure_stop():
     return jsonify(lure.stop())
+
+# ── Calling ───────────────────────────────────────────
+@app.route('/api/call/status')
+def call_status():
+    return jsonify(call.status())
+
+@app.route('/api/call/start', methods=['POST'])
+def call_start():
+    d = request.json or {}
+    return jsonify(call.start(d.get('user',''), d.get('server',''), d.get('password','')))
+
+@app.route('/api/call/dial', methods=['POST'])
+def call_dial():
+    d = request.json or {}
+    return jsonify(call.dial(d.get('number',''), d.get('server','')))
+
+@app.route('/api/call/hangup', methods=['POST'])
+def call_hangup():
+    return jsonify(call.hangup())
+
+@app.route('/api/call/stop', methods=['POST'])
+def call_stop():
+    return jsonify(call.stop())
 
 if __name__ == '__main__':
     print('\n  FlipKit Tools → http://localhost:5000\n')
