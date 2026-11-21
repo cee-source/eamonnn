@@ -138,6 +138,7 @@ input.fk-input:focus, input.ssid-input:focus { border-color: rgba(31,204,124,.4)
       <div class="nav-item" data-tool="lure">Lure Trap<span class="nav-hw ok"></span></div>
       <div class="nav-item" data-tool="call">Calling<span class="nav-hw" id="hw-tor"></span></div>
       <div class="nav-item" data-tool="bluenet">BlueNet<span class="nav-hw ok"></span></div>
+      <div class="nav-item" data-tool="popups">Popups<span class="nav-hw ok"></span></div>
       <div class="nav-item" data-tool="games">🕹 Games<span class="nav-hw ok"></span></div>
       <div class="nav-sep"></div>
       <div class="nav-label">Hardware</div>
@@ -285,6 +286,31 @@ var panels = {
     <div class="card"><div class="card-title">Log</div>
       <div class="log" id="bn-log"><span class="log-empty">Not running.</span></div></div>`; },
 
+  popups: function(){ return `
+    <div class="card"><div class="card-title">Info</div>
+      <div class="stat-grid">
+        <span class="sk">Mode</span><span class="sv hi">Apple iOS Proximity Popups</span>
+        <span class="sk">Target</span><span class="sv">iPhones / iPads in range</span>
+        <span class="sk">Method</span><span class="sv">BLE Proximity Pairing (hci0)</span>
+      </div></div>
+    <div class="card"><div class="card-title">Popup Type</div>
+      <div class="btn-row" style="flex-wrap:wrap">
+        <button class="btn btn-s" id="pp-airpods"     onclick="ppSelect('airpods')"     style="border-color:rgba(31,204,124,.4)">AirPods</button>
+        <button class="btn btn-s" id="pp-airpods_pro" onclick="ppSelect('airpods_pro')">AirPods Pro</button>
+        <button class="btn btn-s" id="pp-airpods_max" onclick="ppSelect('airpods_max')">AirPods Max</button>
+        <button class="btn btn-s" id="pp-airtag"      onclick="ppSelect('airtag')">AirTag</button>
+        <button class="btn btn-s" id="pp-homepod"     onclick="ppSelect('homepod')">HomePod</button>
+        <button class="btn btn-s" id="pp-appletv"     onclick="ppSelect('appletv')">Apple TV</button>
+        <button class="btn btn-s" id="pp-watch"       onclick="ppSelect('watch')">Watch</button>
+        <button class="btn btn-s" id="pp-all"         onclick="ppSelect('all')">∞ All</button>
+      </div></div>
+    <div class="btn-row" style="margin-top:4px">
+      <button class="btn btn-p" id="pp-start" onclick="ppStart()">▶ Start Infinite</button>
+      <button class="btn btn-d" id="pp-stop"  onclick="ppStop()" disabled>■ Stop</button>
+    </div>
+    <div class="card"><div class="card-title">Log</div>
+      <div class="log" id="pp-log"><span class="log-empty">Not running.</span></div></div>`; },
+
   games: function(){
     var cats = [
       {id:'arcade',  icon:'🕹',  label:'Arcade',   games:'Snake · Flappy · Breakout · Simon'},
@@ -330,6 +356,7 @@ var toolMeta = {
   ir:     { title:'IR Blaster',    badge:'NO HW',   cls:'badge-nohw'  },
   badusb:  { title:'BadUSB',        badge:'NO HW',   cls:'badge-nohw'  },
   bluenet: { title:'BlueNet',       badge:'READY',   cls:'badge-ready' },
+  popups:  { title:'iOS Popups',    badge:'READY',   cls:'badge-ready' },
   games:   { title:'Games',         badge:'27 GAMES',cls:'badge-ready' },
 };
 
@@ -523,6 +550,40 @@ function bnStop() {
   fetch('/api/bluenet/stop',{method:'POST'}).then(r=>r.json()).then(function(){
     logAppend('bn-log','[BN] Stopped.');setBadge('● READY','badge-ready');
     document.getElementById('bn-start').disabled=false;
+  });
+}
+
+/* ── iOS Popups ─────────────────────────────────── */
+var _ppType = 'airpods', _ppPoll = null;
+function ppSelect(t) {
+  _ppType = t;
+  ['airpods','airpods_pro','airpods_max','airtag','homepod','appletv','watch','all'].forEach(function(x){
+    var b = document.getElementById('pp-'+x);
+    if(b) b.style.borderColor = x===t ? 'rgba(31,204,124,.5)' : 'rgba(255,255,255,.1)';
+  });
+}
+function ppStart() {
+  document.getElementById('pp-start').disabled = true;
+  logAppend('pp-log','[PP] Starting '+_ppType+' popup spam...');
+  fetch('/api/popup/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({popup_type:_ppType})})
+    .then(r=>r.json()).then(function(d){
+      if(d.error){logAppend('pp-log','[ERR] '+d.error,'err');document.getElementById('pp-start').disabled=false;return;}
+      setBadge('● SPAMMING','badge-on');
+      document.getElementById('pp-stop').disabled=false;
+      logAppend('pp-log','[PP] Sending '+_ppType+' popups to nearby iPhones...','fresh');
+      _ppPoll=setInterval(function(){
+        fetch('/api/popup/status').then(r=>r.json()).then(function(s){
+          if(s.count) logAppend('pp-log','[PP] '+s.count+' popups sent');
+        });
+      },2000);
+    }).catch(function(e){logAppend('pp-log','[ERR] '+e.message,'err');document.getElementById('pp-start').disabled=false;});
+}
+function ppStop() {
+  clearInterval(_ppPoll);
+  document.getElementById('pp-stop').disabled=true;
+  fetch('/api/popup/stop',{method:'POST'}).then(r=>r.json()).then(function(){
+    logAppend('pp-log','[PP] Stopped.');setBadge('● READY','badge-ready');
+    document.getElementById('pp-start').disabled=false;
   });
 }
 
