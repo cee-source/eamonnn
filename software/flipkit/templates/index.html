@@ -402,11 +402,11 @@ function runBLE() {
   if (scanning) return; scanning = true;
   var btn = document.getElementById('scan-btn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner">↻</span> Scanning...';
-  setBadge('● SCANNING','badge-on'); logAppend('ble-log','[BLE] Starting 5s scan...');
+  setBadge('● SCANNING','badge-on','ble'); logAppend('ble-log','[BLE] Starting 5s scan...');
   fetch('/api/ble/scan?timeout=8').then(r=>r.json()).then(function(d){
     scanning = false; btn.disabled = false; btn.innerHTML = '▶ Scan (8s)';
-    if (d.error){ setBadge('● ERROR','badge-err'); logAppend('ble-log','[ERR] '+d.error,'err'); return; }
-    setBadge('● READY','badge-ready');
+    if (d.error){ setBadge('● ERROR','badge-err','ble'); logAppend('ble-log','[ERR] '+d.error,'err'); return; }
+    setBadge('● READY','badge-ready','ble');
     logAppend('ble-log','[BLE] Found '+d.count+' device(s).','fresh');
     var log = document.getElementById('ble-log');
     d.devices.forEach(function(x){
@@ -424,7 +424,7 @@ function runBLE() {
     });
     log.scrollTop = log.scrollHeight;
     document.getElementById('ble-results').innerHTML = '';
-  }).catch(function(e){ scanning=false; btn.disabled=false; btn.innerHTML='▶ Scan (5s)'; logAppend('ble-log','[ERR] '+e.message,'err'); setBadge('● ERROR','badge-err'); });
+  }).catch(function(e){ scanning=false; btn.disabled=false; btn.innerHTML='▶ Scan (5s)'; logAppend('ble-log','[ERR] '+e.message,'err'); setBadge('● ERROR','badge-err','ble'); });
 }
 
 /* ── WiFi ──────────────────────────────────────── */
@@ -432,11 +432,11 @@ function runWiFi() {
   if (scanning) return; scanning = true;
   var btn = document.getElementById('scan-btn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner">↻</span> Scanning...';
-  setBadge('● SCANNING','badge-on'); logAppend('wifi-log','[WiFi] Scanning wlan0...');
+  setBadge('● SCANNING','badge-on','wifi'); logAppend('wifi-log','[WiFi] Scanning wlan0...');
   fetch('/api/wifi/scan').then(r=>r.json()).then(function(d){
     scanning = false; btn.disabled = false; btn.innerHTML = '▶ Scan';
-    if (d.error){ setBadge('● ERROR','badge-err'); logAppend('wifi-log','[ERR] '+d.error,'err'); return; }
-    setBadge('● READY','badge-ready');
+    if (d.error){ setBadge('● ERROR','badge-err','wifi'); logAppend('wifi-log','[ERR] '+d.error,'err'); return; }
+    setBadge('● READY','badge-ready','wifi');
     logAppend('wifi-log','[WiFi] Found '+d.count+' network(s).','fresh');
     var rows = d.networks.map(function(n){
       return '<tr><td>'+esc(n.ssid||'(hidden)')+'</td>' +
@@ -448,7 +448,7 @@ function runWiFi() {
     document.getElementById('wifi-results').innerHTML = rows
       ? '<div class="card"><table class="results"><thead><tr><th>SSID</th><th>BAND</th><th>SIGNAL</th><th>ENC</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'
       : '';
-  }).catch(function(e){ scanning=false; btn.disabled=false; btn.innerHTML='▶ Scan'; logAppend('wifi-log','[ERR] '+e.message,'err'); setBadge('● ERROR','badge-err'); });
+  }).catch(function(e){ scanning=false; btn.disabled=false; btn.innerHTML='▶ Scan'; logAppend('wifi-log','[ERR] '+e.message,'err'); setBadge('● ERROR','badge-err','wifi'); });
 }
 
 /* ── Lure Trap ─────────────────────────────────── */
@@ -745,7 +745,8 @@ function logAppend(id, text, cls) {
   while (log.children.length > 40) log.removeChild(log.firstChild);
   log.scrollTop = log.scrollHeight;
 }
-function setBadge(text, cls) {
+function setBadge(text, cls, tool) {
+  if (tool && tool !== activeTool) return;
   var b = document.getElementById('main-badge'); if (!b) return;
   b.textContent = text; b.className = 'badge '+cls;
 }
