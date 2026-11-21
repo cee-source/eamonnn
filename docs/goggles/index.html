@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>HOLO-HUD // AR·VR</title>
+<link rel="stylesheet" href="style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<div id="landing" class="panel">
+  <h1>HOLO-HUD</h1>
+  <p class="sub">AR visor + VR arcade, built from a browser</p>
+
+  <div id="caps" class="caps mono">checking device capabilities&hellip;</div>
+
+  <div class="modes">
+    <button id="btn-ar" class="mode-btn">
+      <span class="mode-title">ENTER AR</span>
+      <span class="mode-desc">Camera passthrough + holographic visor overlay</span>
+    </button>
+    <button id="btn-vr" class="mode-btn">
+      <span class="mode-title">ENTER VR</span>
+      <span class="mode-desc">Orb Defender — gaze, tap, survive</span>
+    </button>
+  </div>
+
+  <div class="howto mono">
+    <p><b>Phone + headset (Cardboard/WebXR):</b> open this page on your phone, pick a mode, drop the phone in the viewer.</p>
+    <p><b>No headset:</b> AR falls back to a plain camera overlay. VR falls back to drag-to-look on desktop, or tilt-to-look on phone.</p>
+    <p><b>AR needs camera access. VR tilt needs motion-sensor access.</b> You'll be prompted once you enter a mode.</p>
+  </div>
+</div>
+
+<div id="hud-root" hidden>
+  <video id="cam-feed" autoplay playsinline muted></video>
+  <canvas id="gl"></canvas>
+  <div id="overlay" class="mono"></div>
+  <button id="btn-exit" class="exit-btn">&times; EXIT</button>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
