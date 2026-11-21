@@ -114,7 +114,7 @@ def popup_status():
 @app.route('/api/popup/start', methods=['POST'])
 def popup_start():
     d = request.json or {}
-    return jsonify(popup.start(d.get('popup_type', 'airpods')))
+    return jsonify(popup.start(d.get('popup_type', 'airpods'), d.get('types_list', None)))
 
 @app.route('/api/popup/stop', methods=['POST'])
 def popup_stop():

