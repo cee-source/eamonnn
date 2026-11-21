@@ -365,18 +365,22 @@ function runBLE() {
     if (d.error){ setBadge('● ERROR','badge-err'); logAppend('ble-log','[ERR] '+d.error,'err'); return; }
     setBadge('● READY','badge-ready');
     logAppend('ble-log','[BLE] Found '+d.count+' device(s).','fresh');
-    var DTYPE_ICON = {'Apple':'🍎','AirPods':'🎧','AirPods Pro':'🎧','AirPods Gen3':'🎧','AirPods Max':'🎧','AirTag':'📡','HomePod':'🔊','HomePod Mini':'🔊','iPhone':'📱','iPhone/iPad':'📱','iPad':'📱','Apple Watch':'⌚','MacBook':'💻','MacBook Pro':'💻','Beats':'🎧','Windows PC':'🪟','Samsung Android':'🤖','Android':'🤖','Google':'🤖','Chromebook':'💻','Broadcom Device':'📡'};
-    var rows = d.devices.map(function(x){
-      var icon = DTYPE_ICON[x.device_type] || '📶';
-      return '<tr>' +
-        '<td>'+icon+' <span style="font-size:10px;color:rgba(255,255,255,.45)">'+esc(x.device_type)+'</span></td>' +
-        '<td style="color:rgba(255,255,255,.75)">'+esc(x.username)+'</td>' +
-        '<td class="rssi-cell">'+x.rssi+'</td>' +
-        '<td><div class="sig-bar"><div class="sig-track"><div class="sig-fill" style="width:'+x.signal+'%"></div></div></div></td></tr>';
-    }).join('');
-    document.getElementById('ble-results').innerHTML = rows
-      ? '<div class="card"><table class="results"><thead><tr><th>DEVICE</th><th>NAME / USER</th><th>RSSI</th><th>SIG</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
-      : '';
+    var log = document.getElementById('ble-log');
+    d.devices.forEach(function(x){
+      var mac = x.address.split(':').slice(0,3).join(':')+'..';
+      var label = x.username !== x.device_type ? x.username : x.device_type;
+      var row = document.createElement('div');
+      row.className = 'log-row fresh';
+      row.innerHTML = '<span style="color:rgba(255,255,255,.25)">[BLE]</span> ' +
+        '<span style="color:rgba(255,255,255,.35)">'+esc(mac)+'</span> — ' +
+        '<span style="color:rgba(255,255,255,.8)">"'+esc(label)+'"</span>' +
+        '<span style="color:rgba(255,255,255,.3);font-size:9px">  '+x.rssi+' dBm</span>' +
+        '  <span style="font-size:9px;color:rgba(31,204,124,.5)">'+esc(x.device_type)+'</span>';
+      var empty = log.querySelector('.log-empty'); if(empty) empty.remove();
+      log.appendChild(row);
+    });
+    log.scrollTop = log.scrollHeight;
+    document.getElementById('ble-results').innerHTML = '';
   }).catch(function(e){ scanning=false; btn.disabled=false; btn.innerHTML='▶ Scan (5s)'; logAppend('ble-log','[ERR] '+e.message,'err'); setBadge('● ERROR','badge-err'); });
 }
 
