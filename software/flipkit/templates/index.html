@@ -303,15 +303,17 @@ var panels = {
           </div>
         </div>
       </div></div>
-    <div class="card"><div class="card-title">Color</div>
+    <div class="card"><div class="card-title">Color / Platform</div>
       <div class="btn-row" style="flex-wrap:wrap">
-        <button class="btn btn-s" id="pp-col-white" onclick="ppCol('white')" style="border-color:rgba(31,204,124,.4)">White</button>
-        <button class="btn btn-s" id="pp-col-green" onclick="ppCol('green')">Green</button>
-        <button class="btn btn-s" id="pp-col-blue"  onclick="ppCol('blue')">Blue</button>
-        <button class="btn btn-s" id="pp-col-red"   onclick="ppCol('red')">Red</button>
-        <button class="btn btn-s" id="pp-col-gold"  onclick="ppCol('gold')">Gold</button>
-        <button class="btn btn-s" id="pp-col-pink"  onclick="ppCol('pink')">Pink</button>
-      </div></div>
+        <button class="btn btn-s" id="pp-col-white"   onclick="ppCol('white')"   style="border-color:rgba(31,204,124,.4)">White</button>
+        <button class="btn btn-s" id="pp-col-green"   onclick="ppCol('green')">Green</button>
+        <button class="btn btn-s" id="pp-col-blue"    onclick="ppCol('blue')">Blue</button>
+        <button class="btn btn-s" id="pp-col-red"     onclick="ppCol('red')">Red</button>
+        <button class="btn btn-s" id="pp-col-gold"    onclick="ppCol('gold')">Gold</button>
+        <button class="btn btn-s" id="pp-col-pink"    onclick="ppCol('pink')">Pink</button>
+        <button class="btn btn-s" id="pp-col-android" onclick="ppCol('android')" style="color:rgba(100,200,255,.7)">🤖 Android / CB</button>
+      </div>
+      <div id="pp-platform-note" style="display:none;margin-top:6px;font-size:9px;color:rgba(100,200,255,.5)">Sends Google Fast Pair — works on Chromebook &amp; Android without scanning</div></div>
     <div class="card"><div class="card-title">Target Device</div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
         <button class="btn btn-s" id="pp-scan" onclick="ppScan()">🔍 Scan</button>
@@ -571,7 +573,7 @@ function bnStop() {
 
 /* ── iOS Popups ─────────────────────────────────── */
 var _ppType = 'airpods', _ppPoll = null, _ppSelected = {}, _ppQty = 0;
-var _ppColMap = {white:'airpods', green:'airpods_pro', blue:'homepod', red:'airtag', gold:'watch', pink:'airpods_max'};
+var _ppColMap = {white:'airpods', green:'airpods_pro', blue:'homepod', red:'airtag', gold:'watch', pink:'airpods_max', android:'google_fp'};
 
 function ppQty(n) {
   _ppQty = n;
@@ -583,10 +585,12 @@ function ppQty(n) {
 
 function ppCol(c) {
   _ppType = _ppColMap[c] || 'airpods';
-  ['white','green','blue','red','gold','pink'].forEach(function(x){
+  ['white','green','blue','red','gold','pink','android'].forEach(function(x){
     var b = document.getElementById('pp-col-'+x);
     if(b) b.style.borderColor = x===c ? 'rgba(31,204,124,.5)' : 'rgba(255,255,255,.1)';
   });
+  var note = document.getElementById('pp-platform-note');
+  if(note) note.style.display = c==='android' ? 'block' : 'none';
 }
 
 function ppScan() {
