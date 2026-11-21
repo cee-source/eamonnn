@@ -1,6 +1,8 @@
 import asyncio, subprocess, re
 from bleak import BleakScanner, BleakClient
 
+_MAC_RE = re.compile(r'^([0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}$')
+
 COMPANIES = {
     0x004C: 'Apple',
     0x0006: 'Microsoft',
@@ -14,14 +16,18 @@ COMPANIES = {
 }
 
 APPLE_TYPES = {
-    0x07: 'AirPods',       0x09: 'AirPods Pro',
-    0x0B: 'AirPods Gen3',  0x0F: 'AirPods Max',
-    0x05: 'AirTag',        0x06: 'HomePod',
-    0x0A: 'HomePod Mini',  0x0C: 'iPhone',
-    0x0D: 'iPad',          0x0E: 'Apple Watch',
-    0x1E: 'MacBook',       0x08: 'Beats',
-    0x03: 'AirPrint',      0x01: 'Find My',
-    0x10: 'MacBook Pro',   0x14: 'iPhone',
+    0x00: 'iPhone',        0x01: 'Find My',
+    0x02: 'iPhone',        0x03: 'AirPrint',
+    0x04: 'AirPods',       0x05: 'AirTag',
+    0x06: 'HomePod',       0x07: 'AirPods',
+    0x08: 'Beats',         0x09: 'Nearby Action',
+    0x0A: 'HomePod Mini',  0x0B: 'AirPods Gen3',
+    0x0C: 'iPhone',        0x0D: 'iPad',
+    0x0E: 'Apple Watch',   0x0F: 'AirPods Max',
+    0x10: 'MacBook Pro',   0x11: 'iPhone',
+    0x12: 'iPhone',        0x13: 'iPad',
+    0x14: 'iPhone',        0x1E: 'MacBook',
+    0x20: 'iPhone',        0x27: 'AirPods',
 }
 
 DEVICE_NAME_UUID = "00002a00-0000-1000-8000-00805f9b34fb"
@@ -125,10 +131,12 @@ async def _scan(timeout):
         device_type = _fingerprint_type(adv, adv_name)
 
         # Priority: BlueZ cache > GATT > advertisement name > device type
+        # Skip adv_name if it's just the MAC address echoed back
+        clean_adv = adv_name if adv_name and not _MAC_RE.match(adv_name) else None
         username = (
             btctl_names.get(address) or
             gatt_map.get(address) or
-            adv_name or
+            clean_adv or
             device_type
         )
 
