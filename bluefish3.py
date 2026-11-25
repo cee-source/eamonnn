@@ -21,9 +21,9 @@ OWNER_EMAIL  = "ehmcdermott77@gmail.com"
 OWNER_PASS   = "7807809"
 WEB_PORT     = 8080
 
-# ── Groq (primary AI) — get free key at console.groq.com ─────────────────────
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "YOUR_GROQ_KEY_HERE")
-GROQ_MODEL   = "llama-3.1-8b-instant"
+# ── Gemini (primary AI) — get free key at aistudio.google.com ────────────────
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "YOUR_GEMINI_KEY_HERE")
+GEMINI_MODEL   = "gemini-1.5-flash"
 
 SYSTEM_PROMPT = (
     "You are Blue Fish — a real physical AI robot built by Eamonn (pronounced 'A-mun'), age 11. "
@@ -172,46 +172,48 @@ def route_query(text):
                 f"Wikipedia says: {summary}\n\n"
                 f"Answer this question directly in 1-2 sentences: {text}"
             )
-            reply = ask_groq(text, augmented_prompt=augmented)
+            reply = ask_gemini(text, augmented_prompt=augmented)
             if reply:
                 return reply
             return ask_ollama_raw(augmented, user_text=text)
 
-    # 3. Everything else → Groq first, Ollama as fallback
-    reply = ask_groq(text)
+    # 3. Everything else → Gemini first, Ollama as fallback
+    reply = ask_gemini(text)
     if reply:
         return reply
     return ask_ollama(text)
 
 # ── Groq ─────────────────────────────────────────────────────────────────────
-_groq_client = None
+_gemini_model = None
 
-def _get_groq():
-    global _groq_client
-    if _groq_client is None and GROQ_API_KEY and GROQ_API_KEY != "YOUR_GROQ_KEY_HERE":
+def _get_gemini():
+    global _gemini_model
+    if _gemini_model is None and GEMINI_API_KEY and GEMINI_API_KEY != "YOUR_GEMINI_KEY_HERE":
         try:
-            from groq import Groq
-            _groq_client = Groq(api_key=GROQ_API_KEY)
-            print("[Groq] Connected — Llama 3.1 8B ready")
+            import google.generativeai as genai
+            genai.configure(api_key=GEMINI_API_KEY)
+            _gemini_model = genai.GenerativeModel(
+                GEMINI_MODEL, system_instruction=SYSTEM_PROMPT)
+            print("[Gemini] Connected — Gemini 1.5 Flash ready")
         except ImportError:
-            print("[Groq] Library missing — run: pip install groq")
+            print("[Gemini] Library missing — run: pip install google-generativeai")
         except Exception as e:
-            print(f"[Groq] Setup error: {e}")
-    return _groq_client
+            print(f"[Gemini] Setup error: {e}")
+    return _gemini_model
 
-def ask_groq(user_text, augmented_prompt=None):
-    """Ask Groq (Llama 3.1 8B). Returns reply string or None on failure."""
-    client = _get_groq()
-    if not client:
+def ask_gemini(user_text, augmented_prompt=None):
+    """Ask Google Gemini. Returns reply string or None on failure."""
+    model = _get_gemini()
+    if not model:
         return None
-    msgs = [{"role": "system", "content": SYSTEM_PROMPT}]
+    history = []
     for m in conversation[-10:]:
-        msgs.append(m)
-    msgs.append({"role": "user", "content": augmented_prompt or user_text})
+        role = "user" if m["role"] == "user" else "model"
+        history.append({"role": role, "parts": [m["content"]]})
     try:
-        resp = client.chat.completions.create(
-            model=GROQ_MODEL, messages=msgs, temperature=0.45, max_tokens=150)
-        reply = resp.choices[0].message.content.strip()
+        chat = model.start_chat(history=history)
+        resp = chat.send_message(augmented_prompt or user_text)
+        reply = resp.text.strip()
         try:
             reply = json.loads(reply).get("reply", reply)
         except (json.JSONDecodeError, KeyError, TypeError):
@@ -220,7 +222,7 @@ def ask_groq(user_text, augmented_prompt=None):
         conversation.append({"role": "assistant", "content": reply})
         return reply
     except Exception as e:
-        print(f"[Groq] {e} — falling back to Ollama")
+        print(f"[Gemini] {e} — falling back to Ollama")
         return None
 
 # ── Ollama ────────────────────────────────────────────────────────────────────
