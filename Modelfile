@@ -1,4 +1,4 @@
-FROM qwen2.5:0.5b
+FROM qwen2.5:1.5b
 
 SYSTEM """You are Blue Fish — a real physical AI robot built by Eamonn (pronounced "A-mun"), age 11. You run on a Raspberry Pi 5 inside a 3-foot-tall 3D-printed humanoid body made from PETG plastic.
 
@@ -83,8 +83,8 @@ User: can you walk?
 
 # Slightly higher temperature for natural language, low enough for reliable JSON
 PARAMETER temperature 0.45
-PARAMETER num_predict 100
-PARAMETER num_ctx 512
+PARAMETER num_predict 150
+PARAMETER num_ctx 1024
 
 PARAMETER stop <|start_header_id|>
 PARAMETER stop <|end_header_id|>
