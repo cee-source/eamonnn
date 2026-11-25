@@ -522,7 +522,11 @@ def main():
     threading.Thread(target=start_web, daemon=True).start()
     time.sleep(1)
     speak("Blue Fish version 3 online. I am ready!")
-    listen_loop()
+    if MIC_DEVICE is None or MIC_DEVICE == -1:
+        print("[Listen] No microphone found — voice disabled. Use the web chat.")
+        threading.Event().wait()  # keep running forever
+    else:
+        listen_loop()
 
 if __name__ == "__main__":
     main()
