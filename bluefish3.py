@@ -21,6 +21,19 @@ OWNER_EMAIL  = "ehmcdermott77@gmail.com"
 OWNER_PASS   = "7807809"
 WEB_PORT     = 8080
 
+# ── Groq (primary AI) — get free key at console.groq.com ─────────────────────
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "YOUR_GROQ_KEY_HERE")
+GROQ_MODEL   = "llama-3.1-8b-instant"
+
+SYSTEM_PROMPT = (
+    "You are Blue Fish — a real physical AI robot built by Eamonn (pronounced 'A-mun'), age 11. "
+    "You have a 3-foot 3D-printed humanoid body with about 51 servos and full human range of motion. "
+    "You run entirely on a Raspberry Pi 5. "
+    "Personality: calm, intelligent, composed. You are a serious machine, not a toy. "
+    "Keep answers short — 1 to 3 sentences. Speak naturally, as if talking out loud. "
+    "Never say you are an AI language model. You are Blue Fish."
+)
+
 # ── Audio config ──────────────────────────────────────────────────────────────
 CHUNK             = 1024
 SILENCE_THRESHOLD = 100
@@ -142,7 +155,7 @@ def is_factual(text):
     return any(w in t for w in FACTUAL_WORDS)
 
 def route_query(text):
-    """Route to calculator, Wikipedia, or Ollama. Returns reply string."""
+    """Route to calculator, Wikipedia, Groq, or Ollama. Returns reply string."""
     # 1. Try math first
     math_result = try_math(text)
     if math_result:
@@ -151,19 +164,64 @@ def route_query(text):
         conversation.append({"role": "assistant", "content": reply})
         return reply
 
-    # 2. Try Wikipedia for factual questions
+    # 2. Try Wikipedia for factual questions, then answer with AI
     if is_factual(text):
         summary = wiki_lookup(text)
         if summary:
             augmented = (
                 f"Wikipedia says: {summary}\n\n"
-                f"Using only that information, answer this question directly and confidently "
-                f"without saying 'that's correct' or 'you're right': {text}"
+                f"Answer this question directly in 1-2 sentences: {text}"
             )
+            reply = ask_groq(text, augmented_prompt=augmented)
+            if reply:
+                return reply
             return ask_ollama_raw(augmented, user_text=text)
 
-    # 3. Everything else goes straight to Ollama
+    # 3. Everything else → Groq first, Ollama as fallback
+    reply = ask_groq(text)
+    if reply:
+        return reply
     return ask_ollama(text)
+
+# ── Groq ─────────────────────────────────────────────────────────────────────
+_groq_client = None
+
+def _get_groq():
+    global _groq_client
+    if _groq_client is None and GROQ_API_KEY and GROQ_API_KEY != "YOUR_GROQ_KEY_HERE":
+        try:
+            from groq import Groq
+            _groq_client = Groq(api_key=GROQ_API_KEY)
+            print("[Groq] Connected — Llama 3.1 8B ready")
+        except ImportError:
+            print("[Groq] Library missing — run: pip install groq")
+        except Exception as e:
+            print(f"[Groq] Setup error: {e}")
+    return _groq_client
+
+def ask_groq(user_text, augmented_prompt=None):
+    """Ask Groq (Llama 3.1 8B). Returns reply string or None on failure."""
+    client = _get_groq()
+    if not client:
+        return None
+    msgs = [{"role": "system", "content": SYSTEM_PROMPT}]
+    for m in conversation[-10:]:
+        msgs.append(m)
+    msgs.append({"role": "user", "content": augmented_prompt or user_text})
+    try:
+        resp = client.chat.completions.create(
+            model=GROQ_MODEL, messages=msgs, temperature=0.45, max_tokens=150)
+        reply = resp.choices[0].message.content.strip()
+        try:
+            reply = json.loads(reply).get("reply", reply)
+        except (json.JSONDecodeError, KeyError, TypeError):
+            pass
+        conversation.append({"role": "user", "content": user_text})
+        conversation.append({"role": "assistant", "content": reply})
+        return reply
+    except Exception as e:
+        print(f"[Groq] {e} — falling back to Ollama")
+        return None
 
 # ── Ollama ────────────────────────────────────────────────────────────────────
 def ask_ollama_raw(prompt, user_text=None):
